@@ -1,0 +1,24 @@
+module.exports = {
+  providers: {
+    google: {
+      enabled: true,
+      strategy: 'passport-google-oauth20',
+      scope: ['profile', 'email']
+    },
+    github: {
+      enabled: false,
+      strategy: 'passport-github2',
+      scope: ['user:email']
+    },
+    facebook: {
+      enabled: false,
+      strategy: 'passport-facebook',
+      scope: ['email', 'public_profile']
+    },
+    instagram: {
+      enabled: false,
+      strategy: 'passport-instagram',
+      scope: ['basic']
+    }
+  }
+}; 

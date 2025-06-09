@@ -1,0 +1,182 @@
+const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables from the root .env file
+const result = dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+if (result.error) {
+  console.error('Error loading .env file in passport config:', result.error);
+  process.exit(1);
+}
+
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const GitHubStrategy = require('passport-github2').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
+const InstagramStrategy = require('passport-instagram').Strategy;
+const User = require('../models/User');
+const authConfig = require('./auth.config');
+
+// Serialize user for the session
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+// Deserialize user from the session
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (err) {
+    done(err, null);
+  }
+});
+
+// Get callback URL based on environment
+const getCallbackUrl = (provider) => {
+  const baseUrl = process.env.NODE_ENV === 'development'
+    ? `http://localhost:${process.env.PORT_BACKEND}`
+    : process.env.FRONTEND_URL;
+  const callbackUrl = `${baseUrl}/api/auth/${provider}/callback`;
+  console.log(`Generated callback URL for ${provider}:`, callbackUrl);
+  return callbackUrl;
+};
+
+// Helper function to create user or find existing user
+const findOrCreateUser = async (provider, profile) => {
+  const query = {};
+  query[`${provider}Id`] = profile.id;
+  
+  let user = await User.findOne(query);
+  
+  if (!user) {
+    const userData = {
+      [provider + 'Id']: profile.id,
+      email: profile.emails?.[0]?.value,
+      name: profile.displayName || profile.username,
+      avatar: profile.photos?.[0]?.value
+    };
+    
+    user = await User.create(userData);
+  }
+  
+  return user;
+};
+
+// Configure strategies based on auth config
+if (authConfig.providers.google.enabled && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: getCallbackUrl('google'),
+    proxy: true
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Check if user already exists
+      let user = await User.findOne({ googleId: profile.id });
+
+      if (!user) {
+        // Get the avatar URL and ensure it's using HTTPS
+        const avatarUrl = profile.photos?.[0]?.value;
+        // Remove the size parameter and use a larger size
+        const secureAvatarUrl = avatarUrl?.replace(/=s\d+-c$/, '=s200-c');
+
+        // Create new user if doesn't exist
+        user = await User.create({
+          googleId: profile.id,
+          name: profile.displayName,
+          email: profile.emails[0].value,
+          avatar: secureAvatarUrl
+        });
+      } else if (user.avatar?.includes('=s96-c')) {
+        // Update existing user's avatar to use larger size if needed
+        user.avatar = user.avatar.replace(/=s\d+-c$/, '=s200-c');
+        await user.save();
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err, null);
+    }
+  }));
+}
+
+if (authConfig.providers.github.enabled && process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  passport.use(new GitHubStrategy({
+    clientID: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    callbackURL: getCallbackUrl('github'),
+    proxy: true
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      let user = await User.findOne({ githubId: profile.id });
+
+      if (!user) {
+        user = await User.create({
+          githubId: profile.id,
+          name: profile.displayName,
+          email: profile.emails[0].value,
+          avatar: `/api/auth/avatar/github/${profile.id}`
+        });
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err, null);
+    }
+  }));
+}
+
+if (authConfig.providers.facebook.enabled && process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+  passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: getCallbackUrl('facebook'),
+    proxy: true,
+    profileFields: ['id', 'displayName', 'photos', 'email']
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      let user = await User.findOne({ facebookId: profile.id });
+
+      if (!user) {
+        user = await User.create({
+          facebookId: profile.id,
+          name: profile.displayName,
+          email: profile.emails[0].value,
+          avatar: `/api/auth/avatar/facebook/${profile.id}`
+        });
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err, null);
+    }
+  }));
+}
+
+if (authConfig.providers.instagram.enabled && process.env.INSTAGRAM_CLIENT_ID && process.env.INSTAGRAM_CLIENT_SECRET) {
+  passport.use(new InstagramStrategy({
+    clientID: process.env.INSTAGRAM_CLIENT_ID,
+    clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
+    callbackURL: getCallbackUrl('instagram'),
+    proxy: true
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      let user = await User.findOne({ instagramId: profile.id });
+
+      if (!user) {
+        user = await User.create({
+          instagramId: profile.id,
+          name: profile.displayName,
+          avatar: profile._json.data.profile_picture
+        });
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err, null);
+    }
+  }));
+}
+
+module.exports = passport; 
