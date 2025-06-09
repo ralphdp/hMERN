@@ -13,7 +13,7 @@ module.exports = {
     facebook: {
       enabled: true,
       strategy: 'passport-facebook',
-      scope: ['email', 'public_profile']
+      scope: []
     },
     instagram: {
       enabled: false,

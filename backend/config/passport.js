@@ -179,22 +179,23 @@ if (authConfig.providers.facebook.enabled && process.env.FACEBOOK_APP_ID && proc
     clientSecret: process.env.FACEBOOK_APP_SECRET,
     callbackURL: getCallbackUrl('facebook'),
     proxy: true,
-    profileFields: ['id', 'displayName', 'photos', 'email']
+    profileFields: ['id']  // Only request the ID
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       let user = await User.findOne({ facebookId: profile.id });
 
       if (!user) {
+        // Create user with just the Facebook ID
         user = await User.create({
           facebookId: profile.id,
-          name: profile.displayName,
-          email: profile.emails[0].value,
+          name: `Facebook User ${profile.id}`,  // Generate a default name
           avatar: `/api/auth/avatar/facebook/${profile.id}`
         });
       }
 
       return done(null, user);
     } catch (err) {
+      console.error('Facebook strategy error:', err);
       return done(err, null);
     }
   }));

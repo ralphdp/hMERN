@@ -84,7 +84,7 @@ router.get('/github/callback',
 // Facebook OAuth routes
 router.get('/facebook',
   passport.authenticate('facebook', { 
-    scope: ['email', 'public_profile']
+    scope: []  // Empty scope for basic login
   })
 );
 
@@ -94,9 +94,14 @@ router.get('/facebook/callback',
     failureMessage: true
   }),
   (req, res) => {
+    console.log('Facebook auth successful, session ID:', req.sessionID);
+    console.log('User authenticated:', req.isAuthenticated());
+    console.log('User:', req.user);
+    
     const frontendUrl = process.env.NODE_ENV === 'development' 
       ? `http://localhost:${process.env.PORT_FRONTEND}`
-      : process.env.FRONTEND_URL;
+      : process.env.FRONTEND_URL.replace(/\/$/, '');
+    console.log('Redirecting to:', frontendUrl);
     res.redirect(frontendUrl);
   }
 );
