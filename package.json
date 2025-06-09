@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Simple MERN stack application",
   "main": "index.js",
+  "engines": {
+    "node": "18.x"
+  },
   "scripts": {
     "start": "node backend/server.js",
     "server": "nodemon backend/server.js",
