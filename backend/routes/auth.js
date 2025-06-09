@@ -68,7 +68,7 @@ router.get('/google/callback',
   },
   passport.authenticate('google', { 
     failureRedirect: process.env.NODE_ENV === 'production'
-      ? `${process.env.FRONTEND_URL}/login?error=google_auth_failed`
+      ? new URL('/login?error=google_auth_failed', process.env.FRONTEND_URL).toString()
       : `http://localhost:${process.env.PORT_FRONTEND}/login?error=google_auth_failed`,
     failureMessage: true
   }),
@@ -82,12 +82,12 @@ router.get('/google/callback',
       if (err) {
         console.error('Session save error:', err);
         return res.redirect(process.env.NODE_ENV === 'production'
-          ? `${process.env.FRONTEND_URL}/login?error=session_error`
+          ? new URL('/login?error=session_error', process.env.FRONTEND_URL).toString()
           : `http://localhost:${process.env.PORT_FRONTEND}/login?error=session_error`);
       }
       console.log('Session saved successfully');
       res.redirect(process.env.NODE_ENV === 'production'
-        ? `${process.env.FRONTEND_URL}/dashboard`
+        ? new URL('/dashboard', process.env.FRONTEND_URL).toString()
         : `http://localhost:${process.env.PORT_FRONTEND}/dashboard`);
     });
   }
