@@ -70,8 +70,9 @@ if (authConfig.providers.google.enabled && process.env.GOOGLE_CLIENT_ID && proce
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: getCallbackUrl('google'),
-    proxy: true
-  }, async (accessToken, refreshToken, profile, done) => {
+    proxy: true,
+    passReqToCallback: true
+  }, async (req, accessToken, refreshToken, profile, done) => {
     try {
       // Check if user already exists
       let user = await User.findOne({ googleId: profile.id });
@@ -93,6 +94,15 @@ if (authConfig.providers.google.enabled && process.env.GOOGLE_CLIENT_ID && proce
         // Update existing user's avatar to use larger size if needed
         user.avatar = user.avatar.replace(/=s\d+-c$/, '=s200-c');
         await user.save();
+      }
+
+      // Ensure session is saved
+      if (req.session) {
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+          }
+        });
       }
 
       return done(null, user);

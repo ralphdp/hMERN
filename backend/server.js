@@ -36,6 +36,9 @@ if (missingEnvVars.length > 0) {
 
 const app = express();
 
+// Trust proxy - MUST BE BEFORE OTHER MIDDLEWARE
+app.set('trust proxy', 1);
+
 // CORS configuration - MUST BE BEFORE OTHER MIDDLEWARE
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
@@ -56,7 +59,8 @@ app.use(helmet({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100
+  max: 100,
+  trustProxy: true
 });
 app.use(limiter);
 
@@ -80,7 +84,8 @@ app.use(session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
     ttl: 24 * 60 * 60,
-    autoRemove: 'native'
+    autoRemove: 'native',
+    touchAfter: 24 * 3600 // time period in seconds
   })
 }));
 
