@@ -10,7 +10,11 @@ A full-stack web application built with the MERN stack (MongoDB, Express.js, Rea
   - React.js for frontend
   - Node.js for server
 
-- **Security Features**
+- **Authentication & Security**
+  - Passport.js for authentication
+  - Multiple OAuth providers (Google, GitHub, Facebook, Instagram)
+  - Session-based authentication with MongoDB store
+  - Secure cookie handling
   - Helmet.js for HTTP headers security
   - Rate limiting to prevent abuse
   - CORS configuration
@@ -28,6 +32,7 @@ A full-stack web application built with the MERN stack (MongoDB, Express.js, Rea
 - Node.js (v18.x or later)
 - npm (v10.x or later)
 - MongoDB (local or Atlas)
+- OAuth credentials for desired providers
 
 ## 🛠️ Installation
 
@@ -55,8 +60,24 @@ A full-stack web application built with the MERN stack (MongoDB, Express.js, Rea
    NODE_ENV=development
    PORT_FRONTEND=3000
    PORT_BACKEND=5050
-   FRONTEND_URL=heroku_url
+   FRONTEND_URL=your_frontend_url
    MONGODB_URI=your_mongodb_uri
+   SESSION_SECRET=your_session_secret
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   GITHUB_CLIENT_ID=your_github_client_id
+   GITHUB_CLIENT_SECRET=your_github_client_secret
+   FACEBOOK_APP_ID=your_facebook_app_id
+   FACEBOOK_APP_SECRET=your_facebook_app_secret
+   INSTAGRAM_CLIENT_ID=your_instagram_client_id
+   INSTAGRAM_CLIENT_SECRET=your_instagram_client_secret
+   ```
+
+   Frontend (.env):
+   ```
+   REACT_APP_NODE_ENV=development
+   REACT_APP_PORT_BACKEND=5050
+   REACT_APP_BACKEND_URL=http://localhost:5050
    ```
 
 ## 🚀 Running the Application
@@ -78,7 +99,7 @@ The application will be available at:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:5050
 
-### Production Mode (If needed. Not necessary with Heroku as it builds the app before uploading and saving.)
+### Production Mode
 
 1. Build the frontend:
    ```bash
@@ -104,7 +125,11 @@ The application will be available at:
    ```bash
    heroku config:set NODE_ENV=production
    heroku config:set MONGODB_URI=your_mongodb_uri
-   heroku config:set FRONTEND_URL=https://your-app-name.herokuapp.com
+   heroku config:set FRONTEND_URL=https://your-app.herokuapp.com
+   heroku config:set SESSION_SECRET=your_session_secret
+   heroku config:set GOOGLE_CLIENT_ID=your_google_client_id
+   heroku config:set GOOGLE_CLIENT_SECRET=your_google_client_secret
+   # Add other OAuth provider credentials as needed
    ```
 
 3. Deploy to Heroku:
@@ -117,8 +142,15 @@ The application will be available at:
 ```
 hmern/
 ├── backend/                     # Backend server code
-│   ├── server.js               # Main server file with Express configuration
-│   └── package.json            # Backend dependencies
+│   ├── config/                 # Configuration files
+│   │   ├── auth.config.js     # Authentication configuration
+│   │   └── passport.js        # Passport.js configuration
+│   ├── models/                # Database models
+│   │   └── User.js           # User model
+│   ├── routes/               # API routes
+│   │   └── auth.js          # Authentication routes
+│   ├── server.js            # Main server file
+│   └── package.json         # Backend dependencies
 │
 ├── frontend/                    # React frontend code
 │   ├── public/                 # Static files
@@ -135,58 +167,82 @@ hmern/
 │   │   ├── index.css         # Global styles
 │   │   ├── logo.svg          # React logo
 │   │   ├── reportWebVitals.js # Performance measurement
-│   │   └── setupTests.js     # Test configuration
+│   │   ├── setupTests.js     # Test configuration
+│   │   ├── components/       # React components
+│   │   │   └── Login.js     # Login component
+│   │   └── theme.js         # Material-UI theme
 │   │
 │   ├── package.json          # Frontend dependencies
 │   └── .gitignore           # Frontend git ignore rules
 │
-├── package.json               # Root package.json for project management
-├── package-lock.json         # Dependency lock file
+├── package.json               # Root package.json
 ├── Procfile                  # Heroku deployment configuration
 ├── .gitignore               # Root git ignore rules
 └── README.md                # Project documentation
 ```
 
-### Key Files and Their Purposes
+## 🔐 Authentication
 
-#### Backend
-- `server.js`: Main server file containing:
-  - Express server configuration
-  - MongoDB connection setup
-  - Security middleware (Helmet, Rate Limiting)
-  - CORS configuration
-  - API routes
-  - Static file serving for production
+### Passport.js Configuration
 
-#### Frontend
-- `src/App.js`: Main React component handling:
-  - API communication
-  - State management
-  - UI rendering
-- `src/index.js`: Application entry point with:
-  - React DOM rendering
-  - Strict mode configuration
-  - Performance monitoring setup
-- `public/index.html`: Main HTML template with:
-  - Meta tags
-  - Root div for React
-  - Web app manifest link
-- `src/reportWebVitals.js`: Performance monitoring utility
-- `src/setupTests.js`: Jest testing configuration
+The application uses Passport.js for authentication with the following features:
 
-#### Configuration Files
-- `package.json`: Project dependencies and scripts
-- `Procfile`: Heroku deployment instructions
-- `.gitignore`: Git ignore rules for both frontend and backend
-- `frontend/package.json`: Frontend-specific dependencies and scripts
+- **Session-based Authentication**
+  - MongoDB session store
+  - Secure cookie handling
+  - Session persistence across requests
 
-## 🔒 Security Features
+- **OAuth Providers**
+  - Google OAuth 2.0
+  - GitHub OAuth
+  - Facebook OAuth
+  - Instagram OAuth
 
-- **Helmet.js**: Sets various HTTP headers for security
-- **Rate Limiting**: Prevents brute force attacks
-- **CORS**: Configures Cross-Origin Resource Sharing
-- **Request Size Limits**: Prevents large payload attacks
-- **MongoDB Security**: Secure connection with timeouts
+- **User Model**
+  - Stores user information
+  - Links OAuth provider IDs
+  - Manages user avatars
+
+### Setting Up OAuth
+
+1. **Google OAuth**
+   - Go to Google Cloud Console
+   - Create a new project
+   - Enable Google+ API
+   - Create OAuth 2.0 credentials
+   - Add authorized redirect URIs:
+     - Development: `http://localhost:5050/api/auth/google/callback`
+     - Production: `https://your-app.herokuapp.com/api/auth/google/callback`
+
+2. **GitHub OAuth**
+   - Go to GitHub Developer Settings
+   - Create a new OAuth App
+   - Add authorized redirect URIs:
+     - Development: `http://localhost:5050/api/auth/github/callback`
+     - Production: `https://your-app.herokuapp.com/api/auth/github/callback`
+
+3. **Facebook OAuth**
+   - Go to Facebook Developers
+   - Create a new app
+   - Add Facebook Login product
+   - Configure OAuth settings
+   - Add authorized redirect URIs
+
+4. **Instagram OAuth**
+   - Go to Instagram Basic Display
+   - Create a new app
+   - Configure OAuth settings
+   - Add authorized redirect URIs
+
+### Security Considerations
+
+- All OAuth credentials are stored in environment variables
+- Session secrets are unique and secure
+- HTTPS is enforced in production
+- Rate limiting is implemented
+- CORS is properly configured
+- Secure cookie settings are used
+- MongoDB connection is secured
 
 ## 🛠️ API Endpoints
 
@@ -206,7 +262,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 👥 Authors
 
-- Rafael De Paz
+- Rafael De Paz / rdepaz.com
 
 ## 🙏 Acknowledgments
 

@@ -25,7 +25,6 @@ export const getTheme = (mode) => createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          textTransform: 'none',
           borderRadius: 8,
         },
       },
@@ -35,9 +34,35 @@ export const getTheme = (mode) => createTheme({
     borderRadius: 8,
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
+    fontFamily: '"PT Sans", sans-serif',
+    h1: {
+      fontFamily: '"Cabin", sans-serif',
+      fontWeight: 700,
+    },
+    h2: {
+      fontFamily: '"Cabin", sans-serif',
+      fontWeight: 700,
+    },
+    h3: {
+      fontFamily: '"Cabin", sans-serif',
       fontWeight: 600,
+    },
+    h4: {
+      fontFamily: '"Cabin", sans-serif',
+      fontWeight: 600,
+    },
+    h5: {
+      fontFamily: '"Cabin", sans-serif',
+      fontWeight: 500,
+    },
+    h6: {
+      fontFamily: '"Cabin", sans-serif',
+      fontWeight: 500,
+    },
+    button: {
+      fontFamily: '"Cabin", sans-serif',
+      fontWeight: 500,
+      textTransform: 'none',
     },
   },
 }); 
