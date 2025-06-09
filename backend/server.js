@@ -35,9 +35,13 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const authConfig = require('./config/auth.config');
 
-// Load environment variables
+// Only load dotenv in development
 if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
+  try {
+    require('dotenv').config();
+  } catch (error) {
+    console.warn('Warning: .env file not found');
+  }
 }
 
 // Ensure required environment variables are set
