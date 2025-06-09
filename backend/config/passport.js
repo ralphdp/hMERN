@@ -99,24 +99,30 @@ passport.use(new GoogleStrategy({
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: getCallbackUrl('github'),
-    proxy: true
+    callbackURL: process.env.NODE_ENV === 'production'
+      ? new URL('/api/auth/github/callback', process.env.FRONTEND_URL).toString()
+      : `http://localhost:${process.env.PORT_BACKEND}/api/auth/github/callback`,
+    scope: ['user:email']
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
       console.log('GitHub profile:', profile);
-      
-      // Check if user exists with this GitHub ID
-      let user = await User.findOne({ 'githubId': profile.id });
+      console.log('GitHub access token:', accessToken);
+      console.log('GitHub refresh token:', refreshToken);
+
+      // Check if user already exists
+      let user = await User.findOne({ githubId: profile.id });
       
       if (!user) {
-        // Check if user exists with this email
-        if (profile.emails && profile.emails[0]) {
-          user = await User.findOne({ email: profile.emails[0].value });
+        // Check if user exists with same email
+        const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
+        if (email) {
+          user = await User.findOne({ email });
           
           if (user) {
             // Update existing user with GitHub ID
             user.githubId = profile.id;
+            user.githubAccessToken = accessToken;
             await user.save();
           }
         }
@@ -125,17 +131,21 @@ passport.use(new GitHubStrategy({
           // Create new user
           user = await User.create({
             githubId: profile.id,
+            email: email,
             name: profile.displayName,
-            email: profile.emails ? profile.emails[0].value : null,
-            avatar: profile.photos ? profile.photos[0].value : null
+            githubAccessToken: accessToken
           });
         }
+      } else {
+        // Update token
+        user.githubAccessToken = accessToken;
+        await user.save();
       }
-      
+
       return done(null, user);
-    } catch (err) {
-      console.error('GitHub strategy error:', err);
-      return done(err);
+    } catch (error) {
+      console.error('GitHub auth error:', error);
+      return done(error);
     }
   }
 ));

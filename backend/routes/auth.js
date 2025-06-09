@@ -95,27 +95,43 @@ router.get('/google/callback',
 
 // GitHub OAuth routes
 router.get('/github',
-  (req, res, next) => {
-    console.log('Starting GitHub OAuth flow');
-    next();
-  },
-  passport.authenticate('github', { scope: ['user:email'] })
+  passport.authenticate('github', { 
+    scope: ['user:email']
+  })
 );
 
 router.get('/github/callback',
   (req, res, next) => {
-    console.log('Received GitHub OAuth callback');
-    console.log('Query params:', req.query);
+    console.log('GitHub callback received');
+    console.log('Callback URL:', `${req.protocol}://${req.get('host')}${req.originalUrl}`);
     next();
   },
-  passport.authenticate('github', { failureRedirect: '/api/auth/github/failure' }),
-  handleSuccessfulAuth
+  passport.authenticate('github', { 
+    failureRedirect: process.env.NODE_ENV === 'production'
+      ? new URL('/login?error=github_auth_failed', process.env.FRONTEND_URL).toString()
+      : `http://localhost:${process.env.PORT_FRONTEND}/login?error=github_auth_failed`,
+    failureMessage: true
+  }),
+  (req, res) => {
+    console.log('GitHub authentication successful');
+    console.log('User:', req.user);
+    console.log('Session:', req.session);
+    
+    // Ensure session is saved before redirecting
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(process.env.NODE_ENV === 'production'
+          ? new URL('/login?error=session_error', process.env.FRONTEND_URL).toString()
+          : `http://localhost:${process.env.PORT_FRONTEND}/login?error=session_error`);
+      }
+      console.log('Session saved successfully');
+      res.redirect(process.env.NODE_ENV === 'production'
+        ? new URL('/dashboard', process.env.FRONTEND_URL).toString()
+        : `http://localhost:${process.env.PORT_FRONTEND}/dashboard`);
+    });
+  }
 );
-
-router.get('/github/failure', (req, res) => {
-  console.log('GitHub OAuth failure');
-  handleAuthFailure(req, res);
-});
 
 // Facebook OAuth routes
 router.get('/facebook',
