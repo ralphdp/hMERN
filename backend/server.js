@@ -1,47 +1,19 @@
 // backend/server.js
 
-const path = require('path');
-const dotenv = require('dotenv');
-
-// Only load .env in development
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
-
-// Load environment variables from the root .env file
-const result = dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
-if (result.error) {
-  console.error('Error loading .env file:', result.error);
-  process.exit(1);
-}
-
-// Debug: Log environment variables (excluding sensitive data)
-console.log('Environment:', process.env.NODE_ENV);
-console.log('MongoDB URI exists:', !!process.env.MONGODB_URI);
-console.log('Frontend URL:', process.env.FRONTEND_URL);
-console.log('Ports:', {
-  frontend: process.env.PORT_FRONTEND,
-  backend: process.env.PORT_BACKEND
-});
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const passport = require('passport');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
+const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const authConfig = require('./config/auth.config');
 
-// Only load dotenv in development
+// Load dotenv from root directory
 if (process.env.NODE_ENV !== 'production') {
-  try {
-    require('dotenv').config();
-  } catch (error) {
-    console.warn('Warning: .env file not found');
-  }
+  require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 }
 
 // Ensure required environment variables are set
@@ -51,6 +23,7 @@ const requiredEnvVars = [
   'FRONTEND_URL'
 ];
 
+// Check for missing environment variables
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 if (missingEnvVars.length > 0) {
   console.error('Missing required environment variables:', missingEnvVars);
