@@ -37,7 +37,7 @@ passport.deserializeUser(async (id, done) => {
 const getCallbackUrl = (provider) => {
   const baseUrl = process.env.NODE_ENV === 'development'
     ? `http://localhost:${process.env.PORT_BACKEND}`
-    : process.env.FRONTEND_URL;
+    : process.env.FRONTEND_URL.replace(/\/$/, ''); // Remove trailing slash if present
   const callbackUrl = `${baseUrl}/api/auth/${provider}/callback`;
   console.log(`Generated callback URL for ${provider}:`, callbackUrl);
   return callbackUrl;
