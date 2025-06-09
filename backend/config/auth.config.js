@@ -11,14 +11,9 @@ module.exports = {
       scope: ['user:email']
     },
     facebook: {
-      enabled: true,
+      enabled: false,
       strategy: 'passport-facebook',
       scope: []
-    },
-    instagram: {
-      enabled: false,
-      strategy: 'passport-instagram',
-      scope: ['basic']
     }
   }
 }; 

@@ -1,6 +1,6 @@
 // frontend/src/App.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -18,21 +18,23 @@ import {
   DialogContentText,
   DialogActions
 } from '@mui/material';
-import {
-  Brightness4 as DarkModeIcon,
-  Brightness7 as LightModeIcon
-} from '@mui/icons-material';
-import Login from './components/Login';
-import { getTheme } from './theme';
+import Brightness4Icon from '@mui/icons-material/Brightness4';
+import Brightness7Icon from '@mui/icons-material/Brightness7';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import theme from './theme';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import PrivateRoute from './components/PrivateRoute';
+import { createTheme } from '@mui/material/styles';
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [mode, setMode] = useState(() => {
-    const savedMode = localStorage.getItem('themeMode');
-    return savedMode || 'light';
-  });
+  const [mode, setMode] = useState('light');
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -43,12 +45,62 @@ function App() {
     }
   }, [prefersDarkMode]);
 
-  const theme = React.useMemo(() => getTheme(mode), [mode]);
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode,
+          primary: {
+            main: '#1976d2',
+          },
+          secondary: {
+            main: '#dc004e',
+          },
+        },
+        typography: {
+          fontFamily: '"Cabin", "PT Sans", sans-serif',
+          h1: {
+            fontFamily: '"Cabin", sans-serif',
+            fontWeight: 700,
+          },
+          h2: {
+            fontFamily: '"Cabin", sans-serif',
+            fontWeight: 600,
+          },
+          h3: {
+            fontFamily: '"Cabin", sans-serif',
+            fontWeight: 600,
+          },
+          h4: {
+            fontFamily: '"Cabin", sans-serif',
+            fontWeight: 600,
+          },
+          h5: {
+            fontFamily: '"Cabin", sans-serif',
+            fontWeight: 500,
+          },
+          h6: {
+            fontFamily: '"Cabin", sans-serif',
+            fontWeight: 500,
+          },
+          body1: {
+            fontFamily: '"PT Sans", sans-serif',
+          },
+          body2: {
+            fontFamily: '"PT Sans", sans-serif',
+          },
+          button: {
+            fontFamily: '"Cabin", sans-serif',
+            fontWeight: 500,
+            textTransform: 'none',
+          },
+        },
+      }),
+    [mode]
+  );
 
-  const toggleTheme = () => {
-    const newMode = mode === 'light' ? 'dark' : 'light';
-    setMode(newMode);
-    localStorage.setItem('themeMode', newMode);
+  const toggleColorMode = () => {
+    setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
 
   const getBackendUrl = () => {
@@ -156,138 +208,29 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box
-        sx={{
-          minHeight: '100vh',
-          bgcolor: 'background.default',
-          position: 'relative'
-        }}
-      >
-        <IconButton
-          onClick={toggleTheme}
-          sx={{
-            position: 'fixed',
-            top: 16,
-            right: 16,
-            zIndex: 1000,
-            bgcolor: 'background.paper',
-            boxShadow: 1,
-            '&:hover': {
-              bgcolor: 'background.paper',
-              opacity: 0.9
-            }
-          }}
-        >
-          {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-        </IconButton>
-
-        {user ? (
-          <Box
-            sx={{
-              minHeight: '100vh',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              bgcolor: 'background.default'
-            }}
-          >
-            <Container maxWidth="sm">
-              <Paper
-                elevation={3}
-                sx={{
-                  p: 4,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 3,
-                  bgcolor: 'background.paper'
-                }}
-              >
-                <Typography variant="h4" component="h1" gutterBottom>
-                  Welcome, {user.name}!
-                </Typography>
-                {user.avatar ? (
-                  <Box
-                    component="img"
-                    src={user.avatar}
-                    alt={user.name}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src = `https://www.gravatar.com/avatar/${user.email}?d=identicon&s=200`;
-                    }}
-                    sx={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.default'
-                    }}
-                  />
-                ) : (
-                  <Box
-                    component="img"
-                    src={`https://www.gravatar.com/avatar/${user.email}?d=identicon&s=200`}
-                    alt={user.name}
-                    sx={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid',
-                      borderColor: 'divider',
-                      bgcolor: 'background.default'
-                    }}
-                  />
-                )}
-                <Stack spacing={1} width="100%" alignItems="center">
-                  <Typography variant="body1" color="text.secondary">
-                    Email: {user.email}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Logged in with: {user.googleId ? 'Google' : user.githubId ? 'GitHub' : 'Unknown'}
-                  </Typography>
-                </Stack>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => setLogoutDialogOpen(true)}
-                  fullWidth
-                >
-                  Logout
-                </Button>
-              </Paper>
-            </Container>
+      <AuthProvider>
+        <Router>
+          <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1000 }}>
+            <IconButton onClick={toggleColorMode} color="inherit">
+              {mode === 'dark' ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
           </Box>
-        ) : (
-          <Login />
-        )}
-
-        <Dialog
-          open={logoutDialogOpen}
-          onClose={() => setLogoutDialogOpen(false)}
-          aria-labelledby="logout-dialog-title"
-          aria-describedby="logout-dialog-description"
-        >
-          <DialogTitle id="logout-dialog-title">
-            Confirm Logout
-          </DialogTitle>
-          <DialogContent>
-            <DialogContentText id="logout-dialog-description">
-              Are you sure you want to logout? You'll need to sign in again to access your account.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setLogoutDialogOpen(false)} color="primary">
-              Cancel
-            </Button>
-            <Button onClick={handleLogout} color="primary" variant="contained" autoFocus>
-              Logout
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route 
+              path="/dashboard" 
+              element={
+                <PrivateRoute>
+                  <Dashboard />
+                </PrivateRoute>
+              } 
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

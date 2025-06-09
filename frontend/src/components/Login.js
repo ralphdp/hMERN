@@ -14,7 +14,6 @@ import {
   Google as GoogleIcon,
   GitHub as GitHubIcon,
   Facebook as FacebookIcon,
-  Instagram as InstagramIcon
 } from '@mui/icons-material';
 
 const Login = () => {
@@ -158,14 +157,12 @@ const Login = () => {
                 google: <GoogleIcon />,
                 github: <GitHubIcon />,
                 facebook: <FacebookIcon />,
-                instagram: <InstagramIcon />
               };
 
               const colors = {
                 google: '#DB4437',
                 github: '#333',
                 facebook: '#4267B2',
-                instagram: '#E1306C'
               };
 
               return (
