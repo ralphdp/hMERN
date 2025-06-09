@@ -11,7 +11,7 @@ module.exports = {
       scope: ['user:email']
     },
     facebook: {
-      enabled: false,
+      enabled: true,
       strategy: 'passport-facebook',
       scope: ['email', 'public_profile']
     },
