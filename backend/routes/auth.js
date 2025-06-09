@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const router = express.Router();
 const authConfig = require('../config/auth.config');
-const axios = require('axios');
+const fetch = require('node-fetch');
 
 // Get available auth providers
 router.get('/providers', (req, res) => {
@@ -145,13 +145,12 @@ router.get('/avatar/:provider/:id', async (req, res) => {
       return res.status(400).json({ message: 'Invalid provider' });
     }
 
-    const response = await axios.get(avatarUrl, {
-      responseType: 'arraybuffer'
-    });
+    const response = await fetch(avatarUrl);
+    const buffer = await response.buffer();
     
-    res.setHeader('Content-Type', response.headers['content-type']);
+    res.setHeader('Content-Type', response.headers.get('content-type'));
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(response.data);
+    res.send(buffer);
   } catch (error) {
     console.error('Avatar proxy error:', error);
     res.status(500).json({ message: 'Failed to fetch avatar' });
