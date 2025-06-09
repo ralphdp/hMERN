@@ -14,7 +14,7 @@ const authConfig = require('./config/auth.config');
 // Load dotenv only in development
 if (process.env.NODE_ENV !== 'production') {
   try {
-    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+    require('dotenv').config({ path: path.resolve(__dirname, '.env') });
   } catch (error) {
     console.warn('Warning: .env file not found in development mode');
   }

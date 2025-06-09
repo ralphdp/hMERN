@@ -6,7 +6,7 @@ module.exports = {
       scope: ['profile', 'email']
     },
     github: {
-      enabled: false,
+      enabled: true,
       strategy: 'passport-github2',
       scope: ['user:email']
     },

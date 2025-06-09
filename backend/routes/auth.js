@@ -11,7 +11,6 @@ router.get('/providers', (req, res) => {
       .filter(([_, config]) => config.enabled)
       .map(([provider]) => provider);
     
-    console.log('Enabled providers:', enabledProviders);
     res.json(enabledProviders);
   } catch (error) {
     console.error('Error getting providers:', error);

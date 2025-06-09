@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 // Load environment variables only in development
 if (process.env.NODE_ENV !== 'production') {
   try {
-    dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+    dotenv.config({ path: path.resolve(__dirname, '../.env') });
   } catch (error) {
     console.warn('Warning: .env file not found in development mode');
   }
