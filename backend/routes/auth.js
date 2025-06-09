@@ -53,15 +53,29 @@ router.get('/github',
 );
 
 router.get('/github/callback',
-  passport.authenticate('github', { 
-    failureRedirect: '/login',
-    failureMessage: true
-  }),
-  (req, res) => {
-    const frontendUrl = process.env.NODE_ENV === 'development' 
-      ? `http://localhost:${process.env.PORT_FRONTEND}`
-      : process.env.FRONTEND_URL;
-    res.redirect(frontendUrl);
+  (req, res, next) => {
+    console.log('GitHub callback received with code:', req.query.code);
+    passport.authenticate('github', { 
+      failureRedirect: '/login',
+      failureMessage: true
+    })(req, res, (err) => {
+      if (err) {
+        console.error('GitHub authentication error:', err);
+        return res.status(500).json({ 
+          message: 'Authentication failed',
+          error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
+      }
+      console.log('GitHub auth successful, session ID:', req.sessionID);
+      console.log('User authenticated:', req.isAuthenticated());
+      console.log('User:', req.user);
+      
+      const frontendUrl = process.env.NODE_ENV === 'development' 
+        ? `http://localhost:${process.env.PORT_FRONTEND}`
+        : process.env.FRONTEND_URL.replace(/\/$/, '');
+      console.log('Redirecting to:', frontendUrl);
+      res.redirect(frontendUrl);
+    });
   }
 );
 

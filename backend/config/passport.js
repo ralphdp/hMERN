@@ -117,22 +117,35 @@ if (authConfig.providers.github.enabled && process.env.GITHUB_CLIENT_ID && proce
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     callbackURL: getCallbackUrl('github'),
-    proxy: true
-  }, async (accessToken, refreshToken, profile, done) => {
+    proxy: true,
+    passReqToCallback: true
+  }, async (req, accessToken, refreshToken, profile, done) => {
     try {
+      console.log('GitHub profile received:', profile);
       let user = await User.findOne({ githubId: profile.id });
 
       if (!user) {
+        console.log('Creating new user from GitHub profile');
         user = await User.create({
           githubId: profile.id,
-          name: profile.displayName,
-          email: profile.emails[0].value,
-          avatar: `/api/auth/avatar/github/${profile.id}`
+          name: profile.displayName || profile.username,
+          email: profile.emails?.[0]?.value,
+          avatar: profile.photos?.[0]?.value || `/api/auth/avatar/github/${profile.id}`
+        });
+      }
+
+      // Ensure session is saved
+      if (req.session) {
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+          }
         });
       }
 
       return done(null, user);
     } catch (err) {
+      console.error('GitHub strategy error:', err);
       return done(err, null);
     }
   }));
