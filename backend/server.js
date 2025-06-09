@@ -28,12 +28,30 @@ console.log('Ports:', {
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const session = require('express-session');
 const passport = require('passport');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const authConfig = require('./config/auth.config');
-const MongoStore = require('connect-mongo');
+
+// Load environment variables
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
+// Ensure required environment variables are set
+const requiredEnvVars = [
+  'MONGODB_URI',
+  'SESSION_SECRET',
+  'FRONTEND_URL'
+];
+
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars);
+  process.exit(1);
+}
 
 const app = express();
 
