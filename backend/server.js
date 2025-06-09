@@ -39,11 +39,12 @@ const app = express();
 // CORS configuration - MUST BE BEFORE OTHER MIDDLEWARE
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.replace(/\/$/, '')
     : true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Cookie'],
+  exposedHeaders: ['Set-Cookie']
 }));
 
 // Security middleware
@@ -67,14 +68,14 @@ app.use(express.urlencoded({ extended: true }));
 const sessionSecret = process.env.SESSION_SECRET || 'your-secret-key';
 app.use(session({
   secret: sessionSecret,
-  resave: false,
-  saveUninitialized: false,
+  resave: true,
+  saveUninitialized: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.herokuapp.com' : undefined
+    sameSite: 'lax',
+    path: '/'
   },
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,

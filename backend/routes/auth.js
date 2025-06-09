@@ -33,11 +33,14 @@ router.get('/google/callback',
     failureMessage: true
   }),
   (req, res) => {
-    console.log('Google auth successful, redirecting to frontend');
+    console.log('Google auth successful, session ID:', req.sessionID);
+    console.log('User authenticated:', req.isAuthenticated());
+    console.log('User:', req.user);
+    
     // Successful authentication, redirect to frontend
     const frontendUrl = process.env.NODE_ENV === 'development' 
       ? `http://localhost:${process.env.PORT_FRONTEND}`
-      : process.env.FRONTEND_URL;
+      : process.env.FRONTEND_URL.replace(/\/$/, '');
     console.log('Redirecting to:', frontendUrl);
     res.redirect(frontendUrl);
   }
@@ -103,6 +106,10 @@ router.get('/instagram/callback',
 
 // Get current user
 router.get('/user', (req, res) => {
+  console.log('Session ID:', req.sessionID);
+  console.log('Is authenticated:', req.isAuthenticated());
+  console.log('User:', req.user);
+  
   if (req.isAuthenticated()) {
     res.json({
       id: req.user._id,
@@ -121,11 +128,20 @@ router.get('/user', (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
+  console.log('Logging out user:', req.user);
   req.logout((err) => {
     if (err) {
+      console.error('Logout error:', err);
       return res.status(500).json({ message: 'Error logging out' });
     }
-    res.json({ message: 'Logged out successfully' });
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Session destroy error:', err);
+        return res.status(500).json({ message: 'Error destroying session' });
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: 'Logged out successfully' });
+    });
   });
 });
 
