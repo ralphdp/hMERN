@@ -1,12 +1,13 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
-// Load environment variables from the root .env file
-const result = dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
-if (result.error) {
-  console.error('Error loading .env file in passport config:', result.error);
-  process.exit(1);
+// Load environment variables only in development
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+  } catch (error) {
+    console.warn('Warning: .env file not found in development mode');
+  }
 }
 
 const passport = require('passport');

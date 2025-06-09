@@ -11,9 +11,13 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const authConfig = require('./config/auth.config');
 
-// Load dotenv from root directory
+// Load dotenv only in development
 if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+  try {
+    require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+  } catch (error) {
+    console.warn('Warning: .env file not found in development mode');
+  }
 }
 
 // Ensure required environment variables are set
