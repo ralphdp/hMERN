@@ -3,6 +3,11 @@
 const path = require('path');
 const dotenv = require('dotenv');
 
+// Only load .env in development
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
 // Load environment variables from the root .env file
 const result = dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -28,6 +33,7 @@ const passport = require('passport');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const authConfig = require('./config/auth.config');
+const MongoStore = require('connect-mongo');
 
 const app = express();
 
@@ -67,7 +73,11 @@ app.use(session({
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000,
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-  }
+  },
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    ttl: 24 * 60 * 60
+  })
 }));
 
 // Initialize Passport
