@@ -1,22 +1,30 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
 const app = express();
 
 // Security middleware
-app.use(helmet());
+try {
+  const helmet = require('helmet');
+  app.use(helmet());
+} catch (error) {
+  console.log('Helmet not available, skipping helmet middleware');
+}
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use(limiter);
+try {
+  const rateLimit = require('express-rate-limit');
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100 // limit each IP to 100 requests per windowMs
+  });
+  app.use(limiter);
+} catch (error) {
+  console.log('Rate limiter not available, skipping rate limiting middleware');
+}
 
 // CORS configuration
 const corsOptions = {
@@ -54,7 +62,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static('frontend/build'));
   
   app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, 'frontend', 'build', 'index.html'));
+    res.sendFile(path.resolve(__dirname, '..', 'frontend', 'build', 'index.html'));
   });
 }
 
