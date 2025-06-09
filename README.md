@@ -127,11 +127,17 @@ The application will be available at:
    heroku config:set MONGODB_URI=your_mongodb_uri
    heroku config:set FRONTEND_URL=https://your-app.herokuapp.com
    heroku config:set REACT_APP_NODE_ENV=production
-   heroku config:set REACT_APP_FRONTEND_URL=https://guarded-stream-39785-6ec8b37e5aa8.herokuapp.com
-   heroku config:set REACT_APP_BACKEND_URL=https://guarded-stream-39785-6ec8b37e5aa8.herokuapp.com
+   heroku config:set REACT_APP_FRONTEND_URL=https://your-app.herokuapp.com
+   heroku config:set REACT_APP_BACKEND_URL=https://your-app.herokuapp.com
    heroku config:set SESSION_SECRET=your_session_secret
    heroku config:set GOOGLE_CLIENT_ID=your_google_client_id
    heroku config:set GOOGLE_CLIENT_SECRET=your_google_client_secret
+   heroku config:set GITHUB_CLIENT_ID=github_client_id
+   heroku config:set GITHUB_CLIENT_SECRET=github_client_secret
+   heroku config:set FACEBOOK_APP_ID=facebook_app_id
+   heroku config:set FACEBOOK_APP_SECRET=facebook_app_secret
+   heroku config:set INSTAGRAM_CLIENT_ID=your_instagram_client_id
+   heroku config:set INSTAGRAM_CLIENT_SECRET=your_instagram_client_secret
    # Add other OAuth provider credentials as needed
    ```
 
