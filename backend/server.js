@@ -66,7 +66,8 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-const PORT = process.env.PORT_BACKEND || 5050;
+// Use Heroku's PORT or fallback to 5050
+const PORT = process.env.PORT || process.env.PORT_BACKEND || 5050;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 }); 
