@@ -113,6 +113,7 @@ if (authConfig.providers.google.enabled && process.env.GOOGLE_CLIENT_ID && proce
 }
 
 if (authConfig.providers.github.enabled && process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
+  console.log('Configuring GitHub strategy with callback URL:', getCallbackUrl('github'));
   passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -121,17 +122,33 @@ if (authConfig.providers.github.enabled && process.env.GITHUB_CLIENT_ID && proce
     passReqToCallback: true
   }, async (req, accessToken, refreshToken, profile, done) => {
     try {
-      console.log('GitHub profile received:', profile);
+      console.log('GitHub profile received:', JSON.stringify(profile, null, 2));
+      
+      if (!profile || !profile.id) {
+        console.error('Invalid GitHub profile received:', profile);
+        return done(new Error('Invalid GitHub profile data'), null);
+      }
+
       let user = await User.findOne({ githubId: profile.id });
+      console.log('Existing user found:', user ? 'yes' : 'no');
 
       if (!user) {
         console.log('Creating new user from GitHub profile');
-        user = await User.create({
+        const userData = {
           githubId: profile.id,
           name: profile.displayName || profile.username,
-          email: profile.emails?.[0]?.value,
           avatar: profile.photos?.[0]?.value || `/api/auth/avatar/github/${profile.id}`
-        });
+        };
+
+        // Only add email if it exists
+        if (profile.emails?.[0]?.value) {
+          userData.email = profile.emails[0].value;
+        }
+
+        console.log('User data to create:', userData);
+        
+        user = await User.create(userData);
+        console.log('New user created:', user);
       }
 
       // Ensure session is saved
@@ -139,13 +156,18 @@ if (authConfig.providers.github.enabled && process.env.GITHUB_CLIENT_ID && proce
         req.session.save((err) => {
           if (err) {
             console.error('Session save error:', err);
+            return done(err, null);
           }
+          console.log('Session saved successfully');
         });
+      } else {
+        console.warn('No session object found in request');
       }
 
       return done(null, user);
     } catch (err) {
       console.error('GitHub strategy error:', err);
+      console.error('Error stack:', err.stack);
       return done(err, null);
     }
   }));

@@ -61,9 +61,11 @@ router.get('/github/callback',
     })(req, res, (err) => {
       if (err) {
         console.error('GitHub authentication error:', err);
+        console.error('Error stack:', err.stack);
         return res.status(500).json({ 
           message: 'Authentication failed',
-          error: process.env.NODE_ENV === 'development' ? err.message : undefined
+          error: err.message,
+          stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
         });
       }
       console.log('GitHub auth successful, session ID:', req.sessionID);
