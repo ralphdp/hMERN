@@ -47,44 +47,51 @@ passport.deserializeUser(async (id, done) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: getCallbackUrl('google'),
+    callbackURL: process.env.NODE_ENV === 'production'
+      ? `${process.env.BACKEND_URL}/api/auth/google/callback`
+      : 'http://localhost:5050/api/auth/google/callback',
     proxy: true
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
       console.log('Google profile:', profile);
-      console.log('Google callback URL:', getCallbackUrl('google'));
-      
-      // Check if user exists with this Google ID
-      let user = await User.findOne({ 'googleId': profile.id });
+      console.log('Google access token:', accessToken);
+      console.log('Google refresh token:', refreshToken);
+
+      // Check if user already exists
+      let user = await User.findOne({ googleId: profile.id });
       
       if (!user) {
-        // Check if user exists with this email
-        if (profile.emails && profile.emails[0]) {
-          user = await User.findOne({ email: profile.emails[0].value });
-          
-          if (user) {
-            // Update existing user with Google ID
-            user.googleId = profile.id;
-            await user.save();
-          }
-        }
+        // Check if user exists with same email
+        user = await User.findOne({ email: profile.emails[0].value });
         
-        if (!user) {
+        if (user) {
+          // Update existing user with Google ID
+          user.googleId = profile.id;
+          user.googleAccessToken = accessToken;
+          user.googleRefreshToken = refreshToken;
+          await user.save();
+        } else {
           // Create new user
           user = await User.create({
             googleId: profile.id,
+            email: profile.emails[0].value,
             name: profile.displayName,
-            email: profile.emails ? profile.emails[0].value : null,
-            avatar: profile.photos ? profile.photos[0].value : null
+            googleAccessToken: accessToken,
+            googleRefreshToken: refreshToken
           });
         }
+      } else {
+        // Update tokens
+        user.googleAccessToken = accessToken;
+        user.googleRefreshToken = refreshToken;
+        await user.save();
       }
-      
+
       return done(null, user);
-    } catch (err) {
-      console.error('Google strategy error:', err);
-      return done(err);
+    } catch (error) {
+      console.error('Google auth error:', error);
+      return done(error);
     }
   }
 ));

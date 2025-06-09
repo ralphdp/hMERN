@@ -54,27 +54,38 @@ const handleAuthFailure = (req, res) => {
 
 // Google OAuth routes
 router.get('/google',
-  (req, res, next) => {
-    console.log('Starting Google OAuth flow');
-    next();
-  },
-  passport.authenticate('google', { scope: ['profile', 'email'] })
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    prompt: 'select_account'
+  })
 );
 
 router.get('/google/callback',
   (req, res, next) => {
-    console.log('Received Google OAuth callback');
-    console.log('Query params:', req.query);
+    console.log('Google callback received');
+    console.log('Callback URL:', `${req.protocol}://${req.get('host')}${req.originalUrl}`);
     next();
   },
-  passport.authenticate('google', { failureRedirect: '/api/auth/google/failure' }),
-  handleSuccessfulAuth
+  passport.authenticate('google', { 
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=google_auth_failed`,
+    failureMessage: true
+  }),
+  (req, res) => {
+    console.log('Google authentication successful');
+    console.log('User:', req.user);
+    console.log('Session:', req.session);
+    
+    // Ensure session is saved before redirecting
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(`${process.env.FRONTEND_URL}/login?error=session_error`);
+      }
+      console.log('Session saved successfully');
+      res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+    });
+  }
 );
-
-router.get('/google/failure', (req, res) => {
-  console.log('Google OAuth failure');
-  handleAuthFailure(req, res);
-});
 
 // GitHub OAuth routes
 router.get('/github',
