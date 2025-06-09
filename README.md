@@ -126,6 +126,9 @@ The application will be available at:
    heroku config:set NODE_ENV=production
    heroku config:set MONGODB_URI=your_mongodb_uri
    heroku config:set FRONTEND_URL=https://your-app.herokuapp.com
+   heroku config:set REACT_APP_NODE_ENV=production
+   heroku config:set REACT_APP_FRONTEND_URL=https://guarded-stream-39785-6ec8b37e5aa8.herokuapp.com
+   heroku config:set REACT_APP_BACKEND_URL=https://guarded-stream-39785-6ec8b37e5aa8.herokuapp.com
    heroku config:set SESSION_SECRET=your_session_secret
    heroku config:set GOOGLE_CLIENT_ID=your_google_client_id
    heroku config:set GOOGLE_CLIENT_SECRET=your_google_client_secret
@@ -141,44 +144,44 @@ The application will be available at:
 
 ```
 hmern/
-├── backend/                     # Backend server code
+├── backend/                    # Backend server code
 │   ├── config/                 # Configuration files
-│   │   ├── auth.config.js     # Authentication configuration
-│   │   └── passport.js        # Passport.js configuration
-│   ├── models/                # Database models
-│   │   └── User.js           # User model
-│   ├── routes/               # API routes
-│   │   └── auth.js          # Authentication routes
-│   ├── server.js            # Main server file
-│   └── package.json         # Backend dependencies
+│   │   ├── auth.config.js      # Authentication configuration
+│   │   └── passport.js         # Passport.js configuration
+│   ├── models/                 # Database models
+│   │   └── User.js             # User model
+│   ├── routes/                 # API routes
+│   │   └── auth.js             # Authentication routes
+│   ├── server.js               # Main server file
+│   └── package.json            # Backend dependencies
 │
-├── frontend/                    # React frontend code
+├── frontend/                   # React frontend code
 │   ├── public/                 # Static files
-│   │   ├── index.html         # Main HTML file
-│   │   ├── favicon.ico        # Favicon
-│   │   ├── manifest.json      # Web app manifest
-│   │   └── robots.txt         # Robots file
+│   │   ├── index.html          # Main HTML file
+│   │   ├── favicon.ico         # Favicon
+│   │   ├── manifest.json       # Web app manifest
+│   │   └── robots.txt          # Robots file
 │   │
-│   ├── src/                   # React source code
-│   │   ├── App.js            # Main React component
-│   │   ├── App.css           # Styles for App component
-│   │   ├── App.test.js       # Tests for App component
-│   │   ├── index.js          # React entry point
-│   │   ├── index.css         # Global styles
-│   │   ├── logo.svg          # React logo
-│   │   ├── reportWebVitals.js # Performance measurement
-│   │   ├── setupTests.js     # Test configuration
-│   │   ├── components/       # React components
-│   │   │   └── Login.js     # Login component
-│   │   └── theme.js         # Material-UI theme
+│   ├── src/                    # React source code
+│   │   ├── App.js              # Main React component
+│   │   ├── App.css             # Styles for App component
+│   │   ├── App.test.js         # Tests for App component
+│   │   ├── index.js            # React entry point
+│   │   ├── index.css           # Global styles
+│   │   ├── logo.svg            # React logo
+│   │   ├── reportWebVitals.js  # Performance measurement
+│   │   ├── setupTests.js       # Test configuration
+│   │   ├── components/         # React components
+│   │   │   └── Login.js        # Login component
+│   │   └── theme.js            # Material-UI theme
 │   │
-│   ├── package.json          # Frontend dependencies
-│   └── .gitignore           # Frontend git ignore rules
+│   ├── package.json            # Frontend dependencies
+│   └── .gitignore              # Frontend git ignore rules
 │
-├── package.json               # Root package.json
-├── Procfile                  # Heroku deployment configuration
-├── .gitignore               # Root git ignore rules
-└── README.md                # Project documentation
+├── package.json                # Root package.json
+├── Procfile                    # Heroku deployment configuration
+├── .gitignore                  # Root git ignore rules
+└── README.md                   # Project documentation
 ```
 
 ## 🔐 Authentication
