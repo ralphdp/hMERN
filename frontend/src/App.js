@@ -92,7 +92,7 @@ function App() {
     };
 
     checkAuth();
-  }, []); // Remove user dependency to prevent loops
+  }, []);
 
   if (loading) {
     return (
