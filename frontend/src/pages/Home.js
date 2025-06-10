@@ -60,7 +60,6 @@ const Home = () => {
         alignItems: 'center',
         justifyContent: 'center',
         flex: 1,
-        minHeight: 'calc(100vh - 64px - 307px)', // Subtract header (64px) and footer (200px) heights
         py: 4,
         position: 'relative'
       }}
@@ -93,29 +92,29 @@ const Home = () => {
         </Box>
 
         {/* Features Section */}
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={6} lg={3}>
+        <Grid container spacing={4} sx={{ mb: 8 }}>
+          <Grid item xs={12} sm={6} lg={3}>
             <FeatureCard
               icon={<SecurityIcon sx={{ fontSize: 40 }} />}
               title="Secure Authentication"
               description="Multiple OAuth providers (Google, GitHub, Facebook) with secure session management and email verification."
             />
           </Grid>
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid item xs={12} sm={6} lg={3}>
             <FeatureCard
               icon={<CodeIcon sx={{ fontSize: 40 }} />}
               title="Modern Stack"
               description="Built with MERN stack (MongoDB, Express.js, React.js, Node.js) using modern development practices."
             />
           </Grid>
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid item xs={12} sm={6} lg={3}>
             <FeatureCard
               icon={<SpeedIcon sx={{ fontSize: 40 }} />}
               title="Performance"
               description="Optimized for speed with efficient database queries, caching, and responsive design."
             />
           </Grid>
-          <Grid item xs={12} md={6} lg={3}>
+          <Grid item xs={12} sm={6} lg={3}>
             <FeatureCard
               icon={<CloudIcon sx={{ fontSize: 40 }} />}
               title="Cloud Ready"
@@ -123,6 +122,168 @@ const Home = () => {
             />
           </Grid>
         </Grid>
+
+        {/* AI Assistant Section */}
+        <Box sx={{ textAlign: 'center', mb: 8 }}>
+          <Typography
+            variant="h4"
+            component="h2"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              mb: 2
+            }}
+          >
+            AI Assistant Ready
+          </Typography>
+          <Typography
+            variant="h6"
+            component="h3"
+            gutterBottom
+            sx={{
+              opacity: 0.9,
+              color: 'text.secondary',
+              mb: { xs: 2, sm: 4 }
+            }}
+          >
+            Seamlessly integrated with leading AI assistants for enhanced development experience
+          </Typography>
+          <Grid 
+            container 
+            spacing={{ xs: 2, sm: 4 }} 
+            justifyContent="center"
+          >
+            <Grid item xs={12} sm={4}>
+              <Box
+                sx={{
+                  height: { xs: '150px', sm: '200px' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Box
+                  component="img"
+                  src="/images/logo-claude.png"
+                  alt="Claude AI"
+                  sx={{
+                    height: 'auto',
+                    maxWidth: '200px',
+                    maxHeight: '150px',
+                    filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
+                    transition: 'transform 0.2s, filter 0.2s',
+                    '&:hover': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Box
+                sx={{
+                  height: { xs: '150px', sm: '200px' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Box
+                  component="img"
+                  src="/images/logo-cursor.png"
+                  alt="Cursor AI"
+                  sx={{
+                    height: 'auto',
+                    maxWidth: '200px',
+                    maxHeight: '150px',
+                    filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
+                    transition: 'transform 0.2s, filter 0.2s',
+                    '&:hover': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                />
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Box
+                sx={{
+                  height: { xs: '150px', sm: '200px' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Box
+                  component="img"
+                  src="/images/logo-windsurf.png"
+                  alt="Windsurf AI"
+                  sx={{
+                    height: 'auto',
+                    maxWidth: '200px',
+                    maxHeight: '150px',
+                    filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
+                    transition: 'transform 0.2s, filter 0.2s',
+                    '&:hover': {
+                      transform: 'scale(1.05)'
+                    }
+                  }}
+                />
+              </Box>
+            </Grid>
+          </Grid>
+        </Box>
+
+        {/* Contact CTA Section */}
+        <Box 
+          sx={{ 
+            textAlign: 'center', 
+            mt: 8,
+            mb: 4
+          }}
+        >
+          <Typography
+            variant="h5"
+            component="h2"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              mb: 2
+            }}
+          >
+            Ready to Get Started?
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              mb: 4,
+              color: 'text.secondary',
+              maxWidth: '600px',
+              mx: 'auto'
+            }}
+          >
+            Have questions or need assistance? Our team is here to help you get the most out of hMERN.
+          </Typography>
+          <Button
+            component={Link}
+            to="/contact"
+            variant="contained"
+            size="large"
+            sx={{
+              px: 4,
+              py: 1.5,
+              fontSize: '1.1rem',
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: 2,
+              '&:hover': {
+                boxShadow: 4
+              }
+            }}
+          >
+            Contact Us
+          </Button>
+        </Box>
       </Container>
     </Box>
   );

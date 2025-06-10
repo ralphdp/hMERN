@@ -2,7 +2,7 @@ import { Container, Typography, Box, Paper } from '@mui/material';
 
 const Cookies = () => {
   return (
-    <Container maxWidth="md">
+    <Container maxWidth="md" sx={{ my: 4 }}>
       <Paper elevation={3} sx={{ p: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Cookie Policy

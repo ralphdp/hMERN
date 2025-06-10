@@ -120,8 +120,38 @@ const verifyEmailConfig = async () => {
   }
 };
 
+// Send contact form email
+const sendContactEmail = async ({ name, email, subject, message }) => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: process.env.EMAIL_FROM, // Send to the same email address
+      subject: `Contact Form: ${subject}`,
+      html: `
+        <h1>New Contact Form Submission</h1>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Subject:</strong> ${subject}</p>
+        <h2>Message:</h2>
+        <p>${message.replace(/\n/g, '<br>')}</p>
+      `,
+      replyTo: email // Set reply-to header to the sender's email
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Contact form email sent:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('Error sending contact form email:', error);
+    throw new Error(`Failed to send contact form email: ${error.message}`);
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   verifyEmailConfig,
+  sendContactEmail
 }; 

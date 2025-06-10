@@ -12,7 +12,7 @@ import {
 import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { getTheme } from './theme';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -27,13 +27,15 @@ import Privacy from './pages/Privacy';
 import Cookies from './pages/Cookies';
 import Layout from './components/Layout';
 import NotFound from './pages/NotFound';
+import ScrollToTop from './components/ScrollToTop';
+import Verify from './pages/Verify';
+import ResendVerification from './pages/ResendVerification';
+import About from './pages/About';
+import Contact from './pages/Contact';
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+function AppContent() {
+  const { user, loading } = useAuth();
   const [mode, setMode] = useState('light');
-
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   
   useEffect(() => {
@@ -50,49 +52,6 @@ function App() {
   const toggleColorMode = () => {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
-
-  const getBackendUrl = () => {
-    if (process.env.NODE_ENV === 'production') {
-      return process.env.REACT_APP_BACKEND_URL || window.location.origin;
-    }
-    return `http://localhost:${process.env.REACT_APP_PORT_BACKEND || 5050}`;
-  };
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      // Skip the check if we're already logged out
-      if (user === null && !loading) {
-        return;
-      }
-
-      try {
-        const backendUrl = getBackendUrl();
-        
-        const response = await fetch(`${backendUrl}/api/auth/user`, {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data);
-        } else {
-          // Silently handle 401 - just set user to null
-          setUser(null);
-        }
-      } catch (err) {
-        console.error('Auth check error:', err);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
 
   if (loading) {
     return (
@@ -113,48 +72,39 @@ function App() {
     );
   }
 
-  if (error) {
-    return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box
-          sx={{
-            height: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'background.default'
-          }}
-        >
-          <Typography color="error">{error}</Typography>
-        </Box>
-      </ThemeProvider>
-    );
-  }
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <Router>
-          <Layout mode={mode} toggleColorMode={toggleColorMode} user={user}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/verify-email" element={<VerifyEmail />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password/:token" element={<ResetPassword />} />
-              <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/cookies" element={<Cookies />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Layout>
-        </Router>
-      </AuthProvider>
+      <Router>
+        <ScrollToTop />
+        <Routes>
+          <Route element={<Layout mode={mode} toggleColorMode={toggleColorMode} user={user} />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/verify" element={<ResendVerification />} />
+            <Route path="/verify-email" element={<Verify />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/cookies" element={<Cookies />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </Router>
     </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

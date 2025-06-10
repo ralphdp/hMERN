@@ -19,6 +19,7 @@ import GitHubIcon from '@mui/icons-material/GitHub';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import FacebookIcon from '@mui/icons-material/Facebook';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -102,129 +103,212 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
     window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const handleGithubLogin = () => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
     window.location.href = `${backendUrl}/api/auth/github`;
+  };
+
+  const handleFacebookLogin = () => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+    window.location.href = `${backendUrl}/api/auth/facebook`;
   };
 
   return (
     <Container maxWidth="sm">
-      <Box display="flex" justifyContent="center" alignItems="center"
-        minHeight="calc(100vh - 64px - 307px)"
-      >  
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
+      <Box
+        sx={{
+          
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          py: 4
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            bgcolor: 'background.paper'
+          }}
+        >
+          <Typography
+            component="h1"
+            variant="h4"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              color: 'text.primary',
+              mb: 3
+            }}
+          >
             Sign In
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
               {error}
             </Alert>
           )}
 
           {message && (
-            <Alert severity="success" sx={{ mb: 2 }}>
+            <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
               {message}
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit}>
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }}
+          >
             <TextField
+              required
               fullWidth
-              label="Email"
+              label="Email Address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
-              margin="normal"
               disabled={loading}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'divider',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'primary.main',
+                  },
+                },
+              }}
             />
 
             <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              error={!!error}
-              helperText={error}
-              label="Password"
               disabled={loading}
             />
 
-            <Box mt={3}>
-              <Button
-                fullWidth
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={loading}
-              >
-                {loading ? <CircularProgress size={24} /> : 'Sign In'}
-              </Button>
+            <Box mt={1}>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={loading}
+              sx={{
+                mt: 1,
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontSize: '1.1rem'
+              }}
+            >
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Sign In'
+              )}
+            </Button>
             </Box>
 
-            {needsVerification && (
-              <Box mt={2} textAlign="center">
-                <Button
-                  variant="text"
-                  color="primary"
-                  onClick={handleResendVerification}
-                  disabled={loading}
-                >
-                  Resend Verification Email
-                </Button>
-              </Box>
-            )}
-
-            <Box mt={2} textAlign="center">
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mt: 1
+              }}
+            >
               <Button
-                variant="text"
-                color="primary"
-                onClick={() => navigate('/forgot-password')}
-                disabled={loading}
+                component={RouterLink}
+                to="/forgot-password"
+                sx={{
+                  textTransform: 'none',
+                  color: 'text.secondary'
+                }}
               >
                 Forgot Password?
               </Button>
-            </Box>
-
-            <Box mt={2} textAlign="center">
               <Button
-                variant="text"
-                color="primary"
-                onClick={() => navigate('/register')}
-                disabled={loading}
+                component={RouterLink}
+                to="/verify"
+                sx={{
+                  textTransform: 'none',
+                  color: 'text.secondary'
+                }}
               >
-                Don't have an account? Sign Up
+                Resend Verification
               </Button>
             </Box>
 
-            <Divider sx={{ my: 3 }}>OR</Divider>
+            <Divider sx={{ my: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Or continue with
+              </Typography>
+            </Divider>
 
-            <Box display="flex" flexDirection="column" gap={2}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GoogleIcon />}
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                justifyContent: 'center'
+              }}
+            >
+              <IconButton
                 onClick={handleGoogleLogin}
                 disabled={loading}
+                sx={{
+                  bgcolor: 'background.paper',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
               >
-                Sign in with Google
-              </Button>
-
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GitHubIcon />}
+                <GoogleIcon />
+              </IconButton>
+              <IconButton
                 onClick={handleGithubLogin}
                 disabled={loading}
+                sx={{
+                  bgcolor: 'background.paper',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
               >
-                Sign in with GitHub
-              </Button>
+                <GitHubIcon />
+              </IconButton>
             </Box>
-          </form>
+
+            <Box
+              sx={{
+                mt: 2,
+                textAlign: 'center'
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Don't have an account?{' '}
+                <Button
+                  component={RouterLink}
+                  to="/register"
+                  sx={{
+                    textTransform: 'none',
+                    color: 'primary.main',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Sign Up
+                </Button>
+              </Typography>
+            </Box>
+          </Box>
         </Paper>
       </Box>
     </Container>

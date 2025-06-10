@@ -11,6 +11,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import axios from 'axios';
+import PasswordInput from '../components/PasswordInput';
 
 const ResetPassword = () => {
   const [password, setPassword] = useState('');
@@ -20,14 +21,6 @@ const ResetPassword = () => {
   const [message, setMessage] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Helper function to get backend URL
-  const getBackendUrl = () => {
-    if (process.env.NODE_ENV === 'production') {
-      return process.env.REACT_APP_BACKEND_URL || window.location.origin;
-    }
-    return `http://localhost:${process.env.REACT_APP_PORT_BACKEND || 5050}`;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -48,7 +41,7 @@ const ResetPassword = () => {
         return;
       }
 
-      const backendUrl = getBackendUrl();
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
       await axios.post(`${backendUrl}/api/auth/reset-password/${token}`, { password }, {
         withCredentials: true
       });
@@ -63,70 +56,106 @@ const ResetPassword = () => {
 
   return (
     <Container maxWidth="sm">
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="calc(100vh - 64px - 307px)">
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          py: 4
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            bgcolor: 'background.paper'
+          }}
+        >
+          <Typography
+            component="h1"
+            variant="h4"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              color: 'text.primary',
+              mb: 3
+            }}
+          >
             Reset Password
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
               {error}
             </Alert>
           )}
 
           {message && (
-            <Alert severity="success" sx={{ mb: 2 }}>
+            <Alert severity="success" sx={{ width: '100%', mb: 3 }}>
               {message}
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <TextField
-              fullWidth
-              label="New Password"
-              type="password"
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }}
+          >
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              required
-              margin="normal"
               disabled={loading}
+              label="New Password"
             />
 
-            <TextField
-              fullWidth
-              label="Confirm New Password"
-              type="password"
+            <PasswordInput
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              margin="normal"
               disabled={loading}
+              label="Confirm New Password"
             />
 
-            <Box mt={3}>
-              <Button
-                fullWidth
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={loading}
-              >
-                {loading ? <CircularProgress size={24} /> : 'Reset Password'}
-              </Button>
-            </Box>
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={loading}
+              sx={{
+                mt: 2,
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontSize: '1.1rem'
+              }}
+            >
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Reset Password'
+              )}
+            </Button>
 
-            <Box mt={2} textAlign="center">
-              <Button
-                variant="text"
-                color="primary"
-                onClick={() => navigate('/login')}
-                disabled={loading}
-              >
-                Back to Login
-              </Button>
-            </Box>
-          </form>
+            <Button
+              component="button"
+              onClick={() => navigate('/login')}
+              sx={{
+                mt: 1,
+                textTransform: 'none',
+                color: 'text.secondary'
+              }}
+            >
+              Back to Login
+            </Button>
+          </Box>
         </Paper>
       </Box>
     </Container>

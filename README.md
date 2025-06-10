@@ -151,46 +151,62 @@ The application will be available at:
 
 ```
 hmern/
-├── backend/                        # Backend server
-│   ├── config/                     # Configuration files
-│   │   ├── auth.config.js          # Authentication configuration
-│   │   └── passport.js             # Passport.js configuration
-│   ├── models/                     # Database models
-│   │   ├── Token.js                # Token model for email verification
-│   │   └── User.js                 # User model
-│   ├── routes/                     # API routes
-│   │   └── auth.js                 # Authentication routes
-│   ├── services/                   # Business logic
-│   │   └── emailService.js         # Email service for verification
-│   ├── package.json                # Backend dependencies
-│   └── server.js                   # Express server setup
+├── frontend/                 # React frontend application
+│   ├── public/              # Static files
+│   │   ├── images/         # Image assets
+│   │   └── index.html      # HTML template
+│   ├── src/
+│   │   ├── components/     # Reusable components
+│   │   │   ├── Layout.js   # Main layout wrapper
+│   │   │   ├── Header.js   # Navigation header
+│   │   │   └── Footer.js   # Site footer
+│   │   ├── contexts/       # React context providers
+│   │   │   └── AuthContext.js  # Authentication context
+│   │   ├── pages/          # Page components
+│   │   │   ├── Home.js     # Landing page
+│   │   │   ├── About.js    # About page
+│   │   │   ├── Contact.js  # Contact page
+│   │   │   ├── Login.js    # Login page
+│   │   │   ├── Register.js # Registration page
+│   │   │   └── Profile.js  # User profile page
+│   │   ├── services/       # API services
+│   │   │   └── api.js      # API client setup
+│   │   ├── utils/          # Utility functions
+│   │   ├── App.js          # Main application component
+│   │   ├── App.test.js     # App component tests
+│   │   ├── index.js        # Application entry point
+│   │   ├── index.css       # Global styles
+│   │   ├── logo.svg        # React logo
+│   │   ├── reportWebVitals.js  # Performance monitoring
+│   │   ├── setupTests.js   # Test configuration
+│   │   └── theme.js        # Material-UI theme configuration
+│   └── package.json        # Frontend dependencies
 │
-├── frontend/                       # React frontend
-│   ├── public/                     # Static files
-│   ├── src/                        # Source files
-│   │   ├── components/             # Reusable components
-│   │   │   ├── Login.js            # Login component
-│   │   │   ├── PasswordInput.js    # Password input component
-│   │   │   └── PrivateRoute.js     # Protected route component
-│   │   ├── contexts/               # React contexts
-│   │   │   └── AuthContext.js      # Authentication context
-│   │   ├── pages/                  # Page components
-│   │   │   ├── Dashboard.js        # Dashboard page
-│   │   │   ├── ForgotPassword.js   # Forgot password page
-│   │   │   ├── Home.js             # Home page
-│   │   │   ├── Login.js            # Login page
-│   │   │   ├── Register.js         # Registration page
-│   │   │   ├── ResetPassword.js    # Reset password page
-│   │   │   └── VerifyEmail.js      # Email verification page
-│   │   ├── App.js                  # Main App component
-│   │   ├── index.js                # Entry point
-│   │   └── theme.js                # Material-UI theme
-│   └── package.json                # Frontend dependencies
+├── backend/                 # Express.js backend application
+│   ├── config/             # Configuration files
+│   │   ├── db.js          # Database configuration
+│   │   └── passport.js    # Passport.js configuration
+│   ├── middleware/         # Custom middleware
+│   │   ├── auth.js        # Authentication middleware
+│   │   └── error.js       # Error handling middleware
+│   ├── models/            # Mongoose models
+│   │   ├── User.js       # User model
+│   │   └── Contact.js    # Contact form model
+│   ├── routes/            # API routes
+│   │   ├── auth.js       # Authentication routes
+│   │   ├── users.js      # User management routes
+│   │   └── contact.js    # Contact form routes
+│   ├── services/          # Business logic services
+│   │   └── emailService.js # Email service
+│   ├── .env              # Environment variables
+│   ├── server.js         # Application entry point
+│   └── package.json      # Backend dependencies
 │
-├── .gitignore                      # Git ignore file
-├── package.json                    # Root package.json
-├── Procfile                        # Heroku deployment configuration
-└── README.md                       # Project documentation
+├── .gitignore            # Git ignore file
+├── package.json          # Root package.json
+├── package-lock.json     # Root package lock file
+├── Procfile             # Heroku deployment configuration
+└── README.md            # Project documentation
 ```
 
 ## 🔐 Authentication

@@ -53,6 +53,12 @@ const VerifyEmail = () => {
 
         if (response.ok) {
           setMessage(data.message || 'Email verified successfully');
+          setIsVerified(true);
+          hasShownSuccess.current = true;
+          // Redirect to login after 3 seconds
+          setTimeout(() => {
+            navigate('/login');
+          }, 3000);
         } else {
           setError(data.message || 'Failed to verify email');
         }
@@ -65,96 +71,94 @@ const VerifyEmail = () => {
     };
 
     verifyEmail();
-  }, [token]);
-
-  // Log state changes
-  useEffect(() => {
-    console.log('State updated:', { loading, error, message, isVerified });
-  }, [loading, error, message, isVerified]);
-
-  const handleResendVerification = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setMessage(null);
-
-      const email = new URLSearchParams(location.search).get('email');
-      const backendUrl = getBackendUrl();
-      
-      console.log('Resending verification email to:', email);
-      
-      const response = await axios.post(
-        `${backendUrl}/api/auth/resend-verification`,
-        { email },
-        { withCredentials: true }
-      );
-      
-      console.log('Resend verification response:', response.data);
-      setMessage('Verification email sent! Please check your inbox.');
-    } catch (error) {
-      console.error('Resend verification error:', error);
-      setError(error.response?.data?.message || 'Error sending verification email');
-      setMessage(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    console.log('Rendering loading state');
-    return (
-      <Container maxWidth="sm">
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-    );
-  }
-
-  console.log('Rendering main component with states:', { loading, error, message, isVerified });
+  }, [token, navigate]);
 
   return (
     <Container maxWidth="sm">
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="calc(100vh - 64px - 307px)">
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
+      <Box
+        sx={{
+          
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          py: 4
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            bgcolor: 'background.paper'
+          }}
+        >
+          <Typography
+            component="h1"
+            variant="h4"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              color: 'text.primary',
+              mb: 3
+            }}
+          >
             Email Verification
           </Typography>
 
-          {error && !isVerified && !hasShownSuccess.current && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {message && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {message}
-            </Alert>
-          )}
-
-          {error && !message && !isVerified && !hasShownSuccess.current && (
-            <Box mt={2} textAlign="center">
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleResendVerification}
-                disabled={loading}
-              >
-                Resend Verification Email
-              </Button>
+          {loading ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <CircularProgress size={40} />
+              <Typography variant="h6" color="text.secondary">
+                Verifying your email...
+              </Typography>
             </Box>
-          )}
+          ) : (
+            <>
+              {error && !isVerified && !hasShownSuccess.current && (
+                <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
+                  {error}
+                </Alert>
+              )}
 
-          <Box mt={2} textAlign="center">
-            <Button
-              variant="text"
-              color="primary"
-              onClick={() => navigate('/login')}
-            >
-              Back to Login
-            </Button>
-          </Box>
+              {message && (
+                <Alert severity="success" sx={{ width: '100%', mb: 3 }}>
+                  {message}
+                </Alert>
+              )}
+
+              {error && !message && !isVerified && !hasShownSuccess.current && (
+                <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Button
+                    variant="contained"
+                    size="large"
+                    onClick={() => navigate('/verify')}
+                    disabled={loading}
+                    sx={{
+                      py: 1.5,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontSize: '1.1rem'
+                    }}
+                  >
+                    Resend Verification Email
+                  </Button>
+                </Box>
+              )}
+
+              <Button
+                onClick={() => navigate('/login')}
+                sx={{
+                  mt: 2,
+                  textTransform: 'none',
+                  color: 'text.secondary'
+                }}
+              >
+                Back to Login
+              </Button>
+            </>
+          )}
         </Paper>
       </Box>
     </Container>

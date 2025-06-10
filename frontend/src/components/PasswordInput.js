@@ -21,7 +21,7 @@ const PasswordInput = ({
   label = 'Password',
   required = true,
   fullWidth = true,
-  margin = 'normal',
+  margin = 'none',
   id = 'password',
   name = 'password',
   autoComplete = 'new-password'
@@ -101,6 +101,16 @@ const PasswordInput = ({
         error={error}
         helperText={helperText}
         autoComplete={autoComplete}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            '& fieldset': {
+              borderColor: 'divider',
+            },
+            '&:hover fieldset': {
+              borderColor: 'primary.main',
+            },
+          },
+        }}
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
@@ -123,7 +133,7 @@ const PasswordInput = ({
             variant="determinate"
             value={(strength / 5) * 100}
             color={getStrengthColor(strength)}
-            sx={{ height: 8, borderRadius: 4 }}
+            sx={{ height: 6, borderRadius: 3 }}
           />
           <Typography
             variant="caption"

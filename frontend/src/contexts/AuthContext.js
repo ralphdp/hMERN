@@ -53,27 +53,37 @@ export const AuthProvider = ({ children }) => {
   }, [checkAuth]);
 
   const login = async (email, password) => {
-    const backendUrl = getBackendUrl();
-    const response = await axios.post(
-      `${backendUrl}/api/auth/login`,
-      { email, password },
-      { withCredentials: true }
-    );
-    
-    if (response.data.user) {
-      setUser(response.data.user);
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await axios.post(
+        `${backendUrl}/api/auth/login`,
+        { email, password },
+        { withCredentials: true }
+      );
+      
+      if (response.data.user) {
+        setUser(response.data.user);
+      }
+      return response.data;
+    } catch (err) {
+      console.error('Login error:', err);
+      throw err;
     }
-    return response.data;
   };
 
   const register = async (name, email, password) => {
-    const backendUrl = getBackendUrl();
-    const response = await axios.post(
-      `${backendUrl}/api/auth/register`,
-      { name, email, password },
-      { withCredentials: true }
-    );
-    return response.data;
+    try {
+      const backendUrl = getBackendUrl();
+      const response = await axios.post(
+        `${backendUrl}/api/auth/register`,
+        { name, email, password },
+        { withCredentials: true }
+      );
+      return response.data;
+    } catch (err) {
+      console.error('Register error:', err);
+      throw err;
+    }
   };
 
   const logout = async () => {
@@ -92,6 +102,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     loading,
+    error,
     isAuthenticated: !!user,
     login,
     register,

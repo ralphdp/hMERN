@@ -123,9 +123,11 @@ require('./config/passport');
 
 // Import routes
 const authRoutes = require('./routes/auth');
+const contactRoutes = require('./routes/contact');
 
 // Use routes
 app.use('/api/auth', authRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {

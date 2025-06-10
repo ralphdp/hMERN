@@ -1,210 +1,267 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
 import {
   Container,
   Box,
   Typography,
   TextField,
   Button,
-  Link,
   Paper,
-  Divider,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Divider,
+  IconButton
 } from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google';
-import GitHubIcon from '@mui/icons-material/GitHub';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import PasswordInput from '../components/PasswordInput';
+import GoogleIcon from '@mui/icons-material/Google';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import FacebookIcon from '@mui/icons-material/Facebook';
 
-function Register() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { register, isAuthenticated } = useAuth();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+const Register = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
-  // Helper function to get backend URL
-  const getBackendUrl = () => {
-    if (process.env.NODE_ENV === 'production') {
-      return process.env.REACT_APP_BACKEND_URL || window.location.origin;
-    }
-    return `http://localhost:${process.env.REACT_APP_PORT_BACKEND || 5050}`;
-  };
-
-  // Check for error in URL query params
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const errorParam = params.get('error');
-    if (errorParam === 'auth_failed') {
-      setError('Authentication failed. Please try again.');
-    }
-  }, [location]);
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/dashboard');
-    }
-  }, [isAuthenticated, navigate]);
-
-  const validateForm = () => {
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return false;
-    }
-    return true;
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setMessage('');
+    setLoading(true);
 
-    if (!validateForm()) {
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
-
     try {
-      await register(name, email, password);
-      setMessage('Registration successful! Please check your email to verify your account.');
-      setTimeout(() => navigate('/login'), 3000);
+      await register(formData.name, formData.email, formData.password);
+      navigate('/verify');
     } catch (err) {
-      console.error('Registration error:', err);
-      setError(err.response?.data?.message || 'Failed to register. Please try again.');
+      setError(err.response?.data?.message || 'Failed to register');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
     window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const handleGithubLogin = () => {
-    const backendUrl = getBackendUrl();
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
     window.location.href = `${backendUrl}/api/auth/github`;
+  };
+
+  const handleFacebookLogin = () => {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+    window.location.href = `${backendUrl}/api/auth/facebook`;
   };
 
   return (
     <Container maxWidth="sm">
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="calc(100vh - 64px - 307px)">  
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
-            Sign Up
+      <Box
+        sx={{
+          
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          py: 4
+        }}
+      >
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            bgcolor: 'background.paper'
+          }}
+        >
+          <Typography
+            component="h1"
+            variant="h4"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              color: 'text.primary',
+              mb: 3
+            }}
+          >
+            Create Account
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
               {error}
             </Alert>
           )}
 
-          {message && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {message}
-            </Alert>
-          )}
-
-          <Box component="form" onSubmit={handleSubmit}>
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }}
+          >
             <TextField
-              margin="normal"
               required
               fullWidth
-              id="name"
               label="Full Name"
               name="name"
-              autoComplete="name"
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={formData.name}
+              onChange={handleChange}
+              disabled={loading}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'divider',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'primary.main',
+                  },
+                },
+              }}
             />
+
             <TextField
-              margin="normal"
               required
               fullWidth
-              id="email"
               label="Email Address"
+              type="email"
               name="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={handleChange}
+              disabled={loading}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'divider',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'primary.main',
+                  },
+                },
+              }}
             />
+
             <PasswordInput
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={!!error && error.includes('password')}
-              helperText={error && error.includes('password') ? error : ''}
-              label="Password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              disabled={loading}
             />
+
             <PasswordInput
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              error={!!error && error.includes('match')}
-              helperText={error && error.includes('match') ? error : ''}
-              label="Confirm Password"
-              id="confirmPassword"
               name="confirmPassword"
-              autoComplete="new-password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              disabled={loading}
+              label="Confirm Password"
             />
+            <Box mt={1}>
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              color="primary"
-              sx={{ mt: 3 }}
+              size="large"
               disabled={loading}
+              sx={{
+                mt: 1,
+                py: 1.5,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontSize: '1.1rem'
+              }}
             >
-              {loading ? <CircularProgress size={24} /> : 'Sign Up'}
+              {loading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Create Account'
+              )}
             </Button>
-          </Box>
+            </Box>
 
-          <Divider sx={{ my: 3 }}>OR</Divider>
+            <Divider sx={{ my: 3 }}>
+              <Typography variant="body2" color="text.secondary">
+                Or continue with
+              </Typography>
+            </Divider>
 
-          <Box display="flex" flexDirection="column" gap={2}>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<GoogleIcon />}
-              onClick={handleGoogleLogin}
-              disabled={loading}
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 2,
+                justifyContent: 'center',
+                mb: 2
+              }}
             >
-              Sign up with Google
-            </Button>
+              <IconButton
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                sx={{
+                  bgcolor: 'background.paper',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
+                <GoogleIcon />
+              </IconButton>
+              <IconButton
+                onClick={handleGithubLogin}
+                disabled={loading}
+                sx={{
+                  bgcolor: 'background.paper',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
+                <GitHubIcon />
+              </IconButton>
+            </Box>
 
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<GitHubIcon />}
-              onClick={handleGithubLogin}
-              disabled={loading}
+            <Box
+              sx={{
+                textAlign: 'center'
+              }}
             >
-              Sign up with GitHub
-            </Button>
-          </Box>
-
-          <Box mt={2} textAlign="center">
-            <Button
-              variant="text"
-              color="primary"
-              onClick={() => navigate('/login')}
-              disabled={loading}
-            >
-              Already have an account? Sign In
-            </Button>
+              <Typography variant="body2" color="text.secondary">
+                Already have an account?{' '}
+                <Button
+                  component={RouterLink}
+                  to="/login"
+                  sx={{
+                    textTransform: 'none',
+                    color: 'primary.main',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Sign In
+                </Button>
+              </Typography>
+            </Box>
           </Box>
         </Paper>
       </Box>
     </Container>
   );
-}
+};
 
 export default Register; 

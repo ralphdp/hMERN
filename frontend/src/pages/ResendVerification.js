@@ -1,65 +1,69 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Paper,
-  Typography,
-  TextField,
-  Button,
   Box,
+  Container,
+  Typography,
+  CircularProgress,
   Alert,
-  CircularProgress
+  Paper,
+  TextField,
+  Button
 } from '@mui/material';
-import axios from 'axios';
+import { getBackendUrl } from '../utils/config';
 
-const ForgotPassword = () => {
+const ResendVerification = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [message, setMessage] = useState(null);
-  const navigate = useNavigate();
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setMessage(null);
+    setSuccess(false);
 
     try {
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
-      await axios.post(`${backendUrl}/api/auth/forgot-password`, { email }, {
-        withCredentials: true
+      const backendUrl = getBackendUrl();
+      const response = await fetch(`${backendUrl}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
       });
-      setMessage('Password reset instructions have been sent to your email.');
-    } catch (error) {
-      setError(error.response?.data?.message || 'Error sending password reset email');
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess(true);
+        setEmail('');
+      } else {
+        setError(data.message || 'Failed to send verification email');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      console.error('Verification request error:', err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          py: 4
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            p: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            bgcolor: 'background.paper'
-          }}
-        >
-          <Typography
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+        py: 4
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+        <Typography
             component="h1"
             variant="h4"
             gutterBottom
@@ -69,9 +73,8 @@ const ForgotPassword = () => {
               mb: 3
             }}
           >
-            Forgot Password
+            Resend Verification Email
           </Typography>
-
           <Typography
             variant="body1"
             sx={{
@@ -80,31 +83,27 @@ const ForgotPassword = () => {
               color: 'text.secondary'
             }}
           >
-            Enter your email address and we'll send you instructions to reset your password.
+            Enter your email address below and we'll send you a new verification link.
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
 
-          {message && (
-            <Alert severity="success" sx={{ width: '100%', mb: 3 }}>
-              {message}
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Verification email sent! Please check your inbox.
             </Alert>
           )}
 
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{
+          <Box component="form" onSubmit={handleSubmit} sx={{
               width: '100%',
               display: 'flex',
               flexDirection: 'column',
               gap: 2
-            }}
-          >
+            }}>
             <TextField
               required
               fullWidth
@@ -124,7 +123,6 @@ const ForgotPassword = () => {
                 },
               }}
             />
-
             <Button
               type="submit"
               fullWidth
@@ -139,11 +137,7 @@ const ForgotPassword = () => {
                 fontSize: '1.1rem'
               }}
             >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Send Reset Instructions'
-              )}
+              {loading ? <CircularProgress size={24} /> : 'Send Verification Email'}
             </Button>
 
             <Button
@@ -159,9 +153,9 @@ const ForgotPassword = () => {
             </Button>
           </Box>
         </Paper>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 
-export default ForgotPassword; 
+export default ResendVerification; 

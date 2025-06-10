@@ -81,11 +81,12 @@ const AnimatedLogo = ({ size = 40, color = '#1976d2', className }) => {
         ctx.globalAlpha = glowIntensity;
         ctx.fill();
 
-        // Add solid glow effect (no blur)
+        // Add very subtle glow
+        ctx.shadowBlur = this.size * 0.5;
+        ctx.shadowColor = this.color;
+        ctx.shadowOpacity = 0.1;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size * 1.5, 0, Math.PI * 2);
-        ctx.fillStyle = this.color;
-        ctx.globalAlpha = glowIntensity * 0.2;
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
       }
     }
