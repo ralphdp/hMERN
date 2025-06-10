@@ -56,41 +56,48 @@ const Home = () => {
   return (
     <Box
       sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flex: 1,
-        py: 4,
-        position: 'relative'
+        pb: 4,
       }}
     >
-      <Container maxWidth="lg">
-        {/* Hero Section */}
-        <Box sx={{ textAlign: 'center', mb: 8 }}>
-          <Typography
-            variant="h2"
-            component="h1"
-            gutterBottom
-            sx={{
-              fontWeight: 'bold',
-              textShadow: '2px 2px 4px rgba(0,0,0,0.2)',
-            }}
-          >
-            hMERN
-          </Typography>
-          <Typography
-            variant="h5"
-            component="h2"
-            gutterBottom
-            sx={{
-              mb: 4,
-              opacity: 0.9,
-            }}
-          >
-            A straight forward MERN Stack boilerplate using Passport.js for authentication, and Heroku for deployment.
-          </Typography>
-        </Box>
+      {/* Hero Section */}
+      <Box 
+        sx={{ 
+          width: '100%',
+          background: 'linear-gradient(135deg, #1976d2 0%, #2196f3 100%)',
+          color: 'white',
+          py: { xs: 8, md: 12 },
+          mb: 8
+        }}
+      >
+        <Container maxWidth="lg">
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography
+              variant="h2"
+              component="h1"
+              gutterBottom
+              sx={{
+                fontWeight: 'bold',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.2)',
+              }}
+            >
+              hMERN
+            </Typography>
+            <Typography
+              variant="h5"
+              component="h2"
+              gutterBottom
+              sx={{
+                mb: 4,
+                opacity: 0.9,
+              }}
+            >
+              A straight forward MERN Stack boilerplate using Passport.js for authentication, and Heroku for deployment.
+            </Typography>
+          </Box>
+        </Container>
+      </Box>
 
+      <Container maxWidth="lg">
         {/* Features Section */}
         <Grid container spacing={4} sx={{ mb: 8 }}>
           <Grid item xs={12} sm={6} lg={3}>
@@ -237,52 +244,59 @@ const Home = () => {
         {/* Contact CTA Section */}
         <Box 
           sx={{ 
-            textAlign: 'center', 
+            width: '100%',
+            bgcolor: 'white',
+            borderRadius: 2,
+            py: { xs: 6, md: 8 },
             mt: 8,
-            mb: 4
+
           }}
         >
-          <Typography
-            variant="h5"
-            component="h2"
-            gutterBottom
-            sx={{
-              fontWeight: 'bold',
-              mb: 2
-            }}
-          >
-            Ready to Get Started?
-          </Typography>
-          <Typography
-            variant="body1"
-            sx={{
-              mb: 4,
-              color: 'text.secondary',
-              maxWidth: '600px',
-              mx: 'auto'
-            }}
-          >
-            Have questions or need assistance? Our team is here to help you get the most out of hMERN.
-          </Typography>
-          <Button
-            component={Link}
-            to="/contact"
-            variant="contained"
-            size="large"
-            sx={{
-              px: 4,
-              py: 1.5,
-              fontSize: '1.1rem',
-              borderRadius: 2,
-              textTransform: 'none',
-              boxShadow: 2,
-              '&:hover': {
-                boxShadow: 4
-              }
-            }}
-          >
-            Contact Us
-          </Button>
+          <Container maxWidth="lg">
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography
+                variant="h5"
+                component="h2"
+                gutterBottom
+                sx={{
+                  fontWeight: 'bold',
+                  mb: 2
+                }}
+              >
+                Contact Us!
+              </Typography>
+              <Typography
+                variant="body1"
+                sx={{
+                  mb: 4,
+                  color: 'text.secondary',
+                  maxWidth: '600px',
+                  mx: 'auto'
+                }}
+              >
+                Have questions or need assistance? Our team is here to help you get the most out of hMERN.
+              </Typography>
+              <Button
+                component={Link}
+                to="/contact"
+                variant="contained"
+                size="large"
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  fontSize: '1.1rem',
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  boxShadow: 2,
+                  '&:hover': {
+                    boxShadow: 4
+                  }
+                }}
+              >
+                Contact Us
+              </Button>
+            </Box>
+          </Container>
         </Box>
       </Container>
     </Box>
