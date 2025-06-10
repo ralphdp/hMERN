@@ -37,7 +37,8 @@ const createTransporter = () => {
 // Helper function to get frontend URL based on environment
 const getFrontendUrl = () => {
   if (process.env.NODE_ENV === 'production') {
-    return process.env.FRONTEND_URL;
+    // Remove trailing slash if present
+    return process.env.FRONTEND_URL.replace(/\/$/, '');
   }
   return `http://localhost:${process.env.PORT_FRONTEND || 3000}`;
 };

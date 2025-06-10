@@ -138,6 +138,11 @@ The application will be available at:
    heroku config:set FACEBOOK_APP_SECRET=facebook_app_secret
    heroku config:set INSTAGRAM_CLIENT_ID=your_instagram_client_id
    heroku config:set INSTAGRAM_CLIENT_SECRET=your_instagram_client_secret
+   heroku config:set EMAIL_HOST=smtp.gmail.com
+   heroku config:set EMAIL_PORT=587
+   heroku config:set EMAIL_USER=ralphdp21@gmail.com
+   heroku config:set EMAIL_PASSWORD=cfwevsawdtvhbunj
+   heroku config:set EMAIL_FROM=ralphdp21@gmail.com
    # Add other OAuth provider credentials as needed
    ```
 
