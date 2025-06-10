@@ -21,6 +21,14 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Helper function to get backend URL
+  const getBackendUrl = () => {
+    if (process.env.NODE_ENV === 'production') {
+      return process.env.REACT_APP_BACKEND_URL || window.location.origin;
+    }
+    return `http://localhost:${process.env.REACT_APP_PORT_BACKEND || 5050}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -40,7 +48,10 @@ const ResetPassword = () => {
         return;
       }
 
-      await axios.post(`/api/auth/reset-password/${token}`, { password });
+      const backendUrl = getBackendUrl();
+      await axios.post(`${backendUrl}/api/auth/reset-password/${token}`, { password }, {
+        withCredentials: true
+      });
       setMessage('Password reset successful! Redirecting to login...');
       setTimeout(() => navigate('/login'), 3000);
     } catch (error) {

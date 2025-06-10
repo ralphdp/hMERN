@@ -19,6 +19,14 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState(null);
   const navigate = useNavigate();
 
+  // Helper function to get backend URL
+  const getBackendUrl = () => {
+    if (process.env.NODE_ENV === 'production') {
+      return process.env.REACT_APP_BACKEND_URL || window.location.origin;
+    }
+    return `http://localhost:${process.env.REACT_APP_PORT_BACKEND || 5050}`;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -26,7 +34,10 @@ const ForgotPassword = () => {
     setMessage(null);
 
     try {
-      await axios.post('/api/auth/forgot-password', { email });
+      const backendUrl = getBackendUrl();
+      await axios.post(`${backendUrl}/api/auth/forgot-password`, { email }, {
+        withCredentials: true
+      });
       setMessage('Password reset instructions have been sent to your email.');
     } catch (error) {
       setError(error.response?.data?.message || 'Error sending password reset email');
