@@ -187,19 +187,42 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
+// Connect to MongoDB with retry logic
+const connectWithRetry = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
     console.log('Connected to MongoDB');
-  })
-  .catch(err => {
+  } catch (err) {
     console.error('MongoDB connection error:', err);
-  });
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  }
+};
 
 // Start server immediately
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error('Server error:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.log('Port is already in use, trying another port...');
+    server.close();
+    app.listen(0, () => {
+      console.log(`Server running on port ${server.address().port}`);
+    });
+  }
+});
+
+// Start MongoDB connection
+connectWithRetry();
 
 module.exports = app; 
