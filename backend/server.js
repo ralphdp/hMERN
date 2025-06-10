@@ -10,6 +10,12 @@ const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const authConfig = require('./config/auth.config');
+const mongoSanitize = require('express-mongo-sanitize');
+const hpp = require('hpp');
+const compression = require('compression');
+const { errorHandler } = require('./middleware/errorMiddleware');
+const { connectDB } = require('./config/db');
+const { initializePassport } = require('./config/passport');
 require('dotenv').config();
 
 // Ensure required environment variables are set
@@ -45,9 +51,30 @@ app.use(cors(corsOptions));
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://apis.google.com", "https://www.google-analytics.com", "https://www.googletagmanager.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      connectSrc: ["'self'", "https://www.googleapis.com", "https://api.github.com", "https://graph.facebook.com", "https://www.facebook.com", "https://www.google-analytics.com"],
+      frameSrc: ["'self'", "https://accounts.google.com", "https://www.facebook.com"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      blockAllMixedContent: [],
+      upgradeInsecureRequests: []
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
+
+app.use(mongoSanitize());
+app.use(hpp());
+app.use(compression());
 
 // Rate limiter configuration
 const limiter = rateLimit({
@@ -70,15 +97,12 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    ttl: 24 * 60 * 60, // 1 day
-    touchAfter: 24 * 3600 // 24 hours
+    ttl: 24 * 60 * 60 // 1 day
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 1 day
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost'
+    maxAge: 24 * 60 * 60 * 1000 // 1 day
   }
 }));
 
@@ -112,6 +136,49 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// Permissions Policy
+app.use((req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    "accelerometer=(), " +
+    "ambient-light-sensor=(), " +
+    "autoplay=(), " +
+    "battery=(), " +
+    "camera=(), " +
+    "cross-origin-isolated=(), " +
+    "display-capture=(), " +
+    "document-domain=(), " +
+    "encrypted-media=(), " +
+    "execution-while-not-rendered=(), " +
+    "execution-while-out-of-viewport=(), " +
+    "fullscreen=(), " +
+    "geolocation=(), " +
+    "gyroscope=(), " +
+    "keyboard-map=(), " +
+    "magnetometer=(), " +
+    "microphone=(), " +
+    "midi=(), " +
+    "navigation-override=(), " +
+    "payment=(), " +
+    "picture-in-picture=(), " +
+    "publickey-credentials-get=(), " +
+    "screen-wake-lock=(), " +
+    "sync-xhr=(), " +
+    "usb=(), " +
+    "web-share=(), " +
+    "xr-spatial-tracking=()"
+  );
+
+  // Additional Security Headers
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+
+  next();
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
@@ -124,11 +191,8 @@ mongoose.connect(process.env.MONGODB_URI)
     console.log('Connected to MongoDB');
     
     // Start server
-    const PORT = process.env.PORT || 5050;
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`Server is running on port ${PORT}`);
-      console.log('Environment:', process.env.NODE_ENV || 'development');
-    });
+    const PORT = process.env.PORT_BACKEND || 5050;
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch(err => {
     console.error('MongoDB connection error:', err);

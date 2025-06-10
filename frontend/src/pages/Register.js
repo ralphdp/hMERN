@@ -95,42 +95,26 @@ function Register() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <Typography component="h1" variant="h5" gutterBottom>
+    <Container maxWidth="sm">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="calc(100vh - 64px - 307px)">  
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
             Sign Up
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
 
           {message && (
-            <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
+            <Alert severity="success" sx={{ mb: 2 }}>
               {message}
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+          <Box component="form" onSubmit={handleSubmit}>
             <TextField
               margin="normal"
               required
@@ -175,42 +159,47 @@ function Register() {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              color="primary"
+              sx={{ mt: 3 }}
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} /> : 'Sign Up'}
             </Button>
           </Box>
 
-          <Divider sx={{ width: '100%', my: 2 }}>OR</Divider>
+          <Divider sx={{ my: 3 }}>OR</Divider>
 
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleLogin}
-            sx={{ mb: 2 }}
-          >
-            Sign up with Google
-          </Button>
+          <Box display="flex" flexDirection="column" gap={2}>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<GoogleIcon />}
+              onClick={handleGoogleLogin}
+              disabled={loading}
+            >
+              Sign up with Google
+            </Button>
 
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GitHubIcon />}
-            onClick={handleGithubLogin}
-            sx={{ mb: 2 }}
-          >
-            Sign up with GitHub
-          </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={<GitHubIcon />}
+              onClick={handleGithubLogin}
+              disabled={loading}
+            >
+              Sign up with GitHub
+            </Button>
+          </Box>
 
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" align="center">
-              Already have an account?{' '}
-              <Link component={RouterLink} to="/login" variant="body2">
-                Sign In
-              </Link>
-            </Typography>
+          <Box mt={2} textAlign="center">
+            <Button
+              variant="text"
+              color="primary"
+              onClick={() => navigate('/login')}
+              disabled={loading}
+            >
+              Already have an account? Sign In
+            </Button>
           </Box>
         </Paper>
       </Box>

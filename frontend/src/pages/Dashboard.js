@@ -33,7 +33,7 @@ const Dashboard = () => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        minHeight: 'calc(100vh - 64px - 307px)', // Subtract header (64px) and footer (200px) height
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

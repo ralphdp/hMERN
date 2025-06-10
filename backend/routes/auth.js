@@ -75,24 +75,40 @@ router.get('/google/callback',
       : `http://localhost:${process.env.PORT_FRONTEND}/login?error=google_auth_failed`,
     failureMessage: true
   }),
-  (req, res) => {
-    console.log('Google authentication successful');
-    console.log('User:', req.user);
-    console.log('Session:', req.session);
-    
-    // Ensure session is saved before redirecting
-    req.session.save((err) => {
-      if (err) {
-        console.error('Session save error:', err);
-        return res.redirect(process.env.NODE_ENV === 'production'
-          ? new URL('/login?error=session_error', process.env.FRONTEND_URL).toString()
-          : `http://localhost:${process.env.PORT_FRONTEND}/login?error=session_error`);
+  async (req, res) => {
+    try {
+      console.log('Google authentication successful');
+      console.log('User:', req.user);
+      console.log('Session:', req.session);
+
+      // Ensure user data is fully loaded
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        throw new Error('User not found after authentication');
       }
-      console.log('Session saved successfully');
+
+      // Update session with fresh user data
+      req.user = user;
+      
+      // Ensure session is saved before redirecting
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.redirect(process.env.NODE_ENV === 'production'
+            ? new URL('/login?error=session_error', process.env.FRONTEND_URL).toString()
+            : `http://localhost:${process.env.PORT_FRONTEND}/login?error=session_error`);
+        }
+        console.log('Session saved successfully with updated user data');
+        res.redirect(process.env.NODE_ENV === 'production'
+          ? new URL('/dashboard', process.env.FRONTEND_URL).toString()
+          : `http://localhost:${process.env.PORT_FRONTEND}/dashboard`);
+      });
+    } catch (error) {
+      console.error('Error in Google callback:', error);
       res.redirect(process.env.NODE_ENV === 'production'
-        ? new URL('/dashboard', process.env.FRONTEND_URL).toString()
-        : `http://localhost:${process.env.PORT_FRONTEND}/dashboard`);
-    });
+        ? new URL('/login?error=server_error', process.env.FRONTEND_URL).toString()
+        : `http://localhost:${process.env.PORT_FRONTEND}/login?error=server_error`);
+    }
   }
 );
 
@@ -452,36 +468,59 @@ router.post('/reset-password/:token', async (req, res) => {
   }
 });
 
-// Login route
+// Local login route
 router.post('/login', async (req, res, next) => {
   passport.authenticate('local', async (err, user, info) => {
     if (err) {
-      return next(err);
+      console.error('Login error:', err);
+      return res.status(500).json({ message: 'Server error during login' });
     }
+
     if (!user) {
-      return res.status(401).json({ message: info.message });
+      return res.status(401).json({ message: info.message || 'Invalid credentials' });
     }
 
-    // Check if email is verified for local login
-    if (!user.isVerified) {
-      return res.status(401).json({ 
-        message: 'Please verify your email before logging in',
-        needsVerification: true
-      });
-    }
-
-    req.logIn(user, (err) => {
-      if (err) {
-        return next(err);
+    try {
+      // Ensure user data is fully loaded with avatar
+      const freshUser = await User.findById(user._id);
+      if (!freshUser) {
+        throw new Error('User not found after authentication');
       }
-      res.json({ 
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email
+
+      // Update Gravatar URL if needed
+      const hash = crypto.createHash('md5').update(freshUser.email.toLowerCase().trim()).digest('hex');
+      const gravatarUrl = `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
+      
+      if (!freshUser.avatar || freshUser.avatar !== gravatarUrl) {
+        freshUser.avatar = gravatarUrl;
+        await freshUser.save();
+      }
+
+      // Log in the user with fresh data
+      req.login(freshUser, (err) => {
+        if (err) {
+          console.error('Error during login:', err);
+          return res.status(500).json({ message: 'Error during login' });
         }
+
+        // Ensure session is saved
+        req.session.save((err) => {
+          if (err) {
+            console.error('Error saving session:', err);
+            return res.status(500).json({ message: 'Error saving session' });
+          }
+
+          console.log('Login successful, user data:', freshUser);
+          res.json({
+            message: 'Login successful',
+            user: freshUser
+          });
+        });
       });
-    });
+    } catch (error) {
+      console.error('Error in login process:', error);
+      res.status(500).json({ message: 'Error during login process' });
+    }
   })(req, res, next);
 });
 

@@ -69,8 +69,6 @@ A full-stack web application built with the MERN stack (MongoDB, Express.js, Rea
    GITHUB_CLIENT_SECRET=your_github_client_secret
    FACEBOOK_APP_ID=your_facebook_app_id
    FACEBOOK_APP_SECRET=your_facebook_app_secret
-   INSTAGRAM_CLIENT_ID=your_instagram_client_id
-   INSTAGRAM_CLIENT_SECRET=your_instagram_client_secret
    ```
 
    Frontend (.env):
@@ -136,8 +134,6 @@ The application will be available at:
    heroku config:set GITHUB_CLIENT_SECRET=github_client_secret
    heroku config:set FACEBOOK_APP_ID=facebook_app_id
    heroku config:set FACEBOOK_APP_SECRET=facebook_app_secret
-   heroku config:set INSTAGRAM_CLIENT_ID=your_instagram_client_id
-   heroku config:set INSTAGRAM_CLIENT_SECRET=your_instagram_client_secret
    heroku config:set EMAIL_HOST=smtp.gmail.com
    heroku config:set EMAIL_PORT=587
    heroku config:set EMAIL_USER=ralphdp21@gmail.com
@@ -155,44 +151,46 @@ The application will be available at:
 
 ```
 hmern/
-├── backend/                    # Backend server code
-│   ├── config/                 # Configuration files
-│   │   ├── auth.config.js      # Authentication configuration
-│   │   └── passport.js         # Passport.js configuration
-│   ├── models/                 # Database models
-│   │   └── User.js             # User model
-│   ├── routes/                 # API routes
-│   │   └── auth.js             # Authentication routes
-│   ├── server.js               # Main server file
-│   └── package.json            # Backend dependencies
+├── backend/                        # Backend server
+│   ├── config/                     # Configuration files
+│   │   ├── auth.config.js          # Authentication configuration
+│   │   └── passport.js             # Passport.js configuration
+│   ├── models/                     # Database models
+│   │   ├── Token.js                # Token model for email verification
+│   │   └── User.js                 # User model
+│   ├── routes/                     # API routes
+│   │   └── auth.js                 # Authentication routes
+│   ├── services/                   # Business logic
+│   │   └── emailService.js         # Email service for verification
+│   ├── package.json                # Backend dependencies
+│   └── server.js                   # Express server setup
 │
-├── frontend/                   # React frontend code
-│   ├── public/                 # Static files
-│   │   ├── index.html          # Main HTML file
-│   │   ├── favicon.ico         # Favicon
-│   │   ├── manifest.json       # Web app manifest
-│   │   └── robots.txt          # Robots file
-│   │
-│   ├── src/                    # React source code
-│   │   ├── App.js              # Main React component
-│   │   ├── App.css             # Styles for App component
-│   │   ├── App.test.js         # Tests for App component
-│   │   ├── index.js            # React entry point
-│   │   ├── index.css           # Global styles
-│   │   ├── logo.svg            # React logo
-│   │   ├── reportWebVitals.js  # Performance measurement
-│   │   ├── setupTests.js       # Test configuration
-│   │   ├── components/         # React components
-│   │   │   └── Login.js        # Login component
-│   │   └── theme.js            # Material-UI theme
-│   │
-│   ├── package.json            # Frontend dependencies
-│   └── .gitignore              # Frontend git ignore rules
+├── frontend/                       # React frontend
+│   ├── public/                     # Static files
+│   ├── src/                        # Source files
+│   │   ├── components/             # Reusable components
+│   │   │   ├── Login.js            # Login component
+│   │   │   ├── PasswordInput.js    # Password input component
+│   │   │   └── PrivateRoute.js     # Protected route component
+│   │   ├── contexts/               # React contexts
+│   │   │   └── AuthContext.js      # Authentication context
+│   │   ├── pages/                  # Page components
+│   │   │   ├── Dashboard.js        # Dashboard page
+│   │   │   ├── ForgotPassword.js   # Forgot password page
+│   │   │   ├── Home.js             # Home page
+│   │   │   ├── Login.js            # Login page
+│   │   │   ├── Register.js         # Registration page
+│   │   │   ├── ResetPassword.js    # Reset password page
+│   │   │   └── VerifyEmail.js      # Email verification page
+│   │   ├── App.js                  # Main App component
+│   │   ├── index.js                # Entry point
+│   │   └── theme.js                # Material-UI theme
+│   └── package.json                # Frontend dependencies
 │
-├── package.json                # Root package.json
-├── Procfile                    # Heroku deployment configuration
-├── .gitignore                  # Root git ignore rules
-└── README.md                   # Project documentation
+├── .gitignore                      # Git ignore file
+├── package.json                    # Root package.json
+├── Procfile                        # Heroku deployment configuration
+└── README.md                       # Project documentation
 ```
 
 ## 🔐 Authentication
@@ -220,33 +218,84 @@ The application uses Passport.js for authentication with the following features:
 ### Setting Up OAuth
 
 1. **Google OAuth**
-   - Go to Google Cloud Console
-   - Create a new project
-   - Enable Google+ API
-   - Create OAuth 2.0 credentials
-   - Add authorized redirect URIs:
-     - Development: `http://localhost:5050/api/auth/google/callback`
-     - Production: `https://your-app.herokuapp.com/api/auth/google/callback`
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Navigate to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth client ID"
+   - Configure the OAuth consent screen:
+     - User Type: External
+     - App Name: Your application name
+     - User support email: Your email
+     - Developer contact information: Your email
+     - Authorized domains: Add your domain
+   - Create OAuth 2.0 Client ID:
+     - Application type: Web application
+     - Name: Your application name
+     - Authorized JavaScript origins:
+       - For development: `http://localhost:3000`
+       - For production: `https://your-domain.com`
+     - Authorized redirect URIs:
+       - For development: `http://localhost:3000/api/auth/google/callback`
+       - For production: `https://your-domain.com/api/auth/google/callback`
+   - Note down your Client ID and Client Secret
+   - Add the following environment variables to your `.env` file:
+     ```
+     GOOGLE_CLIENT_ID=your_client_id
+     GOOGLE_CLIENT_SECRET=your_client_secret
+     GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+     ```
+   - For production, update `GOOGLE_CALLBACK_URL` to your production URL
 
 2. **GitHub OAuth**
-   - Go to GitHub Developer Settings
-   - Create a new OAuth App
-   - Add authorized redirect URIs:
-     - Development: `http://localhost:5050/api/auth/github/callback`
-     - Production: `https://your-app.herokuapp.com/api/auth/github/callback`
+   - Go to [GitHub Developer Settings](https://github.com/settings/developers)
+   - Click "New OAuth App"
+   - Fill in the application details:
+     - Application name: Your application name
+     - Homepage URL:
+       - For development: `http://localhost:3000`
+       - For production: `https://your-domain.com`
+     - Application description: Brief description of your app
+     - Authorization callback URL:
+       - For development: `http://localhost:3000/api/auth/github/callback`
+       - For production: `https://your-domain.com/api/auth/github/callback`
+   - Click "Register application"
+   - Note down your Client ID
+   - Generate a new Client Secret
+   - Add the following environment variables to your `.env` file:
+     ```
+     GITHUB_CLIENT_ID=your_client_id
+     GITHUB_CLIENT_SECRET=your_client_secret
+     GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
+     ```
+   - For production, update `GITHUB_CALLBACK_URL` to your production URL
 
 3. **Facebook OAuth**
-   - Go to Facebook Developers
-   - Create a new app
-   - Add Facebook Login product
-   - Configure OAuth settings
-   - Add authorized redirect URIs
-
-4. **Instagram OAuth**
-   - Go to Instagram Basic Display
-   - Create a new app
-   - Configure OAuth settings
-   - Add authorized redirect URIs
+   - Go to [Facebook Developers](https://developers.facebook.com/)
+   - Click "Create App" or select your existing app
+   - Choose "Consumer" as the app type
+   - Fill in your app details:
+     - App Name: Your application name
+     - App Contact Email: Your email
+     - Business Account: Optional
+   - In the app dashboard:
+     - Go to "Settings" > "Basic"
+     - Note down your App ID and App Secret
+     - Add your app domain (e.g., `localhost` for development)
+   - Configure OAuth settings:
+     - Go to "Facebook Login" > "Settings"
+     - Add OAuth Redirect URIs:
+       - For development: `http://localhost:3000/api/auth/facebook/callback`
+       - For production: `https://your-domain.com/api/auth/facebook/callback`
+     - Set "Client OAuth Login" to Yes
+     - Set "Web OAuth Login" to Yes
+     - Set "Enforce HTTPS" to Yes for production
+   - Add the following environment variables to your `.env` file:
+     ```
+     FACEBOOK_APP_ID=your_app_id
+     FACEBOOK_APP_SECRET=your_app_secret
+     FACEBOOK_CALLBACK_URL=http://localhost:3000/api/auth/facebook/callback
+     ```
+   - For production, update `FACEBOOK_CALLBACK_URL` to your production URL
 
 ### Security Considerations
 
