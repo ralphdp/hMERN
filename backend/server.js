@@ -18,7 +18,7 @@ const { connectDB } = require('./config/db');
 const { initializePassport } = require('./config/passport');
 require('dotenv').config();
 
-// Ensure required environment variables are set
+// Ensure required environment variables are setup
 const requiredEnvVars = [
   'MONGODB_URI',
   'SESSION_SECRET',
