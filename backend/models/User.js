@@ -10,22 +10,35 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: false
+    required: function() {
+      return !this.googleId && !this.githubId && !this.facebookId;
+    }
   },
   googleId: String,
   githubId: String,
   facebookId: String,
   email: {
     type: String,
-    required: false,
+    required: true,
     unique: true,
-    sparse: true
+    lowercase: true,
+    trim: true
   },
   name: {
     type: String,
     required: true
   },
   avatar: String,
+  googleAccessToken: String,
+  githubAccessToken: String,
+  facebookAccessToken: String,
+  isVerified: {
+    type: Boolean,
+    default: function() {
+      // Auto-verify OAuth users
+      return !!(this.googleId || this.githubId || this.facebookId);
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -34,10 +47,15 @@ const userSchema = new mongoose.Schema({
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
+  if (!this.isModified('password')) return next();
+  
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    next(error);
   }
-  next();
 });
 
 // Method to compare password

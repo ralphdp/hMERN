@@ -15,8 +15,9 @@ import {
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useAuth } from '../contexts/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 
-function Login() {
+const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
@@ -24,6 +25,8 @@ function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [message, setMessage] = useState('');
 
   // Helper function to get backend URL
   const getBackendUrl = () => {
@@ -51,15 +54,45 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError('');
+    setMessage('');
 
     try {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Failed to login. Please try again.');
+      if (err.response?.data?.needsVerification) {
+        setNeedsVerification(true);
+        setError('Please verify your email before logging in.');
+      } else {
+        setError(err.response?.data?.message || 'Error logging in');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${getBackendUrl()}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to resend verification email');
+      }
+      
+      setMessage('Verification email sent! Please check your inbox.');
+    } catch (error) {
+      setError(error.message || 'Error sending verification email');
     } finally {
       setLoading(false);
     }
@@ -67,122 +100,130 @@ function Login() {
 
   const handleGoogleLogin = () => {
     const backendUrl = getBackendUrl();
-    console.log('Redirecting to Google OAuth:', `${backendUrl}/api/auth/google`);
     window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const handleGithubLogin = () => {
     const backendUrl = getBackendUrl();
-    console.log('Redirecting to GitHub OAuth:', `${backendUrl}/api/auth/github`);
     window.location.href = `${backendUrl}/api/auth/github`;
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper
-          elevation={3}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <Typography component="h1" variant="h5" gutterBottom>
+    <Container maxWidth="sm">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
             Sign In
           </Typography>
 
           {error && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                width: '100%', 
-                mb: 2,
-                '& .MuiAlert-message': {
-                  whiteSpace: 'pre-line'
-                }
-              }}
-            >
+            <Alert severity="error" sx={{ mb: 2 }}>
               {error}
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+          {message && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {message}
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit}>
             <TextField
-              margin="normal"
-              required
               fullWidth
-              id="email"
-              label="Email Address"
-              name="email"
-              autoComplete="email"
-              autoFocus
+              label="Email"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-            />
-            <TextField
-              margin="normal"
               required
-              fullWidth
-              name="password"
-              label="Password"
-              type="password"
-              id="password"
-              autoComplete="current-password"
+              margin="normal"
+              disabled={loading}
+            />
+
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-            />
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              error={!!error}
+              helperText={error}
+              label="Password"
               disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Sign In'}
-            </Button>
-          </Box>
+            />
 
-          <Divider sx={{ width: '100%', my: 2 }}>OR</Divider>
+            <Box mt={3}>
+              <Button
+                fullWidth
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Sign In'}
+              </Button>
+            </Box>
 
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleLogin}
-            sx={{ mb: 2 }}
-          >
-            Sign in with Google
-          </Button>
+            {needsVerification && (
+              <Box mt={2} textAlign="center">
+                <Button
+                  variant="text"
+                  color="primary"
+                  onClick={handleResendVerification}
+                  disabled={loading}
+                >
+                  Resend Verification Email
+                </Button>
+              </Box>
+            )}
 
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GitHubIcon />}
-            onClick={handleGithubLogin}
-            sx={{ mb: 2 }}
-          >
-            Sign in with GitHub
-          </Button>
+            <Box mt={2} textAlign="center">
+              <Button
+                variant="text"
+                color="primary"
+                onClick={() => navigate('/forgot-password')}
+                disabled={loading}
+              >
+                Forgot Password?
+              </Button>
+            </Box>
 
-          <Box sx={{ mt: 2 }}>
-            <Link component={RouterLink} to="/register" variant="body2">
-              {"Don't have an account? Sign Up"}
-            </Link>
-          </Box>
+            <Box mt={2} textAlign="center">
+              <Button
+                variant="text"
+                color="primary"
+                onClick={() => navigate('/register')}
+                disabled={loading}
+              >
+                Don't have an account? Sign Up
+              </Button>
+            </Box>
+
+            <Divider sx={{ my: 3 }}>OR</Divider>
+
+            <Box display="flex" flexDirection="column" gap={2}>
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<GoogleIcon />}
+                onClick={handleGoogleLogin}
+                disabled={loading}
+              >
+                Sign in with Google
+              </Button>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<GitHubIcon />}
+                onClick={handleGithubLogin}
+                disabled={loading}
+              >
+                Sign in with GitHub
+              </Button>
+            </Box>
+          </form>
         </Paper>
       </Box>
     </Container>
   );
-}
+};
 
 export default Login; 

@@ -5,6 +5,9 @@ const authConfig = require('../config/auth.config');
 const axios = require('axios');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const Token = require('../models/Token');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 
 // Get available auth providers
 router.get('/providers', (req, res) => {
@@ -24,7 +27,7 @@ router.get('/providers', (req, res) => {
 const getFrontendUrl = () => {
   return process.env.NODE_ENV === 'production'
     ? process.env.FRONTEND_URL
-    : 'http://localhost:3000';
+    : `http://localhost:${process.env.PORT_FRONTEND}`;
 };
 
 // Helper function to handle successful authentication
@@ -210,11 +213,30 @@ router.get('/avatar/:provider/:id', async (req, res) => {
     let avatarUrl;
 
     if (provider === 'google') {
-      avatarUrl = `https://lh3.googleusercontent.com/-XdUIqdMkCWA/AAAAAAAAAAI/AAAAAAAAAAA/4252rscbv5M/photo.jpg`;
+      // For Google, we should use the stored avatar URL from the user's profile
+      const user = await User.findOne({ googleId: id });
+      if (user && user.avatar) {
+        return res.redirect(user.avatar);
+      }
+      // Fallback to Gravatar if no Google avatar is found
+      const hash = crypto.createHash('md5').update(user.email.toLowerCase().trim()).digest('hex');
+      avatarUrl = `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
     } else if (provider === 'github') {
+      const user = await User.findOne({ githubId: id });
+      if (user && user.avatar) {
+        return res.redirect(user.avatar);
+      }
       avatarUrl = `https://github.com/identicons/${id}.png`;
     } else if (provider === 'facebook') {
+      const user = await User.findOne({ facebookId: id });
+      if (user && user.avatar) {
+        return res.redirect(user.avatar);
+      }
       avatarUrl = `https://graph.facebook.com/${id}/picture?type=large`;
+    } else if (provider === 'gravatar') {
+      // If it's a Gravatar URL, just redirect to it
+      avatarUrl = `https://www.gravatar.com/avatar/${id}?d=mp&s=200`;
+      return res.redirect(avatarUrl);
     } else {
       return res.status(400).json({ message: 'Invalid provider' });
     }
@@ -232,94 +254,235 @@ router.get('/avatar/:provider/:id', async (req, res) => {
   }
 });
 
-// Local registration
+// Register route
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    console.log('Register attempt for:', email);
 
+    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      console.log('User already exists:', email);
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'Email already registered' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Generate Gravatar URL
+    const hash = crypto.createHash('md5').update(email.toLowerCase().trim()).digest('hex');
+    const avatar = `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
+
+    // Create new user with avatar
     const user = await User.create({
       name,
       email,
-      password: hashedPassword
+      password,
+      avatar,
+      isVerified: false
     });
 
-    console.log('User created successfully:', user._id);
-    req.login(user, (err) => {
-      if (err) {
-        console.error('Login after register error:', err);
-        return res.status(500).json({ message: 'Error logging in after registration' });
-      }
-      res.json(user);
+    // Generate verification token
+    const token = new Token({
+      userId: user._id,
+      token: crypto.randomBytes(32).toString('hex'),
+      type: 'verification'
     });
-  } catch (err) {
-    console.error('Registration error:', err);
+    await token.save();
+
+    // Send verification email
+    await sendVerificationEmail(user.email, token.token);
+
+    res.status(201).json({ 
+      message: 'Registration successful. Please check your email to verify your account.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ message: 'Error registering user' });
   }
 });
 
-// Local login
-router.post('/login', async (req, res) => {
+// Verify email route
+router.get('/verify-email/:token', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    console.log('Login attempt for:', email);
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      console.log('User not found:', email);
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Check if user was created through OAuth
-    if (user.googleId) {
-      return res.status(400).json({ 
-        message: 'This account was created using Google. Please sign in with Google instead.' 
-      });
-    }
-    if (user.githubId) {
-      return res.status(400).json({ 
-        message: 'This account was created using GitHub. Please sign in with GitHub instead.' 
-      });
-    }
-    if (user.facebookId) {
-      return res.status(400).json({ 
-        message: 'This account was created using Facebook. Please sign in with Facebook instead.' 
-      });
-    }
-
-    // If no password is set (OAuth-only account)
-    if (!user.password) {
-      return res.status(400).json({ 
-        message: 'This account does not have a password set. Please use the OAuth provider you originally signed up with.' 
-      });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      console.log('Invalid password for:', email);
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    console.log('Password match successful for:', email);
-    req.login(user, (err) => {
-      if (err) {
-        console.error('Login error:', err);
-        return res.status(500).json({ message: 'Error logging in' });
-      }
-      console.log('Login successful, session:', req.session);
-      res.json(user);
+    console.log('Verifying email with token:', req.params.token);
+    
+    const token = await Token.findOne({
+      token: req.params.token,
+      type: 'verification'
     });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'Error logging in' });
+
+    if (!token) {
+      console.log('Token not found');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Invalid or expired verification token' 
+      });
+    }
+
+    const user = await User.findById(token.userId);
+    if (!user) {
+      console.log('User not found for token');
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+
+    if (user.isVerified) {
+      console.log('User already verified');
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email already verified' 
+      });
+    }
+
+    user.isVerified = true;
+    await user.save();
+    await token.deleteOne();
+
+    console.log('Email verified successfully for user:', user.email);
+    res.json({ 
+      success: true,
+      message: 'Email verified successfully' 
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error verifying email' 
+    });
   }
+});
+
+// Resend verification email
+router.post('/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: 'Email already verified' });
+    }
+
+    // Delete any existing verification tokens
+    await Token.deleteMany({ userId: user._id, type: 'verification' });
+
+    // Create new verification token
+    const token = new Token({
+      userId: user._id,
+      token: crypto.randomBytes(32).toString('hex'),
+      type: 'verification'
+    });
+    await token.save();
+
+    // Send verification email
+    await sendVerificationEmail(user.email, token.token);
+
+    res.json({ message: 'Verification email sent' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ message: 'Error sending verification email' });
+  }
+});
+
+// Request password reset
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Delete any existing password reset tokens
+    await Token.deleteMany({ userId: user._id, type: 'password-reset' });
+
+    // Create new password reset token
+    const token = new Token({
+      userId: user._id,
+      token: crypto.randomBytes(32).toString('hex'),
+      type: 'password-reset'
+    });
+    await token.save();
+
+    // Send password reset email
+    await sendPasswordResetEmail(user.email, token.token);
+
+    res.json({ message: 'Password reset email sent' });
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({ message: 'Error sending password reset email' });
+  }
+});
+
+// Reset password
+router.post('/reset-password/:token', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const token = await Token.findOne({
+      token: req.params.token,
+      type: 'password-reset'
+    });
+
+    if (!token) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    const user = await User.findById(token.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.password = password;
+    await user.save();
+    await token.deleteOne();
+
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({ message: 'Error resetting password' });
+  }
+});
+
+// Login route
+router.post('/login', async (req, res, next) => {
+  passport.authenticate('local', async (err, user, info) => {
+    if (err) {
+      return next(err);
+    }
+    if (!user) {
+      return res.status(401).json({ message: info.message });
+    }
+
+    // Check if email is verified for local login
+    if (!user.isVerified) {
+      return res.status(401).json({ 
+        message: 'Please verify your email before logging in',
+        needsVerification: true
+      });
+    }
+
+    req.logIn(user, (err) => {
+      if (err) {
+        return next(err);
+      }
+      res.json({ 
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email
+        }
+      });
+    });
+  })(req, res, next);
 });
 
 module.exports = router; 

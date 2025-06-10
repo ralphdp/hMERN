@@ -27,6 +27,7 @@ function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
   // Helper function to get backend URL
   const getBackendUrl = () => {
@@ -63,6 +64,7 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setMessage('');
 
     if (!validateForm()) {
       return;
@@ -72,7 +74,8 @@ function Register() {
 
     try {
       await register(name, email, password);
-      navigate('/dashboard');
+      setMessage('Registration successful! Please check your email to verify your account.');
+      setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
       console.error('Registration error:', err);
       setError(err.response?.data?.message || 'Failed to register. Please try again.');
@@ -83,13 +86,11 @@ function Register() {
 
   const handleGoogleLogin = () => {
     const backendUrl = getBackendUrl();
-    console.log('Redirecting to Google OAuth:', `${backendUrl}/api/auth/google`);
     window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const handleGithubLogin = () => {
     const backendUrl = getBackendUrl();
-    console.log('Redirecting to GitHub OAuth:', `${backendUrl}/api/auth/github`);
     window.location.href = `${backendUrl}/api/auth/github`;
   };
 
@@ -120,6 +121,12 @@ function Register() {
           {error && (
             <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
               {error}
+            </Alert>
+          )}
+
+          {message && (
+            <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
+              {message}
             </Alert>
           )}
 

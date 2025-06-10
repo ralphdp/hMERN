@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import MD5 from 'crypto-js/md5';
 import {
   Box,
   Container,
@@ -61,7 +62,8 @@ const Dashboard = () => {
               alt={user.name}
               onError={(e) => {
                 e.target.onerror = null;
-                e.target.src = `https://www.gravatar.com/avatar/${user.email}?d=identicon&s=200`;
+                const hash = MD5(user.email.toLowerCase().trim()).toString();
+                e.target.src = `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
               }}
               sx={{
                 width: 100,
@@ -76,7 +78,7 @@ const Dashboard = () => {
           ) : (
             <Box
               component="img"
-              src={`https://www.gravatar.com/avatar/${user.email}?d=identicon&s=200`}
+              src={`https://www.gravatar.com/avatar/${MD5(user.email.toLowerCase().trim()).toString()}?d=mp&s=200`}
               alt={user.name}
               sx={{
                 width: 100,

@@ -25,8 +25,6 @@ export const AuthProvider = ({ children }) => {
   const checkAuth = async () => {
     try {
       const backendUrl = getBackendUrl();
-      console.log('Checking auth status with backend URL:', backendUrl);
-      
       const response = await axios.get(`${backendUrl}/api/auth/status`, {
         withCredentials: true,
         headers: {
@@ -35,8 +33,6 @@ export const AuthProvider = ({ children }) => {
         }
       });
 
-      console.log('Auth status response:', response.data);
-      
       if (response.data.isAuthenticated && response.data.user) {
         setUser(response.data.user);
       } else {
@@ -55,35 +51,27 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    try {
-      const backendUrl = getBackendUrl();
-      const response = await axios.post(
-        `${backendUrl}/api/auth/login`,
-        { email, password },
-        { withCredentials: true }
-      );
-      setUser(response.data);
-      return response.data;
-    } catch (err) {
-      console.error('Login error:', err);
-      throw err;
+    const backendUrl = getBackendUrl();
+    const response = await axios.post(
+      `${backendUrl}/api/auth/login`,
+      { email, password },
+      { withCredentials: true }
+    );
+    
+    if (response.data.user) {
+      setUser(response.data.user);
     }
+    return response.data;
   };
 
   const register = async (name, email, password) => {
-    try {
-      const backendUrl = getBackendUrl();
-      const response = await axios.post(
-        `${backendUrl}/api/auth/register`,
-        { name, email, password },
-        { withCredentials: true }
-      );
-      setUser(response.data);
-      return response.data;
-    } catch (err) {
-      console.error('Register error:', err);
-      throw err;
-    }
+    const backendUrl = getBackendUrl();
+    const response = await axios.post(
+      `${backendUrl}/api/auth/register`,
+      { name, email, password },
+      { withCredentials: true }
+    );
+    return response.data;
   };
 
   const logout = async () => {
