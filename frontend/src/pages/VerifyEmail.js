@@ -19,6 +19,8 @@ const VerifyEmail = () => {
   const hasShownSuccess = useRef(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const token = new URLSearchParams(search).get('token');
 
   // Helper function to get backend URL
   const getBackendUrl = () => {
@@ -29,88 +31,41 @@ const VerifyEmail = () => {
   };
 
   useEffect(() => {
-    const token = new URLSearchParams(location.search).get('token');
-    console.log('Initial state:', { token, loading, error, message, isVerified });
-    
-    if (!token) {
-      console.log('No token found in URL');
-      setError('No verification token provided');
-      setLoading(false);
-      return;
-    }
-
     const verifyEmail = async () => {
-      console.log('Starting verification process');
-      
-      // If already verified or success shown, don't try to verify again
-      if (isVerified || hasShownSuccess.current) {
-        console.log('Already verified or success shown, skipping verification');
+      if (!token) {
+        setError('No verification token provided');
+        setLoading(false);
         return;
       }
 
       try {
-        console.log('Setting initial states');
-        setLoading(true);
-        setError(null);
-        setMessage(null);
-
         const backendUrl = getBackendUrl();
-        console.log('Making verification request:', {
-          url: `${backendUrl}/api/auth/verify-email/${token}`,
-          token
-        });
-
-        const response = await axios.get(`${backendUrl}/api/auth/verify-email/${token}`, {
-          withCredentials: true
-        });
-        
-        console.log('Verification response received:', response.data);
-
-        // Set verified state and success message
-        console.log('Setting success states');
-        setIsVerified(true);
-        setMessage('Email verified successfully! You can now log in.');
-        setError(null);
-        hasShownSuccess.current = true;
-        
-        console.log('States after success:', { loading, error, message, isVerified });
-        
-        setTimeout(() => {
-          console.log('Redirecting to login');
-          navigate('/login');
-        }, 3000);
-
-      } catch (error) {
-        console.error('Verification error details:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message
-        });
-        
-        // If we get a 200 status, treat it as success
-        if (error.response?.status === 200) {
-          console.log('Received 200 status, treating as success');
-          setIsVerified(true);
-          setMessage('Email verified successfully! You can now log in.');
-          setError(null);
-          hasShownSuccess.current = true;
-          setTimeout(() => navigate('/login'), 3000);
-        } else {
-          // Only set error if we haven't already verified
-          if (!isVerified && !hasShownSuccess.current) {
-            console.log('Setting error state');
-            setError(error.response?.data?.message || 'Error verifying email');
-            setMessage(null);
+        const response = await fetch(`${backendUrl}/api/auth/verify-email/${token}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
           }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setMessage(data.message || 'Email verified successfully');
+        } else {
+          setError(data.message || 'Failed to verify email');
         }
+      } catch (err) {
+        setError('An error occurred while verifying your email');
+        console.error('Verification error:', err);
       } finally {
-        console.log('Setting loading to false');
         setLoading(false);
       }
     };
 
     verifyEmail();
-  }, [location.search, navigate, isVerified]);
+  }, [token]);
 
   // Log state changes
   useEffect(() => {

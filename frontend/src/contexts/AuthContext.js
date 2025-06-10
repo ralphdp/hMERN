@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -14,6 +14,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const getBackendUrl = () => {
     if (process.env.NODE_ENV === 'production') {
@@ -22,19 +23,20 @@ export const AuthProvider = ({ children }) => {
     return `http://localhost:${process.env.REACT_APP_PORT_BACKEND || 5050}`;
   };
 
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const backendUrl = getBackendUrl();
-      const response = await axios.get(`${backendUrl}/api/auth/status`, {
-        withCredentials: true,
+      const response = await fetch(`${backendUrl}/api/auth/user`, {
+        credentials: 'include',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
         }
       });
 
-      if (response.data.isAuthenticated && response.data.user) {
-        setUser(response.data.user);
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data);
       } else {
         setUser(null);
       }
@@ -44,11 +46,11 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
   const login = async (email, password) => {
     const backendUrl = getBackendUrl();

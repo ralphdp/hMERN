@@ -10,10 +10,13 @@ import {
   Paper,
   Divider,
   Alert,
-  CircularProgress
+  CircularProgress,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import PasswordInput from '../components/PasswordInput';
 
