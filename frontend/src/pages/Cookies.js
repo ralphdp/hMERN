@@ -126,7 +126,7 @@ const Cookies = () => {
             8. Contact Us
           </Typography>
           <Typography variant="body1" paragraph>
-            If you have any questions about this Cookie Policy, please contact us at support@mernauth.com.
+            If you have any questions about this Cookie Policy, please contact us at contact@example.com.
           </Typography>
         </Box>
       </Paper>

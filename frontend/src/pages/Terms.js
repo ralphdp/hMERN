@@ -88,7 +88,7 @@ const Terms = () => {
             9. Contact Information
           </Typography>
           <Typography variant="body1" paragraph>
-            If you have any questions about these Terms, please contact us at support@mernauth.com.
+            If you have any questions about these Terms, please contact us at contact@example.com.
           </Typography>
         </Box>
       </Paper>

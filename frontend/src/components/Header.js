@@ -309,9 +309,9 @@ const Header = ({ mode, toggleColorMode, user }) => {
                   >
                     <MenuItem onClick={() => {
                       handleCloseUserMenu();
-                      navigate('/profile');
+                      navigate('/dashboard');
                     }}>
-                      <Typography textAlign="center">Profile</Typography>
+                      <Typography textAlign="center">Dashboard</Typography>
                     </MenuItem>
                     <MenuItem onClick={() => {
                       handleCloseUserMenu();

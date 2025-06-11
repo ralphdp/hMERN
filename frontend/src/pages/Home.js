@@ -56,7 +56,7 @@ const Home = () => {
   return (
     <Box
       sx={{
-        pb: 4,
+        mb: 8,
       }}
     >
       {/* Hero Section */}
@@ -99,7 +99,31 @@ const Home = () => {
 
       <Container maxWidth="lg">
         {/* Features Section */}
-        <Grid container spacing={4} sx={{ mb: 8 }}>
+        <Box sx={{ textAlign: 'center', mb: 8 }}>
+          <Typography
+            variant="h4"
+            component="h2"
+            gutterBottom
+            sx={{
+              fontWeight: 'bold',
+              mb: 2
+            }}
+          >
+            Features
+          </Typography>
+          <Typography
+            variant="h6"
+            component="h3"
+            gutterBottom
+            sx={{
+              opacity: 0.9,
+              color: 'text.secondary',
+              mb: { xs: 2, sm: 4 }
+            }}
+          >
+            A straight forward MERN Stack boilerplate using Passport.js for authentication, and Heroku for deployment.
+          </Typography>
+        <Grid container spacing={4} sx={{ mb: 16 }}>
           <Grid item xs={12} sm={6} lg={3}>
             <FeatureCard
               icon={<SecurityIcon sx={{ fontSize: 40 }} />}
@@ -129,6 +153,7 @@ const Home = () => {
             />
           </Grid>
         </Grid>
+        </Box>
 
         {/* AI Assistant Section */}
         <Box sx={{ textAlign: 'center', mb: 8 }}>
@@ -163,7 +188,7 @@ const Home = () => {
             <Grid item xs={12} sm={4}>
               <Box
                 sx={{
-                  height: { xs: '150px', sm: '200px' },
+                  height: { xs: '100px', sm: '150px' },
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -175,13 +200,14 @@ const Home = () => {
                   alt="Claude AI"
                   sx={{
                     height: 'auto',
-                    maxWidth: '200px',
-                    maxHeight: '150px',
+                    maxWidth: '100%',
+                    maxHeight: '100px',
                     filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
                     transition: 'transform 0.2s, filter 0.2s',
                     '&:hover': {
                       transform: 'scale(1.05)'
-                    }
+                    },
+                    p: 2
                   }}
                 />
               </Box>
@@ -189,7 +215,7 @@ const Home = () => {
             <Grid item xs={12} sm={4}>
               <Box
                 sx={{
-                  height: { xs: '150px', sm: '200px' },
+                  height: { xs: '100px', sm: '150px' },
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -201,13 +227,14 @@ const Home = () => {
                   alt="Cursor AI"
                   sx={{
                     height: 'auto',
-                    maxWidth: '200px',
-                    maxHeight: '150px',
+                    maxWidth: '100%',
+                    maxHeight: '100px',
                     filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
                     transition: 'transform 0.2s, filter 0.2s',
                     '&:hover': {
                       transform: 'scale(1.05)'
-                    }
+                    },
+                    p: 2
                   }}
                 />
               </Box>
@@ -215,7 +242,7 @@ const Home = () => {
             <Grid item xs={12} sm={4}>
               <Box
                 sx={{
-                  height: { xs: '150px', sm: '200px' },
+                  height: { xs: '100px', sm: '150px' },
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -227,13 +254,14 @@ const Home = () => {
                   alt="Windsurf AI"
                   sx={{
                     height: 'auto',
-                    maxWidth: '200px',
-                    maxHeight: '150px',
+                    maxWidth: '100%',
+                    maxHeight: '100px',
                     filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
                     transition: 'transform 0.2s, filter 0.2s',
                     '&:hover': {
                       transform: 'scale(1.05)'
-                    }
+                    },
+                    p: 2
                   }}
                 />
               </Box>
@@ -245,11 +273,10 @@ const Home = () => {
         <Box 
           sx={{ 
             width: '100%',
-            bgcolor: 'white',
-            borderRadius: 2,
+            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'white',
             py: { xs: 6, md: 8 },
             mt: 8,
-
+            borderRadius: 2,
           }}
         >
           <Container maxWidth="lg">
@@ -260,7 +287,8 @@ const Home = () => {
                 gutterBottom
                 sx={{
                   fontWeight: 'bold',
-                  mb: 2
+                  mb: 2,
+                  color: 'text.primary'
                 }}
               >
                 Contact Us!

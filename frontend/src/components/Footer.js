@@ -42,14 +42,11 @@ const Footer = () => {
             <MuiLink component={Link} to="/" color="inherit" display="block" sx={{ mb: 1 }}>
               Home
             </MuiLink>
-            <MuiLink component={Link} to="/terms" color="inherit" display="block" sx={{ mb: 1 }}>
-              Terms of Service
+            <MuiLink component={Link} to="/about" color="inherit" display="block" sx={{ mb: 1 }}>
+              About
             </MuiLink>
-            <MuiLink component={Link} to="/privacy" color="inherit" display="block" sx={{ mb: 1 }}>
-              Privacy Policy
-            </MuiLink>
-            <MuiLink component={Link} to="/cookies" color="inherit" display="block" sx={{ mb: 1 }}>
-              Cookie Policy
+            <MuiLink component={Link} to="/contact" color="inherit" display="block" sx={{ mb: 1 }}>
+              Contact
             </MuiLink>
           </Grid>
           <Grid item xs={12} sm={4}>
@@ -110,9 +107,28 @@ const Footer = () => {
         }}
       >
         <Container maxWidth="lg">
-          <Typography variant="body2" color="text.secondary" align="center">
-            © {new Date().getFullYear()} hMERN. All rights reserved.
-          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 2
+          }}>
+            <Typography variant="body2" color="text.secondary">
+              © {new Date().getFullYear()} hMERN. All rights reserved.
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <MuiLink component={Link} to="/terms" color="inherit" sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                Terms of Service
+              </MuiLink>
+              <MuiLink component={Link} to="/privacy" color="inherit" sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                Privacy Policy
+              </MuiLink>
+              <MuiLink component={Link} to="/cookies" color="inherit" sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+                Cookie Policy
+              </MuiLink>
+            </Box>
+          </Box>
         </Container>
       </Box>
     </Box>

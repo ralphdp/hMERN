@@ -26,7 +26,7 @@ const About = () => {
           <Typography variant="body1" component="div">
             <ul>
               <li>Modern React with Material-UI for beautiful, responsive interfaces</li>
-              <li>Secure authentication system with JWT</li>
+              <li>Secure authentication system with Passport.js</li>
               <li>RESTful API architecture</li>
               <li>MongoDB integration with Mongoose</li>
               <li>Environment-based configuration</li>
