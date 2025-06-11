@@ -313,16 +313,6 @@ The application uses Passport.js for authentication with the following features:
      ```
    - For production, update `FACEBOOK_CALLBACK_URL` to your production URL
 
-### Security Considerations
-
-- All OAuth credentials are stored in environment variables
-- Session secrets are unique and secure
-- HTTPS is enforced in production
-- Rate limiting is implemented
-- CORS is properly configured
-- Secure cookie settings are used
-- MongoDB connection is secured
-
 ## 🛠️ API Endpoints
 
 - `GET /api/test`: Test endpoint to verify backend functionality
