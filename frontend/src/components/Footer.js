@@ -115,7 +115,7 @@ const Footer = () => {
             gap: 2
           }}>
             <Typography variant="body2" color="text.secondary">
-              © {new Date().getFullYear()} hMERN. All rights reserved.
+              © {new Date().getFullYear()} hMERN.app. All rights reserved.
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <MuiLink component={Link} to="/terms" color="inherit" sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>

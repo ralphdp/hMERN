@@ -89,7 +89,7 @@ const Header = ({ mode, toggleColorMode, user }) => {
           className="nav-logo"
         />
         <Typography variant="h6" sx={{ ml: 1, fontWeight: 700 }}>
-          hMERN
+          hMERN.app
         </Typography>
       </Box>
 
@@ -196,7 +196,7 @@ const Header = ({ mode, toggleColorMode, user }) => {
                 color={theme.palette.mode === 'dark' ? '#fff' : theme.palette.grey[50]} 
                 className="nav-logo"
               />
-              hMERN
+              hMERN.app
             </Typography>
 
             {!isMobile && (

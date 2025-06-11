@@ -136,9 +136,9 @@ The application will be available at:
    heroku config:set FACEBOOK_APP_SECRET=facebook_app_secret
    heroku config:set EMAIL_HOST=smtp.gmail.com
    heroku config:set EMAIL_PORT=587
-   heroku config:set EMAIL_USER=ralphdp21@gmail.com
-   heroku config:set EMAIL_PASSWORD=cfwevsawdtvhbunj
-   heroku config:set EMAIL_FROM=ralphdp21@gmail.com
+   heroku config:set EMAIL_USER=email_user
+   heroku config:set EMAIL_PASSWORD=email_password
+   heroku config:set EMAIL_FROM=email_from
    # Add other OAuth provider credentials as needed
    ```
 
@@ -151,62 +151,62 @@ The application will be available at:
 
 ```
 hmern/
-├── frontend/                 # React frontend application
-│   ├── public/              # Static files
-│   │   ├── images/         # Image assets
-│   │   └── index.html      # HTML template
+├── frontend/                   # React frontend application
+│   ├── public/                 # Static files
+│   │   ├── images/             # Image assets
+│   │   └── index.html          # HTML template
 │   ├── src/
-│   │   ├── components/     # Reusable components
-│   │   │   ├── Layout.js   # Main layout wrapper
-│   │   │   ├── Header.js   # Navigation header
-│   │   │   └── Footer.js   # Site footer
-│   │   ├── contexts/       # React context providers
+│   │   ├── components/         # Reusable components
+│   │   │   ├── Layout.js       # Main layout wrapper
+│   │   │   ├── Header.js       # Navigation header
+│   │   │   └── Footer.js       # Site footer
+│   │   ├── contexts/           # React context providers
 │   │   │   └── AuthContext.js  # Authentication context
-│   │   ├── pages/          # Page components
-│   │   │   ├── Home.js     # Landing page
-│   │   │   ├── About.js    # About page
-│   │   │   ├── Contact.js  # Contact page
-│   │   │   ├── Login.js    # Login page
-│   │   │   ├── Register.js # Registration page
-│   │   │   └── Profile.js  # User profile page
-│   │   ├── services/       # API services
-│   │   │   └── api.js      # API client setup
-│   │   ├── utils/          # Utility functions
-│   │   ├── App.js          # Main application component
-│   │   ├── App.test.js     # App component tests
-│   │   ├── index.js        # Application entry point
-│   │   ├── index.css       # Global styles
-│   │   ├── logo.svg        # React logo
+│   │   ├── pages/              # Page components
+│   │   │   ├── Home.js         # Landing page
+│   │   │   ├── About.js        # About page
+│   │   │   ├── Contact.js      # Contact page
+│   │   │   ├── Login.js        # Login page
+│   │   │   ├── Register.js     # Registration page
+│   │   │   └── Profile.js      # User profile page
+│   │   ├── services/           # API services
+│   │   │   └── api.js          # API client setup
+│   │   ├── utils/              # Utility functions
+│   │   ├── App.js              # Main application component
+│   │   ├── App.test.js         # App component tests
+│   │   ├── index.js            # Application entry point
+│   │   ├── index.css           # Global styles
+│   │   ├── logo.svg            # React logo
 │   │   ├── reportWebVitals.js  # Performance monitoring
-│   │   ├── setupTests.js   # Test configuration
-│   │   └── theme.js        # Material-UI theme configuration
-│   └── package.json        # Frontend dependencies
+│   │   ├── setupTests.js       # Test configuration
+│   │   └── theme.js            # Material-UI theme configuration
+│   └── package.json            # Frontend dependencies
 │
-├── backend/                 # Express.js backend application
-│   ├── config/             # Configuration files
-│   │   ├── db.js          # Database configuration
-│   │   └── passport.js    # Passport.js configuration
-│   ├── middleware/         # Custom middleware
-│   │   ├── auth.js        # Authentication middleware
-│   │   └── error.js       # Error handling middleware
-│   ├── models/            # Mongoose models
-│   │   ├── User.js       # User model
-│   │   └── Contact.js    # Contact form model
-│   ├── routes/            # API routes
-│   │   ├── auth.js       # Authentication routes
-│   │   ├── users.js      # User management routes
-│   │   └── contact.js    # Contact form routes
-│   ├── services/          # Business logic services
-│   │   └── emailService.js # Email service
-│   ├── .env              # Environment variables
-│   ├── server.js         # Application entry point
-│   └── package.json      # Backend dependencies
+├── backend/                    # Express.js backend application
+│   ├── config/                 # Configuration files
+│   │   ├── db.js               # Database configuration
+│   │   └── passport.js         # Passport.js configuration
+│   ├── middleware/             # Custom middleware
+│   │   ├── auth.js             # Authentication middleware
+│   │   └── error.js            # Error handling middleware
+│   ├── models/                 # Mongoose models
+│   │   ├── User.js             # User model
+│   │   └── Contact.js          # Contact form model
+│   ├── routes/                 # API routes
+│   │   ├── auth.js             # Authentication routes
+│   │   ├── users.js            # User management routes
+│   │   └── contact.js          # Contact form routes
+│   ├── services/               # Business logic services
+│   │   └── emailService.js     # Email service
+│   ├── .env                    # Environment variables
+│   ├── server.js               # Application entry point
+│   └── package.json            # Backend dependencies
 │
-├── .gitignore            # Git ignore file
-├── package.json          # Root package.json
-├── package-lock.json     # Root package lock file
-├── Procfile             # Heroku deployment configuration
-└── README.md            # Project documentation
+├── .gitignore                  # Git ignore file
+├── package.json                # Root package.json
+├── package-lock.json           # Root package lock file
+├── Procfile                    # Heroku deployment configuration
+└── README.md                   # Project documentation
 ```
 
 ## 🔐 Authentication

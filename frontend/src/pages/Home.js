@@ -80,7 +80,7 @@ const Home = () => {
                 textShadow: '2px 2px 4px rgba(0,0,0,0.2)',
               }}
             >
-              hMERN
+              hMERN.app
             </Typography>
             <Typography
               variant="h5"
@@ -302,7 +302,7 @@ const Home = () => {
                   mx: 'auto'
                 }}
               >
-                Have questions or need assistance? Our team is here to help you get the most out of hMERN.
+                Have questions or need assistance? Our team is here to help you get the most out of hMERN.app.
               </Typography>
               <Button
                 component={Link}

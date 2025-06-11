@@ -82,7 +82,7 @@ const Layout = ({ mode, toggleColorMode, user }) => {
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
       <Typography variant="h6" sx={{ my: 2 }}>
-        hMERN
+        hMERN.app
       </Typography>
       <Divider />
       <List>
