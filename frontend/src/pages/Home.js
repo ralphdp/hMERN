@@ -200,7 +200,7 @@ const Home = () => {
                   alt="Claude AI"
                   sx={{
                     height: 'auto',
-                    maxWidth: '100%',
+                    maxWidth: '200px',
                     maxHeight: '100px',
                     filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
                     transition: 'transform 0.2s, filter 0.2s',
@@ -227,7 +227,7 @@ const Home = () => {
                   alt="Cursor AI"
                   sx={{
                     height: 'auto',
-                    maxWidth: '100%',
+                    maxWidth: '200px',
                     maxHeight: '100px',
                     filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
                     transition: 'transform 0.2s, filter 0.2s',
@@ -254,7 +254,7 @@ const Home = () => {
                   alt="Windsurf AI"
                   sx={{
                     height: 'auto',
-                    maxWidth: '100%',
+                    maxWidth: '200px',
                     maxHeight: '100px',
                     filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
                     transition: 'transform 0.2s, filter 0.2s',

@@ -1,6 +1,6 @@
-# MERN Stack Application
+# MERN Stack Application Boilerplate
 
-A full-stack web application built with the MERN stack (MongoDB, Express.js, React.js, Node.js) featuring secure authentication, modern UI, and Heroku deployment.
+A full-stack web application boilerplate built with the MERN stack (MongoDB, Express.js, React.js, Node.js) featuring secure authentication, modern UI, and Heroku deployment.
 
 ## 🚀 Features
 
