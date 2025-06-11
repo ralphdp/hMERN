@@ -19,9 +19,10 @@ const Footer = () => {
       component="footer"
       sx={{
         bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
-        py: 4,
+        pt: 4,
         width: '100%',
-        flexShrink: 0
+        flexShrink: 0,
+        mt: 'auto'
       }}
     >
       <Container maxWidth="lg">
@@ -100,7 +101,7 @@ const Footer = () => {
       <Box
         sx={{
           mt: 3,
-          pt: 2,
+          py: 2,
           borderTop: 1,
           borderColor: 'divider',
           bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.01)',

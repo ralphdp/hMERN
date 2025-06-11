@@ -148,7 +148,8 @@ const Layout = ({ mode, toggleColorMode, user }) => {
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        position: 'relative'
       }}
     >
       <Header mode={mode} toggleColorMode={toggleColorMode} user={user} />
@@ -158,7 +159,8 @@ const Layout = ({ mode, toggleColorMode, user }) => {
           flexGrow: 1,
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'auto'
+          overflow: 'auto',
+          pb: 0
         }}
       >
         <Outlet />
