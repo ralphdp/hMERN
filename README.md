@@ -33,15 +33,19 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
   ```bash
   node --version
   ```
+
 - npm (v10.x or later)
   ```bash
   npm --version
   ```
+
 - git (v2.x or later)
   ```bash
   git --version
   ```
+
 - OAuth credentials for desired providers
+
 
 ## 🛠️ Installation
 
