@@ -30,8 +30,17 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
 ## 📋 Prerequisites
 
 - Node.js (v18.x or later)
+  ```bash
+  node --version
+  ```
 - npm (v10.x or later)
-- MongoDB (local or Atlas)
+  ```bash
+  npm --version
+  ```
+- git (v2.x or later)
+  ```bash
+  git --version
+  ```
 - OAuth credentials for desired providers
 
 ## 🛠️ Installation
@@ -108,12 +117,17 @@ The application will be available at:
 
 ### Heroku Deployment
 
-1. Create a Heroku app:
+1. Login to Heroku:
+   ```bash
+   heroku login
+   ```
+
+2. Create a Heroku app:
    ```bash
    heroku create
    ```
 
-2. Set environment variables:
+3. Set environment variables:
    ```bash
    heroku config:set NODE_ENV=production
    heroku config:set MONGODB_URI=your_mongodb_uri
@@ -133,10 +147,9 @@ The application will be available at:
    heroku config:set EMAIL_USER=email_user
    heroku config:set EMAIL_PASSWORD=email_password
    heroku config:set EMAIL_FROM=email_from
-   # Add other OAuth provider credentials as needed
    ```
 
-3. Deploy to Heroku:
+4. Deploy to Heroku:
    ```bash
    git add . && git commit -m "Initial Commit" && git push heroku master
    ```
@@ -145,62 +158,77 @@ The application will be available at:
 
 ```
 hmern/
-├── frontend/                   # React frontend application
-│   ├── public/                 # Static files
-│   │   ├── images/             # Image assets
-│   │   └── index.html          # HTML template
+├── frontend/                           # React frontend application
+│   ├── public/                         # Static files
+│   │   ├── images/                     # Image assets
+│   │   └── index.html                  # HTML template
 │   ├── src/
-│   │   ├── components/         # Reusable components
-│   │   │   ├── Layout.js       # Main layout wrapper
-│   │   │   ├── Header.js       # Navigation header
-│   │   │   └── Footer.js       # Site footer
-│   │   ├── contexts/           # React context providers
-│   │   │   └── AuthContext.js  # Authentication context
-│   │   ├── pages/              # Page components
-│   │   │   ├── Home.js         # Landing page
-│   │   │   ├── About.js        # About page
-│   │   │   ├── Contact.js      # Contact page
-│   │   │   ├── Login.js        # Login page
-│   │   │   ├── Register.js     # Registration page
-│   │   │   └── Profile.js      # User profile page
-│   │   ├── services/           # API services
-│   │   │   └── api.js          # API client setup
-│   │   ├── utils/              # Utility functions
-│   │   ├── App.js              # Main application component
-│   │   ├── App.test.js         # App component tests
-│   │   ├── index.js            # Application entry point
-│   │   ├── index.css           # Global styles
-│   │   ├── logo.svg            # React logo
-│   │   ├── reportWebVitals.js  # Performance monitoring
-│   │   ├── setupTests.js       # Test configuration
-│   │   └── theme.js            # Material-UI theme configuration
-│   └── package.json            # Frontend dependencies
+│   │   ├── components/                 # Reusable components
+│   │   │   ├── AnimatedLogo.js         # Animated Logo
+│   │   │   ├── Footer.js               # Site Footer
+│   │   │   ├── Header.js               # Navigation header
+│   │   │   ├── Layout.js               # Main layout wrapper
+│   │   │   ├── Login.js                # Login Components
+│   │   │   ├── PasswordInput.js        # Password Input Component
+│   │   │   ├── PrivateRoute.js         # Private route wrapper
+│   │   │   ├── ScrollToTop.js          # Scroll to top component
+│   │   ├── contexts/                   # React context providers
+│   │   │   └── AuthContext.js          # Authentication context
+│   │   ├── pages/                      # Page components
+│   │   │   ├── About.js                # About page
+│   │   │   ├── Contact.js              # Contact page
+│   │   │   ├── Cookies.js              # Cookies page
+│   │   │   ├── Dashboard.js            # Dashboard page
+│   │   │   ├── ForgotPassword.js       # Forgot password page
+│   │   │   ├── Home.js                 # Landing page
+│   │   │   ├── Login.js                # Login page
+│   │   │   ├── NotFound.js             # Not found page
+│   │   │   ├── Privacy.js              # Privacy page
+│   │   │   ├── Register.js             # Registration page
+│   │   │   ├── ResendVerification.js   # Registration page
+│   │   │   ├── ResetPassword.js        # Reset password page
+│   │   │   ├── Terms.js                # Terms page
+│   │   │   ├── Verify.js               # Verify account page login
+│   │   │   └── VerifyEmail.js          # Verify email address form page page
+│   │   ├── services/                   # API services
+│   │   │   └── auth.js                 # Authentication
+│   │   ├── utils/                      # Utility functions
+│   │   │   └── config.js               # Utility configuration
+│   │   ├── App.js                      # Main application component
+│   │   ├── App.test.js                 # App component tests
+│   │   ├── index.js                    # Application entry point
+│   │   ├── index.css                   # Global styles
+│   │   ├── logo.svg                    # React logo
+│   │   ├── reportWebVitals.js          # Performance monitoring
+│   │   ├── setupTests.js               # Test configuration
+│   │   └── theme.js                    # Material-UI theme configuration
+│   ├── package.json                    # Frontend dependencies
+│   └── package-lock.json               # Frontend package lock file
 │
-├── backend/                    # Express.js backend application
-│   ├── config/                 # Configuration files
-│   │   ├── db.js               # Database configuration
-│   │   └── passport.js         # Passport.js configuration
-│   ├── middleware/             # Custom middleware
-│   │   ├── auth.js             # Authentication middleware
-│   │   └── error.js            # Error handling middleware
-│   ├── models/                 # Mongoose models
-│   │   ├── User.js             # User model
-│   │   └── Contact.js          # Contact form model
-│   ├── routes/                 # API routes
-│   │   ├── auth.js             # Authentication routes
-│   │   ├── users.js            # User management routes
-│   │   └── contact.js          # Contact form routes
-│   ├── services/               # Business logic services
-│   │   └── emailService.js     # Email service
-│   ├── .env                    # Environment variables
-│   ├── server.js               # Application entry point
-│   └── package.json            # Backend dependencies
+├── backend/                            # Express.js backend application
+│   ├── config/                         # Configuration files
+│   │   ├── auth.config.js              # Configure authentication methods
+│   │   ├── db.js                       # Database configuration
+│   │   └── passport.js                 # Passport.js configuration
+│   ├── middleware/                     # Custom middleware
+│   │   └── errorMiddleware.js          # Error handling middleware
+│   ├── models/                         # Mongoose models
+│   │   ├── Token.js                    # Token model
+│   │   └── User.js                     # User model
+│   ├── routes/                         # API routes
+│   │   ├── auth.js                     # Authentication routes
+│   │   └── contact.js                  # Contact form routes
+│   ├── services/                       # Business logic services
+│   │   └── emailService.js             # Email service
+│   ├── .env                            # Environment variables
+│   ├── server.js                       # Application entry point
+│   └── package.json                    # Backend dependencies
 │
-├── .gitignore                  # Git ignore file
-├── package.json                # Root package.json
-├── package-lock.json           # Root package lock file
-├── Procfile                    # Heroku deployment configuration
-└── README.md                   # Project documentation
+├── .gitignore                          # Git ignore file
+├── package.json                        # Root package.json
+├── package-lock.json                   # Root package lock file
+├── Procfile                            # Heroku deployment configuration
+└── README.md                           # Project documentation
 ```
 
 ## 🔐 Authentication
