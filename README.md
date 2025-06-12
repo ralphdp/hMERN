@@ -196,6 +196,17 @@ The application will be available at:
    git add . && git commit -m "Initial Commit" && git push heroku master
    ```
 
+### Heroku Updates
+After making changes you may commit and push changes to Heroku.
+```bash
+git add . && git commit -m "Commit Comment" && git push heroku master
+```
+
+If you are having trouble pushing repository changes to a branch you can try "--allow-empty"
+```bash
+git commit --allow-empty -m "Commit Comment" && git push heroku master
+```
+
 ## 📁 Project Structure
 
 ```
