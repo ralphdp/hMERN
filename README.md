@@ -1,5 +1,5 @@
 # hMERN
-## An Enhanced MERN-Stack Application Boilerplate
+## An MERN-Stack Application Boilerplate
 
 A full-stack, web application, boilerplate built with the MERN stack (MongoDB, Express.js, React.js, Node.js) featuring secure authentication with passport.js, modern UI with Material UI, and optimized for Heroku deployments.
 
@@ -198,6 +198,7 @@ The application will be available at:
    ```
 
 ## 🔄 Github
+
 - Add the origin repositiory where you would like to save your scripts.
   ```bash
   git remote add origin https://github.com/user/repo.git
