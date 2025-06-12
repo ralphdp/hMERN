@@ -147,15 +147,15 @@ The application will be available at:
    heroku config:set SESSION_SECRET=your_session_secret
    heroku config:set GOOGLE_CLIENT_ID=your_google_client_id
    heroku config:set GOOGLE_CLIENT_SECRET=your_google_client_secret
-   heroku config:set GITHUB_CLIENT_ID=github_client_id
-   heroku config:set GITHUB_CLIENT_SECRET=github_client_secret
-   heroku config:set FACEBOOK_APP_ID=facebook_app_id
-   heroku config:set FACEBOOK_APP_SECRET=facebook_app_secret
-   heroku config:set EMAIL_HOST=smtp.gmail.com
+   heroku config:set GITHUB_CLIENT_ID=your_github_client_id
+   heroku config:set GITHUB_CLIENT_SECRET=your_github_client_secret
+   heroku config:set FACEBOOK_APP_ID=your_facebook_app_id
+   heroku config:set FACEBOOK_APP_SECRET=your_facebook_app_secret
+   heroku config:set EMAIL_HOST=smtp.example.com
    heroku config:set EMAIL_PORT=587
-   heroku config:set EMAIL_USER=email_user
-   heroku config:set EMAIL_PASSWORD=email_password
-   heroku config:set EMAIL_FROM=email_from
+   heroku config:set EMAIL_USER=your_email_user
+   heroku config:set EMAIL_PASSWORD=your_email_password
+   heroku config:set EMAIL_FROM=your_email_from
    ```
 
 5. Deploy to Heroku:
@@ -292,6 +292,7 @@ The application uses Passport.js for authentication with the following features:
      ```
    - For production, update `GOOGLE_CALLBACK_URL` to your production URL
 
+
 2. **GitHub OAuth**
    - Go to [GitHub Developer Settings](https://github.com/settings/developers)
    - Click "New OAuth App"
@@ -313,6 +314,7 @@ The application uses Passport.js for authentication with the following features:
      GITHUB_CLIENT_SECRET=your_client_secret
      GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
      ```
+
 
 3. **Facebook OAuth**
    - Go to [Facebook Developers](https://developers.facebook.com/)
@@ -341,6 +343,7 @@ The application uses Passport.js for authentication with the following features:
      FACEBOOK_CALLBACK_URL=http://localhost:3000/api/auth/facebook/callback
      ```
    - For production, update `FACEBOOK_CALLBACK_URL` to your production URL
+
 
 ## 🛠️ API Endpoints
 
