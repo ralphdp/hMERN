@@ -107,7 +107,7 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
    ```
 
 ## ⚙️ Configuring Authentication
-Confiure which authentication options to use. Set the "enabled" options to "true" accoridngly.
+Confiure which authentication options to use. On "backend/config/auth.config.js" set the "enabled" options to "true" accoridngly, for the authentication options you wish to use.
 ```bash
 module.exports = {
   providers: {
