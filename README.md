@@ -1,8 +1,8 @@
-# hMERN - A MERN-Stack Application Boilerplate
+# hMERN - An Enhanced MERN-Stack Application Boilerplate
 
-A full-stack web application boilerplate built with the MERN stack (MongoDB, Express.js, React.js, Node.js) featuring secure authentication, modern UI, and Heroku deployment.
+A full-stack web application boilerplate built with the MERN stack (MongoDB, Express.js, React.js, Node.js) featuring secure authentication with passport.js, modern UI with Material UI, and optimized for Heroku deployments.
 
-## 🚀 Features
+## 👨‍💻 Features
 
 - **Full Stack MERN Architecture**
   - MongoDB for database
@@ -25,6 +25,7 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
   - ES6+ JavaScript
   - React Hooks
   - Modern React practices
+  - Modern design with Material UI
   - Responsive design
 
 ## 📋 Prerequisites
@@ -45,7 +46,10 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
   ```
 
 - OAuth credentials for desired providers
-
+-- Facebook
+-- Github
+-- Google
+-- MonogDB
 
 ## 🛠️ Installation
 
