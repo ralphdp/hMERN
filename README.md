@@ -46,9 +46,9 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
   ```
 
 - OAuth credentials for desired providers
--- Facebook
--- Github
 -- Google
+-- Github
+-- Facebook
 -- MonogDB
 
 ## 🛠️ Installation
@@ -92,6 +92,11 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
    GITHUB_CLIENT_SECRET=your_github_client_secret
    FACEBOOK_APP_ID=your_facebook_app_id
    FACEBOOK_APP_SECRET=your_facebook_app_secret
+   EMAIL_HOST=smtp.example.com
+   EMAIL_PORT=587
+   EMAIL_USER=your_email_user
+   EMAIL_PASSWORD=your_email_password
+   EMAIL_FROM="email@example.com"
    ```
 
    Frontend (.env):
@@ -100,6 +105,30 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
    REACT_APP_PORT_BACKEND=5050
    REACT_APP_BACKEND_URL=http://localhost:5050
    ```
+
+## ⚙️ Configuring Authentication
+Confiure which authentication options to use. Set the "enabled" options to "true" accoridngly.
+```bash
+module.exports = {
+  providers: {
+    google: {
+      enabled: true,
+      strategy: 'passport-google-oauth20',
+      scope: ['profile', 'email']
+    },
+    github: {
+      enabled: true,
+      strategy: 'passport-github2',
+      scope: ['user:email']
+    },
+    facebook: {
+      enabled: false,
+      strategy: 'passport-facebook',
+      scope: []
+    }
+  }
+};
+```
 
 ## 🏃‍♂️‍➡️ Running the Application
 
@@ -377,9 +406,9 @@ The application uses Passport.js for authentication with the following features:
 - `POST /api/contact` - Send contact form message
 
 ### OAuth Callback URLs
-- Google: `/api/auth/google/callback`
 - Facebook: `/api/auth/facebook/callback`
 - GitHub: `/api/auth/github/callback`
+- Google: `/api/auth/google/callback`
 
 ### Security Features
 - Rate limiting: 100 requests per 15 minutes per IP
@@ -421,3 +450,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - MERN Stack community
 - Heroku for hosting
 - MongoDB Atlas for database hosting 
+- Cursor for AI pair coding
