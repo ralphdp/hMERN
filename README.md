@@ -207,17 +207,25 @@ The application will be available at:
   git commit -m "Initial Commit" && git push -u origin master
   ```
 
-- You may need to force the commit to your repository after pushing to Heroku.
+- You may need to force the commit to your repository after pushing to Heroku, if the initial commit script doesnt work.
   ```bash
   git commit --allow-empty -m "Force Initial Commit" && git push -u origin master
   ```
 
-## Publishing Changes
+## ⬆️ Publishing Changes
 
 ### Heroku Updates
-- After making changes you may commit and push changes to Heroku.
+
+- After making changes to your files you may commit and push changes to Heroku.
   ```bash
-  git add . && git commit -m "Commit Comment" && git push heroku master
+  git add . && git commit -m "New Changes" && git push heroku master
+  ```
+
+### Github Updates
+
+- After making changes to your files you may commit and push changes to Heroku then Github.
+  ```bash
+  git commit --allow-empty -m "Force New Changes" && git push -u origin master
   ```
 
 ## 📁 Project Structure
