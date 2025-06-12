@@ -196,16 +196,29 @@ The application will be available at:
    git add . && git commit -m "Initial Commit" && git push heroku master
    ```
 
-### Heroku Updates
-After making changes you may commit and push changes to Heroku.
-```bash
-git add . && git commit -m "Commit Comment" && git push heroku master
-```
+## 🔄 Github
+- Add the origin repositiory where you would like to save your scripts.
+  ```bash
+  git remote add origin https://github.com/user/repo.git
+  ```
 
-If you are having trouble pushing repository changes to a branch you can try "--allow-empty"
-```bash
-git commit --allow-empty -m "Commit Comment" && git push heroku master
-```
+- Commit and push the scripts.
+  ```bash
+  git commit -m "Initial Commit" && git push -u origin master
+  ```
+
+- You may need to force the commit to your repository after pushing to Heroku.
+  ```bash
+  git commit --allow-empty -m "Force Initial Commit" && git push -u origin master
+  ```
+
+## Publishing Changes
+
+### Heroku Updates
+- After making changes you may commit and push changes to Heroku.
+  ```bash
+  git add . && git commit -m "Commit Comment" && git push heroku master
+  ```
 
 ## 📁 Project Structure
 
