@@ -255,7 +255,6 @@ The application uses Passport.js for authentication with the following features:
   - Google OAuth 2.0
   - GitHub OAuth
   - Facebook OAuth
-  - Instagram OAuth
 
 - **User Model**
   - Stores user information
@@ -345,7 +344,54 @@ The application uses Passport.js for authentication with the following features:
 
 ## 🛠️ API Endpoints
 
-- `GET /api/test`: Test endpoint to verify backend functionality
+### Authentication Endpoints (`/api/auth/`)
+
+#### Provider Management
+- `GET /api/auth/providers` - Get available authentication providers
+
+#### User Management
+- `GET /api/auth/user` - Get current user information
+- `GET /api/auth/status` - Check authentication status
+- `GET /api/auth/logout` - Logout user
+
+#### Email Verification
+- `GET /api/auth/verify-email/:token` - Verify email address
+
+#### Password Management
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password/:token` - Reset password
+
+#### Authentication
+- `POST /api/auth/login` - Local login
+- `GET /api/auth/google/callback` - Google OAuth callback
+- `GET /api/auth/avatar/:provider/:id` - Get user avatar
+
+### Contact Endpoints (`/api/contact/`)
+- `POST /api/contact` - Send contact form message
+
+### OAuth Callback URLs
+- Google: `/api/auth/google/callback`
+- Facebook: `/api/auth/facebook/callback`
+- GitHub: `/api/auth/github/callback`
+
+### Security Features
+- Rate limiting: 100 requests per 15 minutes per IP
+- CORS enabled with specific origin configuration
+- Session-based authentication
+- Security headers including:
+  - X-Content-Type-Options
+  - X-Frame-Options
+  - X-XSS-Protection
+  - Referrer-Policy
+  - Strict-Transport-Security
+  - Permissions-Policy
+
+### Error Handling
+All endpoints use a centralized error handling middleware with specific error types:
+- ValidationError (400)
+- CastError (400)
+- Duplicate field errors (400)
+- General server errors (500)
 
 ## 🤝 Contributing
 
