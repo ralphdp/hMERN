@@ -1,7 +1,7 @@
 # hMERN
-## An MERN-Stack Application Boilerplate
+## A MERN-Stack Application Boilerplate
 
-A full-stack, web application, boilerplate built with the MERN stack (MongoDB, Express.js, React.js, Node.js) featuring secure authentication with passport.js, modern UI with Material UI, and optimized for Heroku deployments.
+hMERN is a full-stack, web application, boilerplate, built with MERN stack (MongoDB, Express.js, React.js, Node.js), featuring secure authentication with passport.js, modern UI with Material UI, and optimized for Heroku deployments.
 
 ## 👨‍💻 Features
 
@@ -196,6 +196,16 @@ The application will be available at:
    ```bash
    git add . && git commit -m "Initial Commit" && git push heroku master
    ```
+
+### Errors
+
+If you are getting errors on deployment you can view the heroku logs via the terminal:
+```bash
+git add . && git commit -m "Initial Commit" && git push heroku master
+```
+
+You can also view the build logs through the Heroku service panel.
+heroku.com
 
 ## 🔄 Github
 

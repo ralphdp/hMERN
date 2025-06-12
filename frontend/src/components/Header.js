@@ -350,16 +350,18 @@ const Header = ({ mode, toggleColorMode, user }) => {
       <Dialog
         open={logoutDialogOpen}
         onClose={() => setLogoutDialogOpen(false)}
+        aria-labelledby="logout-dialog-title"
+        aria-describedby="logout-dialog-description"
       >
-        <DialogTitle>Confirm Logout</DialogTitle>
+        <DialogTitle id="logout-dialog-title">Confirm Logout</DialogTitle>
         <DialogContent>
-          <DialogContentText>
+          <DialogContentText id="logout-dialog-description">
             Are you sure you want to logout?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLogoutDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleLogout} color="primary" variant="contained">
+          <Button onClick={() => setLogoutDialogOpen(false)} color="primary">Cancel</Button>
+          <Button onClick={handleLogout} color="primary" variant="contained" autoFocus>
             Logout
           </Button>
         </DialogActions>
