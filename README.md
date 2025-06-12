@@ -38,7 +38,7 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/ralphdp/hmern.git
    cd hmern
    ```
 
@@ -53,7 +53,13 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
    npm install
    ```
 
-4. Create environment files:
+4. Install backend dependencies:
+   ```bash
+   cd backend
+   npm install
+   ```
+
+5. Create environment files:
 
    Backend (.env):
    ```
@@ -89,6 +95,7 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
 
 2. In a new terminal, start the frontend:
    ```bash
+   cd ../
    cd frontend
    npm start
    ```
@@ -96,19 +103,6 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
 The application will be available at:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:5050
-
-### Production Mode
-
-1. Build the frontend:
-   ```bash
-   cd frontend
-   npm run build
-   ```
-
-2. Start the production server:
-   ```bash
-   npm start
-   ```
 
 ## 🚀 Deployment
 
@@ -144,7 +138,7 @@ The application will be available at:
 
 3. Deploy to Heroku:
    ```bash
-   git push heroku master
+   git add . && git commit -m "Initial Commit" && git push heroku master
    ```
 
 ## 📁 Project Structure
