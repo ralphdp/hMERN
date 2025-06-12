@@ -97,7 +97,7 @@ A full-stack web application boilerplate built with the MERN stack (MongoDB, Exp
    REACT_APP_BACKEND_URL=http://localhost:5050
    ```
 
-## 🚀 Running the Application
+## 🏃‍♂️‍➡️ Running the Application
 
 ### Development Mode
 
@@ -121,17 +121,22 @@ The application will be available at:
 
 ### Heroku Deployment
 
-1. Login to Heroku:
+1. Install Heroku CLI:
+   ```bash
+   brew install heroku/brew/heroku
+   ```
+
+2. Login to Heroku:
    ```bash
    heroku login
    ```
 
-2. Create a Heroku app:
+3. Create a Heroku app:
    ```bash
    heroku create
    ```
 
-3. Set environment variables:
+4. Set environment variables:
    ```bash
    heroku config:set NODE_ENV=production
    heroku config:set MONGODB_URI=your_mongodb_uri
@@ -153,7 +158,7 @@ The application will be available at:
    heroku config:set EMAIL_FROM=email_from
    ```
 
-4. Deploy to Heroku:
+5. Deploy to Heroku:
    ```bash
    git add . && git commit -m "Initial Commit" && git push heroku master
    ```
@@ -275,10 +280,10 @@ The application uses Passport.js for authentication with the following features:
      - Name: Your application name
      - Authorized JavaScript origins:
        - For development: `http://localhost:3000`
-       - For production: `https://your-domain.com`
+       - For production: `https://your-app.herokuapp.com`
      - Authorized redirect URIs:
        - For development: `http://localhost:3000/api/auth/google/callback`
-       - For production: `https://your-domain.com/api/auth/google/callback`
+       - For production: `https://your-app.herokuapp.com/api/auth/google/callback`
    - Note down your Client ID and Client Secret
    - Add the following environment variables to your `.env` file:
      ```
@@ -295,11 +300,11 @@ The application uses Passport.js for authentication with the following features:
      - Application name: Your application name
      - Homepage URL:
        - For development: `http://localhost:3000`
-       - For production: `https://your-domain.com`
+       - For production: `https://your-app.herokuapp.com`
      - Application description: Brief description of your app
      - Authorization callback URL:
        - For development: `http://localhost:3000/api/auth/github/callback`
-       - For production: `https://your-domain.com/api/auth/github/callback`
+       - For production: `https://your-app.herokuapp.com/api/auth/github/callback`
    - Click "Register application"
    - Note down your Client ID
    - Generate a new Client Secret
@@ -309,7 +314,6 @@ The application uses Passport.js for authentication with the following features:
      GITHUB_CLIENT_SECRET=your_client_secret
      GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
      ```
-   - For production, update `GITHUB_CALLBACK_URL` to your production URL
 
 3. **Facebook OAuth**
    - Go to [Facebook Developers](https://developers.facebook.com/)
@@ -327,7 +331,7 @@ The application uses Passport.js for authentication with the following features:
      - Go to "Facebook Login" > "Settings"
      - Add OAuth Redirect URIs:
        - For development: `http://localhost:3000/api/auth/facebook/callback`
-       - For production: `https://your-domain.com/api/auth/facebook/callback`
+       - For production: `https://your-app.herokuapp.comapi/auth/facebook/callback`
      - Set "Client OAuth Login" to Yes
      - Set "Web OAuth Login" to Yes
      - Set "Enforce HTTPS" to Yes for production
