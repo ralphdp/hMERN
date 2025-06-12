@@ -1,6 +1,7 @@
 {
-  "name": "frontend",
-  "version": "0.1.0",
+  "name": "mern-app-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for MERN authentication app",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.14.0",
