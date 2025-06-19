@@ -6,7 +6,7 @@ const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL || "https://hmern.com";
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;
 const FRONTEND_URL = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.replace(/^https?:\/\//, "")
+  ? process.env.FRONTEND_URL.replace(/^https?:\/\//, "").replace(/\/$/, "")
   : "localhost:3000";
 
 /**
@@ -119,6 +119,15 @@ router.get("/status", async (req, res) => {
       "  - HMERN_LICENSE_KEY (set):",
       !!process.env.HMERN_LICENSE_KEY
     );
+    console.log("Domain processing:");
+    console.log("  - Original:", process.env.FRONTEND_URL);
+    console.log(
+      "  - After protocol removal:",
+      process.env.FRONTEND_URL
+        ? process.env.FRONTEND_URL.replace(/^https?:\/\//, "")
+        : "undefined"
+    );
+    console.log("  - After trailing slash removal:", FRONTEND_URL);
 
     const requestPayload = {
       license_key: LICENSE_KEY,
@@ -235,6 +244,15 @@ router.get("/debug", async (req, res) => {
       : "NOT SET"
   );
   console.log("FRONTEND_URL (processed):", FRONTEND_URL);
+  console.log("Domain processing:");
+  console.log("  - Original:", process.env.FRONTEND_URL);
+  console.log(
+    "  - After protocol removal:",
+    process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.replace(/^https?:\/\//, "")
+      : "undefined"
+  );
+  console.log("  - After trailing slash removal:", FRONTEND_URL);
 
   if (!LICENSE_KEY || !FRONTEND_URL) {
     console.log("=== CONFIGURATION ERROR ===");

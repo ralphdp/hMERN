@@ -7,7 +7,10 @@ const axios = require("axios");
 const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL || "https://hmern.com";
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;
-const FRONTEND_URL = process.env.FRONTEND_URL.replace(/^https?:\/\//, "");
+const FRONTEND_URL = process.env.FRONTEND_URL.replace(
+  /^https?:\/\//,
+  ""
+).replace(/\/$/, "");
 
 // --- In-memory cache for license status ---
 let licenseCache = null;
@@ -69,6 +72,15 @@ const validateLicense = async (req, res, next) => {
       "  - HMERN_LICENSE_KEY (set):",
       !!process.env.HMERN_LICENSE_KEY
     );
+    console.log("Domain processing:");
+    console.log("  - Original:", process.env.FRONTEND_URL);
+    console.log(
+      "  - After protocol removal:",
+      process.env.FRONTEND_URL
+        ? process.env.FRONTEND_URL.replace(/^https?:\/\//, "")
+        : "undefined"
+    );
+    console.log("  - After trailing slash removal:", FRONTEND_URL);
 
     const requestPayload = {
       license_key: LICENSE_KEY,
