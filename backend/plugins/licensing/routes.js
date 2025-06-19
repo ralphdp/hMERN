@@ -1,5 +1,3 @@
-// backend/plugins/licensing/routes.js
-
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
@@ -7,6 +5,7 @@ const axios = require("axios");
 const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL || "https://hmern.com";
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
 /**
  * Simple test endpoint to verify the plugin is loaded.
@@ -23,16 +22,19 @@ router.get("/test", (req, res) => {
  * Provides a health check for the licensing plugin itself.
  */
 router.get("/health", (req, res) => {
-  if (!LICENSE_KEY) {
+  if (!LICENSE_KEY || !FRONTEND_URL) {
     return res.status(500).json({
       success: false,
-      message: "License key is not configured on this application server.",
+      message:
+        "HMERN_LICENSE_KEY and FRONTEND_URL must be configured on this application server.",
     });
   }
   res.json({
     success: true,
     message: "Licensing plugin is active.",
-    server_url: LICENSE_SERVER_URL,
+    license_server_url: LICENSE_SERVER_URL,
+    frontend_url: FRONTEND_URL,
+    license_key_set: !!LICENSE_KEY,
   });
 });
 
@@ -70,37 +72,51 @@ router.get("/info", async (req, res) => {
 
 /**
  * Simple status check for the frontend license indicator.
+ * This endpoint performs a full validation.
  */
 router.get("/status", async (req, res) => {
-  if (!LICENSE_KEY) {
+  // For development on localhost, the license is always valid.
+  if (
+    process.env.NODE_ENV === "development" &&
+    FRONTEND_URL &&
+    (FRONTEND_URL.includes("localhost") || FRONTEND_URL.includes("127.0.0.1"))
+  ) {
+    return res.json({
+      isValid: true,
+      message: "Development environment active.",
+    });
+  }
+
+  if (!LICENSE_KEY || !FRONTEND_URL) {
     return res.json({
       isValid: false,
-      message: "No license key configured",
+      message: "License key or frontend URL is not configured.",
     });
   }
 
   try {
     const response = await axios.post(
-      `${LICENSE_SERVER_URL}/api/license/info`,
+      `${LICENSE_SERVER_URL}/api/license/validate`,
       {
         license_key: LICENSE_KEY,
+        domain: FRONTEND_URL, // Send the full domain for validation
       }
     );
 
-    // Check if the license is valid based on the response
-    const isValid =
-      response.data.success &&
-      response.data.license &&
-      response.data.license.status === "active";
+    const isValid = response.data && response.data.success;
 
     res.json({
       isValid: isValid,
-      message: isValid ? "License is active" : "License is inactive",
+      message: isValid
+        ? "License is active and valid for this domain."
+        : response.data.message || "License is invalid.",
     });
   } catch (error) {
+    console.error("License status check error:", error.message);
     res.json({
       isValid: false,
-      message: "Unable to verify license",
+      message:
+        error.response?.data?.message || "Unable to verify license status.",
     });
   }
 });
