@@ -47,6 +47,15 @@ const validateLicense = async (req, res, next) => {
 
   // 3. Perform live validation check with your license server
   try {
+    console.log("=== License Validation Request ===");
+    console.log("License Server URL:", LICENSE_SERVER_URL);
+    console.log("License Key:", LICENSE_KEY.substring(0, 8) + "...");
+    console.log("Domain being sent:", FRONTEND_URL);
+    console.log("Full request payload:", {
+      license_key: LICENSE_KEY.substring(0, 8) + "...",
+      domain: FRONTEND_URL,
+    });
+
     const response = await axios.post(
       `${LICENSE_SERVER_URL}/api/license/validate`,
       {
@@ -55,6 +64,10 @@ const validateLicense = async (req, res, next) => {
       },
       { timeout: 10000 }
     );
+
+    console.log("=== License Server Response ===");
+    console.log("Status:", response.status);
+    console.log("Response data:", response.data);
 
     lastCheck = now; // Update timestamp of the last check
 
@@ -69,7 +82,12 @@ const validateLicense = async (req, res, next) => {
       res.status(403).json(licenseCache);
     }
   } catch (error) {
-    console.error("Could not connect to license server:", error.message);
+    console.error("=== License Validation Error ===");
+    console.error("Error message:", error.message);
+    if (error.response) {
+      console.error("Error status:", error.response.status);
+      console.error("Error data:", error.response.data);
+    }
 
     // Use stale cache on connection error if available
     if (licenseCache && licenseCache.success) {
