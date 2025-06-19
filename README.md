@@ -497,6 +497,59 @@ The application uses Passport.js for authentication with the following features:
 
 - `POST /api/contact` - Send contact form message
 
+### Licensing Endpoints (`/api/license/`)
+
+The application includes a comprehensive licensing system that validates licenses against a remote license server.
+
+#### License Management
+
+- `GET /api/license/test` - Test endpoint to verify the licensing plugin is loaded
+- `GET /api/license/health` - Health check for the licensing plugin configuration
+- `GET /api/license/info` - Get public information about the configured license key
+- `GET /api/license/status` - Check license validation status (used by frontend indicator)
+- `GET /api/license/debug` - Debug endpoint for manual license validation testing
+
+#### License Validation
+
+The licensing system validates licenses by:
+
+- Checking the license key against the remote license server (hmern.com)
+- Validating the domain matches the registered license
+- Ensuring the license status is active
+- Supporting lifetime licenses (no expiry date)
+
+#### Environment Variables Required
+
+```
+LICENSE_SERVER_URL=https://hmern.com
+HMERN_LICENSE_KEY=your_license_key_here
+FRONTEND_URL=https://your-app.herokuapp.com
+```
+
+#### License Server Communication
+
+The licensing plugin communicates with the license server using:
+
+- **Endpoint**: `POST /api/license/validate` on the license server
+- **Payload**: `{ license_key: "key", domain: "domain.com" }`
+- **Response**: License validation status and details
+
+#### Frontend Integration
+
+The licensing system includes:
+
+- **LicenseIndicator Component**: Visual indicator showing license status
+- **License Service**: Frontend service for checking license status
+- **Automatic Validation**: License checks on protected routes
+
+#### Protected Routes
+
+Routes can be protected using the `validateLicense` middleware:
+
+```javascript
+app.use("/api/premium-feature", validateLicense, premiumRouter);
+```
+
 ### OAuth Callback URLs
 
 - Facebook: `/api/auth/facebook/callback`
