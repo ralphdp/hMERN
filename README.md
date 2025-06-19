@@ -93,6 +93,8 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
 
    ```
    NODE_ENV=development
+   LICENSE_SERVER_URL=https://hmern.com
+   HMERN_LICENSE_KEY=7c6f5421-cb8d36e6-522c4fde-b26f2ddb
    PORT_FRONTEND=3000
    PORT_BACKEND=5050
    FRONTEND_URL=your_frontend_url
