@@ -3,7 +3,7 @@
 const axios = require("axios");
 
 // --- Configuration ---
-// These are read from your MERN app's .env file
+// These are read from your MERN app's .env file.
 const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL || "https://hmern.com";
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;
