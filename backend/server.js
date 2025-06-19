@@ -33,14 +33,23 @@ const app = express();
 app.plugins = {};
 const pluginsDir = path.join(__dirname, "plugins");
 
+console.log("=== Plugin System Initialization ===");
+console.log("Plugins directory:", pluginsDir);
+
 if (fs.existsSync(pluginsDir)) {
+  console.log("Plugins directory exists, scanning for plugins...");
   fs.readdirSync(pluginsDir).forEach((pluginName) => {
     const pluginPath = path.join(pluginsDir, pluginName);
+    console.log(`Checking plugin: ${pluginName} at ${pluginPath}`);
+
     if (fs.statSync(pluginPath).isDirectory()) {
       try {
         // Check for index.js in the plugin directory
         const pluginIndexPath = path.join(pluginPath, "index.js");
+        console.log(`Looking for index.js at: ${pluginIndexPath}`);
+
         if (fs.existsSync(pluginIndexPath)) {
+          console.log(`Loading plugin: ${pluginName}`);
           const plugin = require(pluginIndexPath);
           if (plugin && typeof plugin.register === "function") {
             plugin.register(app);
@@ -48,14 +57,27 @@ if (fs.existsSync(pluginsDir)) {
             console.log(
               `Successfully loaded plugin: ${plugin.name} v${plugin.version}`
             );
+          } else {
+            console.log(
+              `Plugin ${pluginName} does not have a valid register function`
+            );
           }
+        } else {
+          console.log(`No index.js found for plugin: ${pluginName}`);
         }
       } catch (error) {
         console.error(`Failed to load plugin: ${pluginName}`, error);
       }
+    } else {
+      console.log(`Skipping ${pluginName} - not a directory`);
     }
   });
+} else {
+  console.log("Plugins directory does not exist");
 }
+
+console.log("Loaded plugins:", Object.keys(app.plugins));
+console.log("=== Plugin System Initialization Complete ===");
 // --- End Plugin System ---
 
 // Trust proxy for Heroku

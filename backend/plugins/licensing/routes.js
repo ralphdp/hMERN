@@ -7,6 +7,17 @@ const LICENSE_SERVER_URL =
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;
 
 /**
+ * Simple test endpoint to verify the plugin is loaded.
+ */
+router.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Licensing plugin is loaded and working",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
  * Provides a health check for the licensing plugin itself.
  */
 router.get("/health", (req, res) => {
