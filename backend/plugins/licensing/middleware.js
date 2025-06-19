@@ -47,27 +47,69 @@ const validateLicense = async (req, res, next) => {
 
   // 3. Perform live validation check with your license server
   try {
-    console.log("=== License Validation Request ===");
+    console.log("=== ENHANCED License Validation Request ===");
+    console.log("Timestamp:", new Date().toISOString());
     console.log("License Server URL:", LICENSE_SERVER_URL);
-    console.log("License Key:", LICENSE_KEY.substring(0, 8) + "...");
+    console.log(
+      "License Key (first 8 chars):",
+      LICENSE_KEY.substring(0, 8) + "..."
+    );
+    console.log(
+      "License Key (last 8 chars):",
+      "..." + LICENSE_KEY.substring(LICENSE_KEY.length - 8)
+    );
+    console.log("License Key length:", LICENSE_KEY.length);
     console.log("Domain being sent:", FRONTEND_URL);
-    console.log("Full request payload:", {
-      license_key: LICENSE_KEY.substring(0, 8) + "...",
+    console.log("Environment variables:");
+    console.log("  - NODE_ENV:", process.env.NODE_ENV);
+    console.log("  - FRONTEND_URL (raw):", process.env.FRONTEND_URL);
+    console.log("  - FRONTEND_URL (processed):", FRONTEND_URL);
+    console.log("  - LICENSE_SERVER_URL:", process.env.LICENSE_SERVER_URL);
+    console.log(
+      "  - HMERN_LICENSE_KEY (set):",
+      !!process.env.HMERN_LICENSE_KEY
+    );
+
+    const requestPayload = {
+      license_key: LICENSE_KEY,
       domain: FRONTEND_URL,
+    };
+
+    console.log("=== FULL REQUEST PAYLOAD ===");
+    console.log("Request URL:", `${LICENSE_SERVER_URL}/api/license/validate`);
+    console.log("Request method: POST");
+    console.log("Request headers:", {
+      "Content-Type": "application/json",
+      "User-Agent": "axios/" + require("axios/package.json").version,
     });
+    console.log(
+      "Request payload (JSON):",
+      JSON.stringify(requestPayload, null, 2)
+    );
+    console.log("Request payload (raw):", requestPayload);
 
     const response = await axios.post(
       `${LICENSE_SERVER_URL}/api/license/validate`,
+      requestPayload,
       {
-        license_key: LICENSE_KEY,
-        domain: FRONTEND_URL,
-      },
-      { timeout: 10000 }
+        timeout: 10000,
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "hMERN-License-Client/1.0",
+        },
+      }
     );
 
-    console.log("=== License Server Response ===");
-    console.log("Status:", response.status);
-    console.log("Response data:", response.data);
+    console.log("=== ENHANCED License Server Response ===");
+    console.log("Response timestamp:", new Date().toISOString());
+    console.log("Response status:", response.status);
+    console.log("Response status text:", response.statusText);
+    console.log("Response headers:", response.headers);
+    console.log("Response data (raw):", response.data);
+    console.log(
+      "Response data (JSON):",
+      JSON.stringify(response.data, null, 2)
+    );
 
     lastCheck = now; // Update timestamp of the last check
 
@@ -82,12 +124,32 @@ const validateLicense = async (req, res, next) => {
       res.status(403).json(licenseCache);
     }
   } catch (error) {
-    console.error("=== License Validation Error ===");
+    console.error("=== ENHANCED License Validation Error ===");
+    console.error("Error timestamp:", new Date().toISOString());
+    console.error("Error name:", error.name);
     console.error("Error message:", error.message);
+    console.error("Error code:", error.code);
+
     if (error.response) {
+      console.error("=== ERROR RESPONSE DETAILS ===");
       console.error("Error status:", error.response.status);
+      console.error("Error status text:", error.response.statusText);
+      console.error("Error headers:", error.response.headers);
       console.error("Error data:", error.response.data);
+      console.error(
+        "Error data (JSON):",
+        JSON.stringify(error.response.data, null, 2)
+      );
+    } else if (error.request) {
+      console.error("=== ERROR REQUEST DETAILS ===");
+      console.error("Request was made but no response received");
+      console.error("Request details:", error.request);
+    } else {
+      console.error("=== ERROR SETUP DETAILS ===");
+      console.error("Error occurred during request setup");
     }
+
+    console.error("Full error object:", error);
 
     // Use stale cache on connection error if available
     if (licenseCache && licenseCache.success) {
