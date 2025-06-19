@@ -5,7 +5,9 @@ const axios = require("axios");
 const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL || "https://hmern.com";
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;
-const FRONTEND_URL = process.env.FRONTEND_URL;
+const FRONTEND_URL = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.replace(/^https?:\/\//, "")
+  : "localhost:3000";
 
 /**
  * Simple test endpoint to verify the plugin is loaded.
@@ -95,13 +97,26 @@ router.get("/status", async (req, res) => {
   }
 
   try {
+    console.log("=== License Status Check ===");
+    console.log("License Server URL:", LICENSE_SERVER_URL);
+    console.log("License Key:", LICENSE_KEY.substring(0, 8) + "...");
+    console.log("Domain being sent:", FRONTEND_URL);
+    console.log("Full request payload:", {
+      license_key: LICENSE_KEY.substring(0, 8) + "...",
+      domain: FRONTEND_URL,
+    });
+
     const response = await axios.post(
       `${LICENSE_SERVER_URL}/api/license/validate`,
       {
         license_key: LICENSE_KEY,
-        domain: FRONTEND_URL, // Send the full domain for validation
+        domain: FRONTEND_URL, // Now this is the domain without protocol
       }
     );
+
+    console.log("=== License Server Response ===");
+    console.log("Status:", response.status);
+    console.log("Response data:", response.data);
 
     const isValid = response.data && response.data.success;
 
@@ -112,7 +127,13 @@ router.get("/status", async (req, res) => {
         : response.data.message || "License is invalid.",
     });
   } catch (error) {
-    console.error("License status check error:", error.message);
+    console.error("=== License Status Check Error ===");
+    console.error("Error message:", error.message);
+    if (error.response) {
+      console.error("Error status:", error.response.status);
+      console.error("Error data:", error.response.data);
+    }
+
     res.json({
       isValid: false,
       message:
