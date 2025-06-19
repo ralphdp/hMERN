@@ -1,3 +1,5 @@
+// frontend/src/components/LicenseIndicator.js
+
 import React, { useState, useEffect } from "react";
 import { Box, Tooltip } from "@mui/material";
 import { checkLicenseStatus } from "../services/license";

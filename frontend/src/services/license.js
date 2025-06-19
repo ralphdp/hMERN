@@ -1,3 +1,5 @@
+// frontend/src/services/license.js
+
 import { getBackendUrl } from "../utils/config";
 
 export const checkLicenseStatus = async () => {

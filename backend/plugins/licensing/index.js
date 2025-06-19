@@ -1,3 +1,5 @@
+// backend/plugins/licensing/index.js
+
 const routes = require("./routes");
 const { validateLicense } = require("./middleware");
 

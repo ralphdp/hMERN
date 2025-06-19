@@ -1,4 +1,5 @@
 # hMERN
+
 ## A MERN-Stack Application Boilerplate
 
 hMERN is a full-stack, web application, boilerplate, built with MERN stack (MongoDB, Express.js, React.js, Node.js), featuring secure authentication with passport.js, modern UI with Material UI, and optimized for Heroku deployments.
@@ -6,12 +7,14 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
 ## 👨‍💻 Features
 
 - **Full Stack MERN Architecture**
+
   - MongoDB for database
   - Express.js for backend API
   - React.js for frontend
   - Node.js for server
 
 - **Authentication & Security**
+
   - Passport.js for authentication
   - Multiple OAuth providers (Google, GitHub, Facebook, Instagram)
   - Session-based authentication with MongoDB store
@@ -32,16 +35,19 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
 ## 📋 Prerequisites
 
 - Node.js (v18.x or later)
+
   ```bash
   node --version
   ```
 
 - npm (v10.x or later)
+
   ```bash
   npm --version
   ```
 
 - git (v2.x or later)
+
   ```bash
   git --version
   ```
@@ -55,23 +61,27 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
 ## 🛠️ Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/ralphdp/hmern.git
    cd hmern
    ```
 
 2. Install backend dependencies:
+
    ```bash
    npm install
    ```
 
 3. Install frontend dependencies:
+
    ```bash
    cd frontend
    npm install
    ```
 
 4. Install backend dependencies:
+
    ```bash
    cd backend
    npm install
@@ -80,6 +90,7 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
 5. Create environment files:
 
    Backend (.env):
+
    ```
    NODE_ENV=development
    PORT_FRONTEND=3000
@@ -101,6 +112,7 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
    ```
 
    Frontend (.env):
+
    ```
    REACT_APP_NODE_ENV=development
    REACT_APP_PORT_BACKEND=5050
@@ -108,7 +120,9 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
    ```
 
 ## ⚙️ Configuring Authentication
+
 Confiure which authentication options to use. On "backend/config/auth.config.js" set the "enabled" options to "true" accoridngly, for the authentication options you wish to use.
+
 ```bash
 module.exports = {
   providers: {
@@ -136,6 +150,7 @@ module.exports = {
 ### Development Mode
 
 1. Start the backend server:
+
    ```bash
    npm run dev
    ```
@@ -148,6 +163,7 @@ module.exports = {
    ```
 
 The application will be available at:
+
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:5050
 
@@ -156,21 +172,25 @@ The application will be available at:
 ### Heroku Deployment
 
 1. Install Heroku CLI:
+
    ```bash
    brew install heroku/brew/heroku
    ```
 
 2. Login to Heroku:
+
    ```bash
    heroku login
    ```
 
 3. Create a Heroku app:
+
    ```bash
    heroku create
    ```
 
 4. Set environment variables:
+
    ```bash
    heroku config:set NODE_ENV=production /
                      MONGODB_URI=your_mongodb_uri /
@@ -200,6 +220,7 @@ The application will be available at:
 ### Errors
 
 If you are getting errors on deployment you can view the heroku logs via the terminal:
+
 ```bash
 git add . && git commit -m "Initial Commit" && git push heroku master
 ```
@@ -210,11 +231,13 @@ heroku.com
 ## 🔄 Github
 
 - Add the origin repositiory where you would like to save your scripts.
+
   ```bash
   git remote add origin https://github.com/user/repo.git
   ```
 
 - Commit and push the scripts.
+
   ```bash
   git commit -m "Initial Commit" && git push -u origin master
   ```
@@ -247,17 +270,26 @@ hmern/
 ├── frontend/                           # React frontend application
 │   ├── public/                         # Static files
 │   │   ├── images/                     # Image assets
-│   │   └── index.html                  # HTML template
+│   │   │   ├── logo-claude.png         # Claude logo
+│   │   │   ├── logo-cursor.png         # Cursor logo
+│   │   │   └── logo-windsurf.png       # Windsurf logo
+│   │   ├── favicon.ico                 # Site favicon
+│   │   ├── index.html                  # HTML template
+│   │   ├── logo192.png                 # PWA logo 192px
+│   │   ├── logo512.png                 # PWA logo 512px
+│   │   ├── manifest.json               # PWA manifest
+│   │   └── robots.txt                  # Search engine robots file
 │   ├── src/
 │   │   ├── components/                 # Reusable components
 │   │   │   ├── AnimatedLogo.js         # Animated Logo
 │   │   │   ├── Footer.js               # Site Footer
 │   │   │   ├── Header.js               # Navigation header
 │   │   │   ├── Layout.js               # Main layout wrapper
+│   │   │   ├── LicenseIndicator.js     # License status indicator
 │   │   │   ├── Login.js                # Login Components
 │   │   │   ├── PasswordInput.js        # Password Input Component
 │   │   │   ├── PrivateRoute.js         # Private route wrapper
-│   │   │   ├── ScrollToTop.js          # Scroll to top component
+│   │   │   └── ScrollToTop.js          # Scroll to top component
 │   │   ├── contexts/                   # React context providers
 │   │   │   └── AuthContext.js          # Authentication context
 │   │   ├── pages/                      # Page components
@@ -271,13 +303,14 @@ hmern/
 │   │   │   ├── NotFound.js             # Not found page
 │   │   │   ├── Privacy.js              # Privacy page
 │   │   │   ├── Register.js             # Registration page
-│   │   │   ├── ResendVerification.js   # Registration page
+│   │   │   ├── ResendVerification.js   # Resend verification page
 │   │   │   ├── ResetPassword.js        # Reset password page
 │   │   │   ├── Terms.js                # Terms page
-│   │   │   ├── Verify.js               # Verify account page login
-│   │   │   └── VerifyEmail.js          # Verify email address form page page
+│   │   │   ├── Verify.js               # Verify account page
+│   │   │   └── VerifyEmail.js          # Verify email address form page
 │   │   ├── services/                   # API services
-│   │   │   └── auth.js                 # Authentication
+│   │   │   ├── auth.js                 # Authentication service
+│   │   │   └── license.js              # License service
 │   │   ├── utils/                      # Utility functions
 │   │   │   └── config.js               # Utility configuration
 │   │   ├── App.js                      # Main application component
@@ -301,14 +334,20 @@ hmern/
 │   ├── models/                         # Mongoose models
 │   │   ├── Token.js                    # Token model
 │   │   └── User.js                     # User model
+│   ├── plugins/                        # Plugin system
+│   │   └── licensing/                  # Licensing plugin
+│   │       ├── index.js                # Plugin entry point
+│   │       ├── middleware.js           # License validation middleware
+│   │       └── routes.js               # License API routes
 │   ├── routes/                         # API routes
 │   │   ├── auth.js                     # Authentication routes
 │   │   └── contact.js                  # Contact form routes
 │   ├── services/                       # Business logic services
 │   │   └── emailService.js             # Email service
-│   ├── .env                            # Environment variables
+│   ├── .env.example                            # Environment variables
 │   ├── server.js                       # Application entry point
-│   └── package.json                    # Backend dependencies
+│   ├── package.json                    # Backend dependencies
+│   └── package-lock.json               # Backend package lock file
 │
 ├── .gitignore                          # Git ignore file
 ├── package.json                        # Root package.json
@@ -324,11 +363,13 @@ hmern/
 The application uses Passport.js for authentication with the following features:
 
 - **Session-based Authentication**
+
   - MongoDB session store
   - Secure cookie handling
   - Session persistence across requests
 
 - **OAuth Providers**
+
   - Google OAuth 2.0
   - GitHub OAuth
   - Facebook OAuth
@@ -341,6 +382,7 @@ The application uses Passport.js for authentication with the following features:
 ### Setting Up OAuth
 
 1. **Google OAuth**
+
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project or select an existing one
    - Navigate to "APIs & Services" > "Credentials"
@@ -369,8 +411,8 @@ The application uses Passport.js for authentication with the following features:
      ```
    - For production, update `GOOGLE_CALLBACK_URL` to your production URL
 
-
 2. **GitHub OAuth**
+
    - Go to [GitHub Developer Settings](https://github.com/settings/developers)
    - Click "New OAuth App"
    - Fill in the application details:
@@ -391,7 +433,6 @@ The application uses Passport.js for authentication with the following features:
      GITHUB_CLIENT_SECRET=your_client_secret
      GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
      ```
-
 
 3. **Facebook OAuth**
    - Go to [Facebook Developers](https://developers.facebook.com/)
@@ -421,40 +462,47 @@ The application uses Passport.js for authentication with the following features:
      ```
    - For production, update `FACEBOOK_CALLBACK_URL` to your production URL
 
-
 ## 🛠️ API Endpoints
 
 ### Authentication Endpoints (`/api/auth/`)
 
 #### Provider Management
+
 - `GET /api/auth/providers` - Get available authentication providers
 
 #### User Management
+
 - `GET /api/auth/user` - Get current user information
 - `GET /api/auth/status` - Check authentication status
 - `GET /api/auth/logout` - Logout user
 
 #### Email Verification
+
 - `GET /api/auth/verify-email/:token` - Verify email address
 
 #### Password Management
+
 - `POST /api/auth/forgot-password` - Request password reset
 - `POST /api/auth/reset-password/:token` - Reset password
 
 #### Authentication
+
 - `POST /api/auth/login` - Local login
 - `GET /api/auth/google/callback` - Google OAuth callback
 - `GET /api/auth/avatar/:provider/:id` - Get user avatar
 
 ### Contact Endpoints (`/api/contact/`)
+
 - `POST /api/contact` - Send contact form message
 
 ### OAuth Callback URLs
+
 - Facebook: `/api/auth/facebook/callback`
 - GitHub: `/api/auth/github/callback`
 - Google: `/api/auth/google/callback`
 
 ### Security Features
+
 - Rate limiting: 100 requests per 15 minutes per IP
 - CORS enabled with specific origin configuration
 - Session-based authentication
@@ -467,7 +515,9 @@ The application uses Passport.js for authentication with the following features:
   - Permissions-Policy
 
 ### Error Handling
+
 All endpoints use a centralized error handling middleware with specific error types:
+
 - ValidationError (400)
 - CastError (400)
 - Duplicate field errors (400)
@@ -493,5 +543,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - MERN Stack community
 - Heroku for hosting
-- MongoDB Atlas for database hosting 
+- MongoDB Atlas for database hosting
 - Cursor for AI pair coding

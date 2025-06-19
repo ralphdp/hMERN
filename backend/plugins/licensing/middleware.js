@@ -1,3 +1,5 @@
+// backend/plugins/licensing/middleware.js
+
 const axios = require("axios");
 
 // --- Configuration ---
@@ -5,7 +7,7 @@ const axios = require("axios");
 const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL || "https://hmern.com";
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;
-const FRONTEND_URL = process.env.FRONTEND_URL;
+const FRONTEND_URL = process.env.FRONTEND_URL.replace(/^https?:\/\//, "");
 
 // --- In-memory cache for license status ---
 let licenseCache = null;

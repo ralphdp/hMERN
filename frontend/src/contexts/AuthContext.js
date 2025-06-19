@@ -1,3 +1,5 @@
+// frontend/src/contexts/AuthContext.js
+
 import React, {
   createContext,
   useContext,
