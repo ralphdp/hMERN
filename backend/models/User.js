@@ -1,18 +1,20 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+// backend/models/User.js
+
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: false,
     unique: true,
-    sparse: true
+    sparse: true,
   },
   password: {
     type: String,
-    required: function() {
+    required: function () {
       return !this.googleId && !this.githubId && !this.facebookId;
-    }
+    },
   },
   googleId: String,
   githubId: String,
@@ -22,11 +24,11 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
   },
   name: {
     type: String,
-    required: true
+    required: false,
   },
   avatar: String,
   googleAccessToken: String,
@@ -34,21 +36,21 @@ const userSchema = new mongoose.Schema({
   facebookAccessToken: String,
   isVerified: {
     type: Boolean,
-    default: function() {
+    default: function () {
       // Auto-verify OAuth users
       return !!(this.googleId || this.githubId || this.facebookId);
-    }
+    },
   },
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -59,11 +61,11 @@ userSchema.pre('save', async function(next) {
 });
 
 // Method to compare password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Create compound index for provider IDs
 userSchema.index({ googleId: 1, githubId: 1, facebookId: 1 }, { sparse: true });
 
-module.exports = mongoose.model('User', userSchema); 
+module.exports = mongoose.model("User", userSchema);

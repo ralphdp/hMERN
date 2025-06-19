@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   AppBar,
   Box,
@@ -22,31 +22,32 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
-} from '@mui/material';
+  Divider,
+} from "@mui/material";
 import {
   Menu as MenuIcon,
   Brightness4,
   Brightness7,
-} from '@mui/icons-material';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import AnimatedLogo from './AnimatedLogo';
+} from "@mui/icons-material";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import AnimatedLogo from "./AnimatedLogo";
+import MD5 from "crypto-js/md5";
 
 const Header = ({ mode, toggleColorMode, user }) => {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorElUser, setAnchorElUser] = useState(null);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const navItems = [
-    { label: 'Home', path: '/' },
-    { label: 'About', path: '/about' },
-    { label: 'Contact', path: '/contact' }
+    { label: "Home", path: "/" },
+    { label: "About", path: "/about" },
+    { label: "Contact", path: "/contact" },
   ];
 
   const handleDrawerToggle = () => {
@@ -65,27 +66,36 @@ const Header = ({ mode, toggleColorMode, user }) => {
     try {
       await logout();
       setLogoutDialogOpen(false);
-      navigate('/');
+      navigate("/");
     } catch (err) {
-      console.error('Logout error:', err);
+      console.error("Logout error:", err);
     }
   };
 
   const drawer = (
-    <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           p: 2,
           borderBottom: 1,
-          borderColor: 'divider'
+          borderColor: "divider",
         }}
       >
-        <AnimatedLogo 
-          size={32} 
-          color={theme.palette.mode === 'dark' ? '#fff' : theme.palette.grey[50]} 
+        <AnimatedLogo
+          size={32}
+          color={
+            theme.palette.mode === "dark" ? "#fff" : theme.palette.grey[50]
+          }
           className="nav-logo"
         />
         <Typography variant="h6" sx={{ ml: 1, fontWeight: 700 }}>
@@ -101,15 +111,15 @@ const Header = ({ mode, toggleColorMode, user }) => {
             to={item.path}
             selected={location.pathname === item.path}
             sx={{
-              color: 'inherit',
-              textDecoration: 'none',
+              color: "inherit",
+              textDecoration: "none",
               borderRadius: 1,
               mb: 1,
-              '&.Mui-selected': {
-                backgroundColor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
+              "&.Mui-selected": {
+                backgroundColor: "primary.main",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "primary.dark",
                 },
               },
             }}
@@ -120,7 +130,7 @@ const Header = ({ mode, toggleColorMode, user }) => {
       </List>
 
       {!isAuthenticated && (
-        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+        <Box sx={{ p: 2, borderTop: 1, borderColor: "divider" }}>
           <Button
             component={Link}
             to="/login"
@@ -130,10 +140,10 @@ const Header = ({ mode, toggleColorMode, user }) => {
             sx={{
               mb: 1,
               borderRadius: 1,
-              '&:hover': {
-                backgroundColor: 'primary.main',
-                color: 'white',
-                borderColor: 'primary.main',
+              "&:hover": {
+                backgroundColor: "primary.main",
+                color: "white",
+                borderColor: "primary.main",
               },
             }}
           >
@@ -147,8 +157,8 @@ const Header = ({ mode, toggleColorMode, user }) => {
             variant="contained"
             sx={{
               borderRadius: 1,
-              '&:hover': {
-                backgroundColor: 'primary.dark',
+              "&:hover": {
+                backgroundColor: "primary.dark",
               },
             }}
           >
@@ -183,42 +193,46 @@ const Header = ({ mode, toggleColorMode, user }) => {
               to="/"
               sx={{
                 mr: 2,
-                display: { xs: 'none', md: 'flex' },
+                display: { xs: "none", md: "flex" },
                 fontWeight: 700,
-                color: 'inherit',
-                textDecoration: 'none',
-                alignItems: 'center',
+                color: "inherit",
+                textDecoration: "none",
+                alignItems: "center",
                 gap: 1,
               }}
             >
-              <AnimatedLogo 
-                size={32} 
-                color={theme.palette.mode === 'dark' ? '#fff' : theme.palette.grey[50]} 
+              <AnimatedLogo
+                size={32}
+                color={
+                  theme.palette.mode === "dark"
+                    ? "#fff"
+                    : theme.palette.grey[50]
+                }
                 className="nav-logo"
               />
               hMERN.app
             </Typography>
 
             {!isMobile && (
-              <Box sx={{ flexGrow: 1, display: 'flex', gap: 2 }}>
+              <Box sx={{ flexGrow: 1, display: "flex", gap: 2 }}>
                 {navItems.map((item) => (
                   <Button
                     key={item.label}
                     component={Link}
                     to={item.path}
                     sx={{
-                      color: 'inherit',
-                      textDecoration: 'none',
+                      color: "inherit",
+                      textDecoration: "none",
                       borderRadius: 1,
-                      '&:hover': {
-                        backgroundColor: 'primary.main',
-                        color: 'white',
+                      "&:hover": {
+                        backgroundColor: "primary.main",
+                        color: "white",
                       },
                       ...(location.pathname === item.path && {
-                        backgroundColor: 'primary.dark',
-                        color: 'white',
-                        '&:hover': {
-                          backgroundColor: 'primary.dark',
+                        backgroundColor: "primary.dark",
+                        color: "white",
+                        "&:hover": {
+                          backgroundColor: "primary.dark",
                         },
                       }),
                     }}
@@ -229,9 +243,20 @@ const Header = ({ mode, toggleColorMode, user }) => {
               </Box>
             )}
 
-            <Box sx={{ flexGrow: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                flexGrow: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
               <IconButton onClick={toggleColorMode} color="inherit">
-                {theme.palette.mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+                {theme.palette.mode === "dark" ? (
+                  <Brightness7 />
+                ) : (
+                  <Brightness4 />
+                )}
               </IconButton>
 
               {!isMobile && !isAuthenticated && (
@@ -244,18 +269,18 @@ const Header = ({ mode, toggleColorMode, user }) => {
                     size="small"
                     sx={{
                       borderRadius: 1,
-                      '&:hover': {
-                        backgroundColor: 'primary.main',
-                        color: 'white',
-                        borderColor: 'primary.main',
+                      "&:hover": {
+                        backgroundColor: "primary.main",
+                        color: "white",
+                        borderColor: "primary.main",
                       },
-                      ...(location.pathname === '/login' && {
-                        backgroundColor: 'primary.dark',
-                        color: 'white',
-                        borderColor: 'primary.dark',
-                        '&:hover': {
-                          backgroundColor: 'primary.dark',
-                          borderColor: 'primary.dark',
+                      ...(location.pathname === "/login" && {
+                        backgroundColor: "primary.dark",
+                        color: "white",
+                        borderColor: "primary.dark",
+                        "&:hover": {
+                          backgroundColor: "primary.dark",
+                          borderColor: "primary.dark",
                         },
                       }),
                     }}
@@ -270,8 +295,8 @@ const Header = ({ mode, toggleColorMode, user }) => {
                     size="small"
                     sx={{
                       borderRadius: 1,
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
+                      "&:hover": {
+                        backgroundColor: "primary.dark",
                       },
                     }}
                   >
@@ -285,38 +310,57 @@ const Header = ({ mode, toggleColorMode, user }) => {
                   <Tooltip title="Open settings">
                     <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                       <Avatar
-                        alt={user?.name || 'User'}
-                        src={user?.avatar}
+                        alt={user?.name || "User"}
+                        src={`https://www.gravatar.com/avatar/${MD5(
+                          user?.email
+                        ).toString()}`}
                         sx={{ width: 32, height: 32 }}
-                      />
+                        onError={(e) => {
+                          console.log("Avatar error for user:", user);
+                          console.log(
+                            "Avatar URL:",
+                            `https://www.gravatar.com/avatar/${MD5(
+                              user?.email
+                            ).toString()}`
+                          );
+                          // Hide the image and show initials instead
+                          e.target.style.display = "none";
+                        }}
+                      >
+                        {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                      </Avatar>
                     </IconButton>
                   </Tooltip>
                   <Menu
-                    sx={{ mt: '45px' }}
+                    sx={{ mt: "45px" }}
                     id="menu-appbar"
                     anchorEl={anchorElUser}
                     anchorOrigin={{
-                      vertical: 'top',
-                      horizontal: 'right',
+                      vertical: "top",
+                      horizontal: "right",
                     }}
                     keepMounted
                     transformOrigin={{
-                      vertical: 'top',
-                      horizontal: 'right',
+                      vertical: "top",
+                      horizontal: "right",
                     }}
                     open={Boolean(anchorElUser)}
                     onClose={handleCloseUserMenu}
                   >
-                    <MenuItem onClick={() => {
-                      handleCloseUserMenu();
-                      navigate('/dashboard');
-                    }}>
+                    <MenuItem
+                      onClick={() => {
+                        handleCloseUserMenu();
+                        navigate("/dashboard");
+                      }}
+                    >
                       <Typography textAlign="center">Dashboard</Typography>
                     </MenuItem>
-                    <MenuItem onClick={() => {
-                      handleCloseUserMenu();
-                      setLogoutDialogOpen(true);
-                    }}>
+                    <MenuItem
+                      onClick={() => {
+                        handleCloseUserMenu();
+                        setLogoutDialogOpen(true);
+                      }}
+                    >
                       <Typography textAlign="center">Logout</Typography>
                     </MenuItem>
                   </Menu>
@@ -336,11 +380,11 @@ const Header = ({ mode, toggleColorMode, user }) => {
           keepMounted: true, // Better open performance on mobile
         }}
         sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { 
-            boxSizing: 'border-box', 
-            width: '100%',
-            maxWidth: 320
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": {
+            boxSizing: "border-box",
+            width: "100%",
+            maxWidth: 320,
           },
         }}
       >
@@ -360,8 +404,15 @@ const Header = ({ mode, toggleColorMode, user }) => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setLogoutDialogOpen(false)} color="primary">Cancel</Button>
-          <Button onClick={handleLogout} color="primary" variant="contained" autoFocus>
+          <Button onClick={() => setLogoutDialogOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleLogout}
+            color="primary"
+            variant="contained"
+            autoFocus
+          >
             Logout
           </Button>
         </DialogActions>
@@ -370,4 +421,4 @@ const Header = ({ mode, toggleColorMode, user }) => {
   );
 };
 
-export default Header; 
+export default Header;

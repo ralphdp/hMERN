@@ -1,26 +1,20 @@
-import React, { useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { CircularProgress, Box } from '@mui/material';
+import React, { useEffect } from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { CircularProgress, Box } from "@mui/material";
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading, checkAuth } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    if (!isAuthenticated && !loading) {
-      checkAuth();
-    }
-  }, [isAuthenticated, loading, checkAuth]);
 
   if (loading) {
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
         }}
       >
         <CircularProgress />
@@ -35,4 +29,4 @@ const PrivateRoute = ({ children }) => {
   return children;
 };
 
-export default PrivateRoute; 
+export default PrivateRoute;

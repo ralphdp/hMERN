@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from "react";
 import {
   Container,
   Typography,
@@ -12,31 +12,39 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel
-} from '@mui/material';
-import { getBackendUrl } from '../utils/config';
+  InputLabel,
+} from "@mui/material";
+import { getBackendUrl } from "../utils/config";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const isSubmitting = useRef(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Prevent double submission
+    if (isSubmitting.current) {
+      return;
+    }
+
+    isSubmitting.current = true;
     setLoading(true);
     setError(null);
     setSuccess(false);
@@ -44,9 +52,9 @@ const Contact = () => {
     try {
       const backendUrl = getBackendUrl();
       const response = await fetch(`${backendUrl}/api/contact`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
       });
@@ -56,19 +64,20 @@ const Contact = () => {
       if (response.ok) {
         setSuccess(true);
         setFormData({
-          name: '',
-          email: '',
-          subject: '',
-          message: ''
+          name: "",
+          email: "",
+          subject: "",
+          message: "",
         });
       } else {
-        setError(data.message || 'Failed to send message');
+        setError(data.message || "Failed to send message");
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
-      console.error('Contact form error:', err);
+      setError("An error occurred. Please try again.");
+      console.error("Contact form error:", err);
     } finally {
       setLoading(false);
+      isSubmitting.current = false;
     }
   };
 
@@ -80,12 +89,13 @@ const Contact = () => {
       <Box sx={{ mt: 4 }}>
         <Grid container spacing={4}>
           <Grid item xs={12} md={6}>
-          <Typography variant="h5" gutterBottom>
-          Get in Touch
-        </Typography>
-        <Typography variant="body1" paragraph>
-          Have questions or feedback? We'd love to hear from you. Fill out the form below and we'll get back to you as soon as possible.
-        </Typography>
+            <Typography variant="h5" gutterBottom>
+              Get in Touch
+            </Typography>
+            <Typography variant="body1" paragraph>
+              Have questions or feedback? We'd love to hear from you. Fill out
+              the form below and we'll get back to you as soon as possible.
+            </Typography>
             <Typography variant="h6" gutterBottom>
               Contact Information
             </Typography>
@@ -101,20 +111,24 @@ const Contact = () => {
               elevation={3}
               sx={{
                 p: 4,
-                display: 'flex',
-                flexDirection: 'column',
-                bgcolor: 'background.paper'
+                display: "flex",
+                flexDirection: "column",
+                bgcolor: "background.paper",
               }}
             >
-              <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box
+                component="form"
+                onSubmit={handleSubmit}
+                sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+              >
                 {error && (
-                  <Alert severity="error" sx={{ width: '100%' }}>
+                  <Alert severity="error" sx={{ width: "100%" }}>
                     {error}
                   </Alert>
                 )}
 
                 {success && (
-                  <Alert severity="success" sx={{ width: '100%' }}>
+                  <Alert severity="success" sx={{ width: "100%" }}>
                     Thank you for your message! We'll get back to you soon.
                   </Alert>
                 )}
@@ -128,12 +142,12 @@ const Contact = () => {
                   onChange={handleChange}
                   disabled={loading}
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': {
-                        borderColor: 'divider',
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "divider",
                       },
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
+                      "&:hover fieldset": {
+                        borderColor: "primary.main",
                       },
                     },
                   }}
@@ -149,27 +163,27 @@ const Contact = () => {
                   onChange={handleChange}
                   disabled={loading}
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': {
-                        borderColor: 'divider',
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "divider",
                       },
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
+                      "&:hover fieldset": {
+                        borderColor: "primary.main",
                       },
                     },
                   }}
                 />
 
-                <FormControl 
-                  fullWidth 
+                <FormControl
+                  fullWidth
                   required
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': {
-                        borderColor: 'divider',
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "divider",
                       },
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
+                      "&:hover fieldset": {
+                        borderColor: "primary.main",
                       },
                     },
                   }}
@@ -199,12 +213,12 @@ const Contact = () => {
                   onChange={handleChange}
                   disabled={loading}
                   sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': {
-                        borderColor: 'divider',
+                    "& .MuiOutlinedInput-root": {
+                      "& fieldset": {
+                        borderColor: "divider",
                       },
-                      '&:hover fieldset': {
-                        borderColor: 'primary.main',
+                      "&:hover fieldset": {
+                        borderColor: "primary.main",
                       },
                     },
                   }}
@@ -219,11 +233,11 @@ const Contact = () => {
                     mt: 2,
                     py: 1.5,
                     borderRadius: 2,
-                    textTransform: 'none',
-                    fontSize: '1.1rem'
+                    textTransform: "none",
+                    fontSize: "1.1rem",
                   }}
                 >
-                  {loading ? <CircularProgress size={24} /> : 'Send Message'}
+                  {loading ? <CircularProgress size={24} /> : "Send Message"}
                 </Button>
               </Box>
             </Paper>
@@ -234,4 +248,4 @@ const Contact = () => {
   );
 };
 
-export default Contact; 
+export default Contact;

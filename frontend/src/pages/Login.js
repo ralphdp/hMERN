@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useNavigate, Link as RouterLink, useLocation } from "react-router-dom";
 import {
   Container,
   Box,
@@ -12,66 +12,59 @@ import {
   Alert,
   CircularProgress,
   IconButton,
-  InputAdornment
-} from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
-import { useAuth } from '../contexts/AuthContext';
-import PasswordInput from '../components/PasswordInput';
-import FacebookIcon from '@mui/icons-material/Facebook';
+  InputAdornment,
+} from "@mui/material";
+import GoogleIcon from "@mui/icons-material/Google";
+import GitHubIcon from "@mui/icons-material/GitHub";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { useAuth } from "../contexts/AuthContext";
+import PasswordInput from "../components/PasswordInput";
+import FacebookIcon from "@mui/icons-material/Facebook";
+import { getBackendUrl } from "../utils/config";
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
-  const [message, setMessage] = useState('');
-
-  // Helper function to get backend URL
-  const getBackendUrl = () => {
-    if (process.env.NODE_ENV === 'production') {
-      return process.env.REACT_APP_BACKEND_URL || window.location.origin;
-    }
-    return `http://localhost:${process.env.REACT_APP_PORT_BACKEND || 5050}`;
-  };
+  const [message, setMessage] = useState("");
 
   // Check for error in URL query params
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const errorParam = params.get('error');
-    if (errorParam === 'auth_failed') {
-      setError('Authentication failed. Please try again.');
+    const errorParam = params.get("error");
+    if (errorParam === "auth_failed") {
+      setError("Authentication failed. Please try again.");
     }
   }, [location]);
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate("/dashboard");
     }
   }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate("/dashboard");
     } catch (err) {
-      console.error('Login error:', err);
+      console.error("Login error:", err);
       if (err.response?.data?.needsVerification) {
         setNeedsVerification(true);
-        setError('Please verify your email before logging in.');
+        setError("Please verify your email before logging in.");
       } else {
-        setError(err.response?.data?.message || 'Error logging in');
+        setError(err.response?.data?.message || "Error logging in");
       }
     } finally {
       setLoading(false);
@@ -81,39 +74,42 @@ const Login = () => {
   const handleResendVerification = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${getBackendUrl()}/api/auth/resend-verification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-        credentials: 'include',
-      });
-      
+      const response = await fetch(
+        `${getBackendUrl()}/api/auth/resend-verification`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+          credentials: "include",
+        }
+      );
+
       if (!response.ok) {
-        throw new Error('Failed to resend verification email');
+        throw new Error("Failed to resend verification email");
       }
-      
-      setMessage('Verification email sent! Please check your inbox.');
+
+      setMessage("Verification email sent! Please check your inbox.");
     } catch (error) {
-      setError(error.message || 'Error sending verification email');
+      setError(error.message || "Error sending verification email");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleLogin = () => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = getBackendUrl();
     window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const handleGithubLogin = () => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = getBackendUrl();
     window.location.href = `${backendUrl}/api/auth/github`;
   };
 
   const handleFacebookLogin = () => {
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = getBackendUrl();
     window.location.href = `${backendUrl}/api/auth/facebook`;
   };
 
@@ -121,21 +117,20 @@ const Login = () => {
     <Container maxWidth="sm">
       <Box
         sx={{
-          
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          py: 4
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          py: 4,
         }}
       >
         <Paper
           elevation={3}
           sx={{
             p: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            bgcolor: 'background.paper'
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            bgcolor: "background.paper",
           }}
         >
           <Typography
@@ -143,22 +138,22 @@ const Login = () => {
             variant="h4"
             gutterBottom
             sx={{
-              fontWeight: 'bold',
-              color: 'text.primary',
-              mb: 3
+              fontWeight: "bold",
+              color: "text.primary",
+              mb: 3,
             }}
           >
             Sign In
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+            <Alert severity="error" sx={{ width: "100%", mb: 2 }}>
               {error}
             </Alert>
           )}
 
           {message && (
-            <Alert severity="success" sx={{ width: '100%', mb: 2 }}>
+            <Alert severity="success" sx={{ width: "100%", mb: 2 }}>
               {message}
             </Alert>
           )}
@@ -167,10 +162,10 @@ const Login = () => {
             component="form"
             onSubmit={handleSubmit}
             sx={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
             }}
           >
             <TextField
@@ -182,12 +177,12 @@ const Login = () => {
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
               sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: 'divider',
+                "& .MuiOutlinedInput-root": {
+                  "& fieldset": {
+                    borderColor: "divider",
                   },
-                  '&:hover fieldset': {
-                    borderColor: 'primary.main',
+                  "&:hover fieldset": {
+                    borderColor: "primary.main",
                   },
                 },
               }}
@@ -200,42 +195,42 @@ const Login = () => {
             />
 
             <Box mt={1}>
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={loading}
-              sx={{
-                mt: 1,
-                py: 1.5,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontSize: '1.1rem'
-              }}
-            >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Sign In'
-              )}
-            </Button>
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                size="large"
+                disabled={loading}
+                sx={{
+                  mt: 1,
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: "none",
+                  fontSize: "1.1rem",
+                }}
+              >
+                {loading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
             </Box>
 
             <Box
               sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                mt: 1
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mt: 1,
               }}
             >
               <Button
                 component={RouterLink}
                 to="/forgot-password"
                 sx={{
-                  textTransform: 'none',
-                  color: 'text.secondary'
+                  textTransform: "none",
+                  color: "text.secondary",
                 }}
               >
                 Forgot Password?
@@ -244,8 +239,8 @@ const Login = () => {
                 component={RouterLink}
                 to="/verify"
                 sx={{
-                  textTransform: 'none',
-                  color: 'text.secondary'
+                  textTransform: "none",
+                  color: "text.secondary",
                 }}
               >
                 Resend Verification
@@ -260,17 +255,17 @@ const Login = () => {
 
             <Box
               sx={{
-                display: 'flex',
+                display: "flex",
                 gap: 2,
-                justifyContent: 'center'
+                justifyContent: "center",
               }}
             >
               <IconButton
                 onClick={handleGoogleLogin}
                 disabled={loading}
                 sx={{
-                  bgcolor: 'background.paper',
-                  '&:hover': { bgcolor: 'action.hover' }
+                  bgcolor: "background.paper",
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
               >
                 <GoogleIcon />
@@ -279,8 +274,8 @@ const Login = () => {
                 onClick={handleGithubLogin}
                 disabled={loading}
                 sx={{
-                  bgcolor: 'background.paper',
-                  '&:hover': { bgcolor: 'action.hover' }
+                  bgcolor: "background.paper",
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
               >
                 <GitHubIcon />
@@ -290,18 +285,18 @@ const Login = () => {
             <Box
               sx={{
                 mt: 2,
-                textAlign: 'center'
+                textAlign: "center",
               }}
             >
               <Typography variant="body2" color="text.secondary">
-                Don't have an account?{' '}
+                Don't have an account?{" "}
                 <Button
                   component={RouterLink}
                   to="/register"
                   sx={{
-                    textTransform: 'none',
-                    color: 'primary.main',
-                    fontWeight: 'bold'
+                    textTransform: "none",
+                    color: "primary.main",
+                    fontWeight: "bold",
                   }}
                 >
                   Sign Up
@@ -315,4 +310,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;

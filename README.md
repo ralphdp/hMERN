@@ -172,24 +172,24 @@ The application will be available at:
 
 4. Set environment variables:
    ```bash
-   heroku config:set NODE_ENV=production
-   heroku config:set MONGODB_URI=your_mongodb_uri
-   heroku config:set FRONTEND_URL=https://your-app.herokuapp.com
-   heroku config:set REACT_APP_NODE_ENV=production
-   heroku config:set REACT_APP_FRONTEND_URL=https://your-app.herokuapp.com
-   heroku config:set REACT_APP_BACKEND_URL=https://your-app.herokuapp.com
-   heroku config:set SESSION_SECRET=your_session_secret
-   heroku config:set GOOGLE_CLIENT_ID=your_google_client_id
-   heroku config:set GOOGLE_CLIENT_SECRET=your_google_client_secret
-   heroku config:set GITHUB_CLIENT_ID=your_github_client_id
-   heroku config:set GITHUB_CLIENT_SECRET=your_github_client_secret
-   heroku config:set FACEBOOK_APP_ID=your_facebook_app_id
-   heroku config:set FACEBOOK_APP_SECRET=your_facebook_app_secret
-   heroku config:set EMAIL_HOST=smtp.example.com
-   heroku config:set EMAIL_PORT=587
-   heroku config:set EMAIL_USER=your_email_user
-   heroku config:set EMAIL_PASSWORD=your_email_password
-   heroku config:set EMAIL_FROM=your_email_from
+   heroku config:set NODE_ENV=production /
+                     MONGODB_URI=your_mongodb_uri /
+                     FRONTEND_URL=https://your-app.herokuapp.com /
+                     REACT_APP_NODE_ENV=production /
+                     REACT_APP_FRONTEND_URL=https://your-app.herokuapp.com /
+                     REACT_APP_BACKEND_URL=https://your-app.herokuapp.com /
+                     SESSION_SECRET=your_session_secret /
+                     GOOGLE_CLIENT_ID=your_google_client_id /
+                     GOOGLE_CLIENT_SECRET=your_google_client_secret /
+                     GITHUB_CLIENT_ID=your_github_client_id /
+                     GITHUB_CLIENT_SECRET=your_github_client_secret /
+                     FACEBOOK_APP_ID=your_facebook_app_id /
+                     FACEBOOK_APP_SECRET=your_facebook_app_secret /
+                     EMAIL_HOST=smtp.example.com /
+                     EMAIL_PORT=587 /
+                     EMAIL_USER=your_email_user /
+                     EMAIL_PASSWORD=your_email_password /
+                     EMAIL_FROM=your_email_from
    ```
 
 5. Deploy to Heroku:
@@ -224,16 +224,16 @@ heroku.com
   git commit --allow-empty -m "Force Initial Commit" && git push -u origin master
   ```
 
-## ⬆️ Publishing Changes
+## ⬆️ Publish Updates
 
-### Heroku Updates
+### Publish Heroku Updates
 
 - After making changes to your files you may commit and push changes to Heroku.
   ```bash
   git add . && git commit -m "New Changes" && git push heroku master
   ```
 
-### Github Updates
+### Publish Github Updates
 
 - After making changes to your files you may commit and push changes to Heroku then Github.
   ```bash
