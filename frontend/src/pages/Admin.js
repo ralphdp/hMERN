@@ -227,7 +227,7 @@ const Admin = () => {
                   }}
                 >
                   <UserIcon
-                    sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+                    sx={{ fontSize: 48, color: "primary.main", mb: 2 }}
                   />
                   <Typography variant="h6" gutterBottom>
                     User Management
@@ -257,7 +257,9 @@ const Admin = () => {
                     flexDirection: "column",
                   }}
                 >
-                  <ChartIcon sx={{ fontSize: 48, color: "info.main", mb: 2 }} />
+                  <ChartIcon
+                    sx={{ fontSize: 48, color: "primary.main", mb: 2 }}
+                  />
                   <Typography variant="h6" gutterBottom>
                     Analytics & Reports
                   </Typography>
@@ -269,7 +271,7 @@ const Admin = () => {
                     View detailed analytics, generate reports, and monitor
                     system performance and security metrics.
                   </Typography>
-                  <Button variant="contained" color="info" disabled fullWidth>
+                  <Button variant="contained" disabled fullWidth>
                     Coming Soon
                   </Button>
                 </CardContent>
@@ -287,7 +289,7 @@ const Admin = () => {
                   }}
                 >
                   <SettingsIcon
-                    sx={{ fontSize: 48, color: "warning.main", mb: 2 }}
+                    sx={{ fontSize: 48, color: "primary.main", mb: 2 }}
                   />
                   <Typography variant="h6" gutterBottom>
                     System Settings
@@ -300,12 +302,7 @@ const Admin = () => {
                     Configure system-wide settings, manage plugins, and control
                     application behavior and features.
                   </Typography>
-                  <Button
-                    variant="contained"
-                    color="warning"
-                    disabled
-                    fullWidth
-                  >
+                  <Button variant="contained" disabled fullWidth>
                     Coming Soon
                   </Button>
                 </CardContent>
@@ -322,14 +319,14 @@ const Admin = () => {
                     Admin User:
                   </Typography>
                   <Typography variant="body1" gutterBottom>
-                    {user?.name || "N/A"} ({user?.email})
+                    {user?.email}
                   </Typography>
 
                   <Typography variant="subtitle1" fontWeight="bold">
                     User Role:
                   </Typography>
                   <Typography variant="body1" color="primary" fontWeight="bold">
-                    {user?.role?.toUpperCase()}
+                    {user?.role?.toLowerCase()}
                   </Typography>
                 </Grid>
                 <Grid item md={6} xs={12}>

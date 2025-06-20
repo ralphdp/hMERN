@@ -426,25 +426,41 @@ router.delete("/logs", requireAdmin, async (req, res) => {
   }
 });
 
-// Debug endpoint to check authentication status
-router.get("/debug/auth", (req, res) => {
+// Auth check endpoint
+router.get("/auth/check", (req, res) => {
+  const isAuthenticated = req.isAuthenticated ? req.isAuthenticated() : false;
+  const isAdmin = req.user && req.user.isAdmin ? req.user.isAdmin() : false;
+
   res.json({
     success: true,
-    debug: {
-      isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
-      user: req.user
-        ? {
-            id: req.user._id,
-            email: req.user.email,
-            role: req.user.role,
-            isAdmin: req.user.isAdmin ? req.user.isAdmin() : false,
-          }
-        : null,
-      sessionID: req.sessionID,
-      sessionExists: !!req.session,
-      cookies: req.headers.cookie,
-      userAgent: req.headers["user-agent"],
-    },
+    authenticated: isAuthenticated,
+    isAdmin: isAdmin,
+    user: req.user
+      ? {
+          email: req.user.email,
+          role: req.user.role,
+        }
+      : null,
+    sessionId: req.sessionID,
+  });
+});
+
+// Debug endpoint for authentication
+router.get("/debug/session", (req, res) => {
+  res.json({
+    sessionID: req.sessionID,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+    user: req.user
+      ? {
+          id: req.user._id,
+          email: req.user.email,
+          role: req.user.role,
+          isAdmin: req.user.isAdmin(),
+        }
+      : null,
+    session: req.session,
+    cookies: req.headers.cookie,
+    userAgent: req.headers["user-agent"],
   });
 });
 

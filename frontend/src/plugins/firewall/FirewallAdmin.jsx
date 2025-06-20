@@ -79,7 +79,11 @@ const FirewallAdmin = () => {
     message: "",
     severity: "success",
   });
-  const [activeTab, setActiveTab] = useState(0);
+  // Load active tab from localStorage, default to 0
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem("firewallActiveTab");
+    return saved ? parseInt(saved) : 0;
+  });
   const [referenceTab, setReferenceTab] = useState(0);
   const [countrySearch, setCountrySearch] = useState("");
 
@@ -597,15 +601,25 @@ const FirewallAdmin = () => {
 
   // Refresh data (for refresh button)
   const refreshData = async () => {
-    setRefreshing(true);
-    await Promise.all([
-      fetchStats(),
-      fetchRules(),
-      fetchBlockedIPs(),
-      fetchLogs(),
-      fetchSettings(),
-    ]);
-    setRefreshing(false);
+    try {
+      setRefreshing(true);
+      setAlert({ show: false, message: "", severity: "success" });
+      await loadData();
+      setAlert({
+        show: true,
+        message: "Data refreshed successfully",
+        severity: "success",
+      });
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      setAlert({
+        show: true,
+        message: "Failed to refresh data",
+        severity: "error",
+      });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -839,12 +853,17 @@ const FirewallAdmin = () => {
     </div>
   );
 
+  // Show loading screen only during initial load
   if (loading) {
     return (
-      <Container sx={{ mt: 4, textAlign: "center" }}>
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="400px"
+      >
         <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Loading firewall dashboard...</Typography>
-      </Container>
+      </Box>
     );
   }
 
@@ -874,11 +893,11 @@ const FirewallAdmin = () => {
         </Box>
         <Button
           variant="outlined"
+          onClick={refreshData}
+          disabled={refreshing}
           startIcon={
             refreshing ? <CircularProgress size={20} /> : <RefreshIcon />
           }
-          onClick={refreshData}
-          disabled={refreshing}
         >
           {refreshing ? "Refreshing..." : "Refresh Data"}
         </Button>
@@ -925,7 +944,10 @@ const FirewallAdmin = () => {
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs
           value={activeTab}
-          onChange={(e, newValue) => setActiveTab(newValue)}
+          onChange={(e, newValue) => {
+            setActiveTab(newValue);
+            localStorage.setItem("firewallActiveTab", newValue.toString());
+          }}
         >
           <Tab icon={<ChartIcon />} label="Dashboard" />
           <Tab icon={<ShieldIcon />} label={`Rules (${rules.length})`} />
@@ -957,7 +979,7 @@ const FirewallAdmin = () => {
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent sx={{ textAlign: "center" }}>
-                <Typography variant="h3" color="error">
+                <Typography variant="h3" color="primary">
                   {stats.blockedIPs?.total || 0}
                 </Typography>
                 <Typography variant="body1">Blocked IPs</Typography>
@@ -970,7 +992,7 @@ const FirewallAdmin = () => {
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent sx={{ textAlign: "center" }}>
-                <Typography variant="h3" color="success.main">
+                <Typography variant="h3" color="primary">
                   {stats.requests?.last24h?.allowed || 0}
                 </Typography>
                 <Typography variant="body1">Allowed (24h)</Typography>
@@ -983,7 +1005,7 @@ const FirewallAdmin = () => {
           <Grid item xs={12} sm={6} md={3}>
             <Card>
               <CardContent sx={{ textAlign: "center" }}>
-                <Typography variant="h3" color="warning.main">
+                <Typography variant="h3" color="primary">
                   {stats.requests?.last24h?.blocked || 0}
                 </Typography>
                 <Typography variant="body1">Blocked (24h)</Typography>

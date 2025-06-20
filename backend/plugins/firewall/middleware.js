@@ -307,7 +307,7 @@ const firewallMiddleware = async (req, res, next) => {
 };
 
 // Admin middleware to check if user is admin
-const requireAdmin = (req, res, next) => {
+const requireAdmin = async (req, res, next) => {
   console.log("=== ADMIN CHECK ===");
   console.log("Session ID:", req.sessionID);
   console.log(
@@ -323,22 +323,56 @@ const requireAdmin = (req, res, next) => {
   console.log("Headers:", req.headers.cookie);
   console.log("==================");
 
-  if (!req.user || !req.user.isAdmin()) {
-    return res.status(403).json({
-      success: false,
-      error: "Access Denied",
-      message: "Admin access required",
-      code: "ADMIN_REQUIRED",
-      debug: {
-        isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
-        hasUser: !!req.user,
-        userRole: req.user?.role,
-        userEmail: req.user?.email,
-        sessionId: req.sessionID,
-      },
-    });
+  // Check if user is authenticated and is admin
+  if (req.user && req.user.isAdmin()) {
+    return next();
   }
-  next();
+
+  // Production bypass: If user is not authenticated but we're in production,
+  // check if this is an admin user by checking session in database
+  if (process.env.NODE_ENV === "production" && req.sessionID) {
+    try {
+      const session = require("express-session");
+      const MongoStore = require("connect-mongo");
+      const mongoose = require("mongoose");
+
+      // Try to find the session in the database
+      const sessionCollection = mongoose.connection.db.collection("sessions");
+      const sessionDoc = await sessionCollection.findOne({
+        _id: req.sessionID,
+      });
+
+      if (sessionDoc && sessionDoc.session) {
+        const sessionData = JSON.parse(sessionDoc.session);
+        if (sessionData.passport && sessionData.passport.user) {
+          const User = require("../../models/User");
+          const user = await User.findById(sessionData.passport.user);
+          if (user && user.isAdmin()) {
+            console.log("Production bypass: Found admin user in session");
+            req.user = user; // Attach user to request
+            return next();
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error in production bypass:", error);
+    }
+  }
+
+  return res.status(403).json({
+    success: false,
+    error: "Access Denied",
+    message: "Admin access required",
+    code: "ADMIN_REQUIRED",
+    debug: {
+      isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+      hasUser: !!req.user,
+      userRole: req.user?.role,
+      userEmail: req.user?.email,
+      sessionId: req.sessionID,
+      environment: process.env.NODE_ENV,
+    },
+  });
 };
 
 module.exports = {
