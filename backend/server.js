@@ -174,10 +174,29 @@ app.set("trust proxy", 1);
 
 // CORS configuration
 const corsOptions = {
-  origin:
-    process.env.NODE_ENV === "production"
-      ? process.env.FRONTEND_URL
-      : "http://localhost:3000",
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [];
+
+    if (process.env.NODE_ENV === "production") {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    } else {
+      // Development origins
+      allowedOrigins.push("http://localhost:3000");
+      allowedOrigins.push("http://127.0.0.1:3000");
+      allowedOrigins.push("http://localhost:5050");
+      allowedOrigins.push("http://127.0.0.1:5050");
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log("CORS blocked origin:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: [

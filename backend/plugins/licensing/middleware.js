@@ -18,9 +18,11 @@ const CACHE_DURATION = 1000 * 60 * 60; // Cache for 1 hour
 /**
  * Express middleware to validate the application's license key.
  * Caches the validation result to reduce server load.
+ * In development mode, allows more flexible domain matching for testing.
  */
 const validateLicense = async (req, res, next) => {
   const now = Date.now();
+  const isDevelopment = process.env.NODE_ENV === "development";
 
   // 1. Check for a valid, recent cache entry
   if (licenseCache && now - lastCheck < CACHE_DURATION) {
@@ -50,6 +52,7 @@ const validateLicense = async (req, res, next) => {
   try {
     console.log("=== ENHANCED License Validation Request ===");
     console.log("Timestamp:", new Date().toISOString());
+    console.log("Development Mode:", isDevelopment);
     console.log("License Server URL:", LICENSE_SERVER_URL);
     console.log(
       "License Key (first 8 chars):",
@@ -83,6 +86,7 @@ const validateLicense = async (req, res, next) => {
     const requestPayload = {
       license_key: LICENSE_KEY,
       domain: FRONTEND_URL,
+      development_mode: isDevelopment, // Add development mode flag
     };
 
     console.log("=== FULL REQUEST PAYLOAD ===");
@@ -130,6 +134,35 @@ const validateLicense = async (req, res, next) => {
       next();
     } else {
       console.warn("License validation failed:", response.data.message);
+
+      // In development mode, if the license key is valid but domain doesn't match,
+      // allow it for testing purposes
+      if (isDevelopment && response.data.error_code === "DOMAIN_MISMATCH") {
+        console.log("Development mode: Allowing domain mismatch for testing");
+
+        // Create a mock successful response for development
+        const devLicenseInfo = {
+          license_key: LICENSE_KEY,
+          domain: FRONTEND_URL,
+          status: "active",
+          plan: "development",
+          expires_at: new Date(
+            Date.now() + 365 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          features: ["firewall", "analytics", "premium_support"],
+          development_mode: true,
+        };
+
+        licenseCache = {
+          success: true,
+          data: devLicenseInfo,
+          message: "Development mode: License validation bypassed for testing",
+        };
+        req.licenseInfo = devLicenseInfo;
+        console.log("Development bypass activated for license testing");
+        return next();
+      }
+
       licenseCache = { success: false, ...response.data };
       res.status(403).json(licenseCache);
     }
@@ -150,10 +183,72 @@ const validateLicense = async (req, res, next) => {
         "Error data (JSON):",
         JSON.stringify(error.response.data, null, 2)
       );
+
+      // In development mode, if we have a valid license key but server is unreachable
+      // or returns domain mismatch, allow for testing
+      if (isDevelopment && LICENSE_KEY && LICENSE_KEY.length > 20) {
+        console.log(
+          "Development mode: License server error, using offline validation"
+        );
+
+        const devLicenseInfo = {
+          license_key: LICENSE_KEY,
+          domain: FRONTEND_URL,
+          status: "active",
+          plan: "development_offline",
+          expires_at: new Date(
+            Date.now() + 365 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          features: ["firewall", "analytics", "premium_support"],
+          development_mode: true,
+          offline_mode: true,
+        };
+
+        licenseCache = {
+          success: true,
+          data: devLicenseInfo,
+          message: "Development mode: Offline license validation for testing",
+        };
+        req.licenseInfo = devLicenseInfo;
+        console.log("Development offline bypass activated for license testing");
+        return next();
+      }
     } else if (error.request) {
       console.error("=== ERROR REQUEST DETAILS ===");
       console.error("Request was made but no response received");
       console.error("Request details:", error.request);
+
+      // In development mode, if license server is unreachable, allow for testing
+      if (isDevelopment && LICENSE_KEY && LICENSE_KEY.length > 20) {
+        console.log(
+          "Development mode: License server unreachable, using offline validation"
+        );
+
+        const devLicenseInfo = {
+          license_key: LICENSE_KEY,
+          domain: FRONTEND_URL,
+          status: "active",
+          plan: "development_offline",
+          expires_at: new Date(
+            Date.now() + 365 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          features: ["firewall", "analytics", "premium_support"],
+          development_mode: true,
+          offline_mode: true,
+        };
+
+        licenseCache = {
+          success: true,
+          data: devLicenseInfo,
+          message:
+            "Development mode: Offline license validation (server unreachable)",
+        };
+        req.licenseInfo = devLicenseInfo;
+        console.log(
+          "Development offline bypass activated (server unreachable)"
+        );
+        return next();
+      }
     } else {
       console.error("=== ERROR SETUP DETAILS ===");
       console.error("Error occurred during request setup");

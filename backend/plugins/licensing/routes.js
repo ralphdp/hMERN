@@ -77,15 +77,21 @@ router.get("/info", async (req, res) => {
  * This endpoint performs a full validation.
  */
 router.get("/status", async (req, res) => {
-  // For development on localhost, the license is always valid.
+  const isDevelopment = process.env.NODE_ENV === "development";
+
+  // For development on localhost without a license key, allow free mode
   if (
-    process.env.NODE_ENV === "development" &&
+    isDevelopment &&
     FRONTEND_URL &&
-    (FRONTEND_URL.includes("localhost") || FRONTEND_URL.includes("127.0.0.1"))
+    (FRONTEND_URL.includes("localhost") ||
+      FRONTEND_URL.includes("127.0.0.1")) &&
+    !LICENSE_KEY
   ) {
     return res.json({
       isValid: true,
-      message: "Development environment active.",
+      message: "Development environment active (free mode).",
+      development_mode: true,
+      free_mode: true,
     });
   }
 
@@ -99,6 +105,7 @@ router.get("/status", async (req, res) => {
   try {
     console.log("=== ENHANCED License Status Check ===");
     console.log("Timestamp:", new Date().toISOString());
+    console.log("Development Mode:", isDevelopment);
     console.log("License Server URL:", LICENSE_SERVER_URL);
     console.log(
       "License Key (first 8 chars):",
@@ -131,7 +138,8 @@ router.get("/status", async (req, res) => {
 
     const requestPayload = {
       license_key: LICENSE_KEY,
-      domain: FRONTEND_URL, // Now this is the domain without protocol
+      domain: FRONTEND_URL,
+      development_mode: isDevelopment,
     };
 
     console.log("=== FULL REQUEST PAYLOAD ===");
@@ -177,6 +185,8 @@ router.get("/status", async (req, res) => {
       message: isValid
         ? "License is active and valid for this domain."
         : response.data.message || "License is invalid.",
+      development_mode: isDevelopment,
+      license_info: response.data.data,
     });
   } catch (error) {
     console.error("=== ENHANCED License Status Check Error ===");
@@ -195,10 +205,39 @@ router.get("/status", async (req, res) => {
         "Error data (JSON):",
         JSON.stringify(error.response.data, null, 2)
       );
+
+      // In development mode, if domain mismatch or server error, allow for testing
+      if (isDevelopment && LICENSE_KEY && LICENSE_KEY.length > 20) {
+        console.log(
+          "Development mode: License server error, allowing for testing"
+        );
+        return res.json({
+          isValid: true,
+          message: "Development mode: License validation bypassed for testing",
+          development_mode: true,
+          offline_mode: true,
+          error_bypassed: error.response.data.message || error.message,
+        });
+      }
     } else if (error.request) {
       console.error("=== ERROR REQUEST DETAILS ===");
       console.error("Request was made but no response received");
       console.error("Request details:", error.request);
+
+      // In development mode, if license server is unreachable, allow for testing
+      if (isDevelopment && LICENSE_KEY && LICENSE_KEY.length > 20) {
+        console.log(
+          "Development mode: License server unreachable, allowing for testing"
+        );
+        return res.json({
+          isValid: true,
+          message:
+            "Development mode: License server unreachable, bypassed for testing",
+          development_mode: true,
+          offline_mode: true,
+          server_unreachable: true,
+        });
+      }
     } else {
       console.error("=== ERROR SETUP DETAILS ===");
       console.error("Error occurred during request setup");
@@ -210,6 +249,8 @@ router.get("/status", async (req, res) => {
       isValid: false,
       message:
         error.response?.data?.message || "Unable to verify license status.",
+      development_mode: isDevelopment,
+      error: error.message,
     });
   }
 });
