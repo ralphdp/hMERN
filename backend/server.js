@@ -223,6 +223,20 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Handle preflight requests explicitly
+app.options("*", cors(corsOptions));
+
+// Additional CORS middleware for debugging
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `CORS Request - Origin: ${origin}, Method: ${req.method}, URL: ${req.url}`
+    );
+  }
+  next();
+});
+
 // Security middleware
 app.use(
   helmet({
@@ -281,9 +295,24 @@ const limiter = rateLimit({
 // Apply rate limiter to all requests
 app.use(limiter);
 
-// Body parser middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parser middleware - Enhanced for better parsing
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Additional body parsing middleware for edge cases
+app.use((req, res, next) => {
+  // Log request details for debugging
+  if (req.url.includes("/api/firewall/rules") && req.method === "POST") {
+    console.log("=== REQUEST DEBUG ===");
+    console.log("URL:", req.url);
+    console.log("Method:", req.method);
+    console.log("Content-Type:", req.headers["content-type"]);
+    console.log("Body (raw):", req.body);
+    console.log("Headers:", req.headers);
+    console.log("======================");
+  }
+  next();
+});
 
 // Session configuration
 app.use(

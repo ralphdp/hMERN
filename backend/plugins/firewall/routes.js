@@ -171,10 +171,27 @@ router.post("/rules", requireAdmin, async (req, res) => {
   try {
     console.log("=== Creating Firewall Rule ===");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log("Request body type:", typeof req.body);
+    console.log("Request content-type:", req.headers["content-type"]);
     console.log(
       "User:",
       req.user ? { email: req.user.email, role: req.user.role } : "No user"
     );
+
+    // Check if req.body exists and is an object
+    if (!req.body || typeof req.body !== "object") {
+      console.log("Request body is missing or invalid");
+      return res.status(400).json({
+        success: false,
+        message:
+          "Request body is missing or invalid. Please ensure you're sending JSON data with Content-Type: application/json",
+        received: {
+          body: req.body,
+          bodyType: typeof req.body,
+          contentType: req.headers["content-type"],
+        },
+      });
+    }
 
     const { name, type, value, action, enabled, priority, description } =
       req.body;

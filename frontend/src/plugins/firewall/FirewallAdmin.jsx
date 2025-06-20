@@ -592,6 +592,7 @@ const FirewallAdmin = () => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
           "X-Admin-Bypass": "testing",
         },
         credentials: "include",
@@ -730,10 +731,22 @@ const FirewallAdmin = () => {
         method,
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
           "X-Admin-Bypass": "testing",
         },
         credentials: "include",
         body: JSON.stringify(ruleForm),
+      });
+
+      console.log("Rule save request sent:", {
+        url,
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Admin-Bypass": "testing",
+        },
+        body: ruleForm,
       });
 
       if (response.ok) {
@@ -808,6 +821,7 @@ const FirewallAdmin = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Accept: "application/json",
             "X-Admin-Bypass": "testing",
           },
           credentials: "include",
