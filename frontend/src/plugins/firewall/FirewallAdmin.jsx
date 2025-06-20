@@ -33,6 +33,13 @@ import {
   FormControlLabel,
   IconButton,
   Tooltip,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Divider,
+  InputAdornment,
+  Badge,
 } from "@mui/material";
 import {
   Shield as ShieldIcon,
@@ -44,6 +51,11 @@ import {
   Edit as EditIcon,
   Delete as TrashIcon,
   Refresh as RefreshIcon,
+  Help as HelpIcon,
+  Search as SearchIcon,
+  Code as CodeIcon,
+  Flag as FlagIcon,
+  Security as SecurityIcon,
 } from "@mui/icons-material";
 
 const FirewallAdmin = () => {
@@ -54,6 +66,7 @@ const FirewallAdmin = () => {
   const [logs, setLogs] = useState([]);
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
+  const [showReferenceModal, setShowReferenceModal] = useState(false);
   const [selectedRule, setSelectedRule] = useState(null);
   const [alert, setAlert] = useState({
     show: false,
@@ -61,6 +74,8 @@ const FirewallAdmin = () => {
     severity: "success",
   });
   const [activeTab, setActiveTab] = useState(0);
+  const [referenceTab, setReferenceTab] = useState(0);
+  const [countrySearch, setCountrySearch] = useState("");
 
   // Form states
   const [ruleForm, setRuleForm] = useState({
@@ -79,6 +94,345 @@ const FirewallAdmin = () => {
     permanent: false,
     expiresIn: 3600,
   });
+
+  // Country codes reference data
+  const countryCodes = [
+    { code: "AD", name: "Andorra" },
+    { code: "AE", name: "United Arab Emirates" },
+    { code: "AF", name: "Afghanistan" },
+    { code: "AG", name: "Antigua and Barbuda" },
+    { code: "AI", name: "Anguilla" },
+    { code: "AL", name: "Albania" },
+    { code: "AM", name: "Armenia" },
+    { code: "AO", name: "Angola" },
+    { code: "AQ", name: "Antarctica" },
+    { code: "AR", name: "Argentina" },
+    { code: "AS", name: "American Samoa" },
+    { code: "AT", name: "Austria" },
+    { code: "AU", name: "Australia" },
+    { code: "AW", name: "Aruba" },
+    { code: "AX", name: "Åland Islands" },
+    { code: "AZ", name: "Azerbaijan" },
+    { code: "BA", name: "Bosnia and Herzegovina" },
+    { code: "BB", name: "Barbados" },
+    { code: "BD", name: "Bangladesh" },
+    { code: "BE", name: "Belgium" },
+    { code: "BF", name: "Burkina Faso" },
+    { code: "BG", name: "Bulgaria" },
+    { code: "BH", name: "Bahrain" },
+    { code: "BI", name: "Burundi" },
+    { code: "BJ", name: "Benin" },
+    { code: "BL", name: "Saint Barthélemy" },
+    { code: "BM", name: "Bermuda" },
+    { code: "BN", name: "Brunei" },
+    { code: "BO", name: "Bolivia" },
+    { code: "BQ", name: "Caribbean Netherlands" },
+    { code: "BR", name: "Brazil" },
+    { code: "BS", name: "Bahamas" },
+    { code: "BT", name: "Bhutan" },
+    { code: "BV", name: "Bouvet Island" },
+    { code: "BW", name: "Botswana" },
+    { code: "BY", name: "Belarus" },
+    { code: "BZ", name: "Belize" },
+    { code: "CA", name: "Canada" },
+    { code: "CC", name: "Cocos Islands" },
+    { code: "CD", name: "Democratic Republic of the Congo" },
+    { code: "CF", name: "Central African Republic" },
+    { code: "CG", name: "Republic of the Congo" },
+    { code: "CH", name: "Switzerland" },
+    { code: "CI", name: "Côte d'Ivoire" },
+    { code: "CK", name: "Cook Islands" },
+    { code: "CL", name: "Chile" },
+    { code: "CM", name: "Cameroon" },
+    { code: "CN", name: "China" },
+    { code: "CO", name: "Colombia" },
+    { code: "CR", name: "Costa Rica" },
+    { code: "CU", name: "Cuba" },
+    { code: "CV", name: "Cape Verde" },
+    { code: "CW", name: "Curaçao" },
+    { code: "CX", name: "Christmas Island" },
+    { code: "CY", name: "Cyprus" },
+    { code: "CZ", name: "Czech Republic" },
+    { code: "DE", name: "Germany" },
+    { code: "DJ", name: "Djibouti" },
+    { code: "DK", name: "Denmark" },
+    { code: "DM", name: "Dominica" },
+    { code: "DO", name: "Dominican Republic" },
+    { code: "DZ", name: "Algeria" },
+    { code: "EC", name: "Ecuador" },
+    { code: "EE", name: "Estonia" },
+    { code: "EG", name: "Egypt" },
+    { code: "EH", name: "Western Sahara" },
+    { code: "ER", name: "Eritrea" },
+    { code: "ES", name: "Spain" },
+    { code: "ET", name: "Ethiopia" },
+    { code: "FI", name: "Finland" },
+    { code: "FJ", name: "Fiji" },
+    { code: "FK", name: "Falkland Islands" },
+    { code: "FM", name: "Micronesia" },
+    { code: "FO", name: "Faroe Islands" },
+    { code: "FR", name: "France" },
+    { code: "GA", name: "Gabon" },
+    { code: "GB", name: "United Kingdom" },
+    { code: "GD", name: "Grenada" },
+    { code: "GE", name: "Georgia" },
+    { code: "GF", name: "French Guiana" },
+    { code: "GG", name: "Guernsey" },
+    { code: "GH", name: "Ghana" },
+    { code: "GI", name: "Gibraltar" },
+    { code: "GL", name: "Greenland" },
+    { code: "GM", name: "Gambia" },
+    { code: "GN", name: "Guinea" },
+    { code: "GP", name: "Guadeloupe" },
+    { code: "GQ", name: "Equatorial Guinea" },
+    { code: "GR", name: "Greece" },
+    { code: "GS", name: "South Georgia" },
+    { code: "GT", name: "Guatemala" },
+    { code: "GU", name: "Guam" },
+    { code: "GW", name: "Guinea-Bissau" },
+    { code: "GY", name: "Guyana" },
+    { code: "HK", name: "Hong Kong" },
+    { code: "HM", name: "Heard Island" },
+    { code: "HN", name: "Honduras" },
+    { code: "HR", name: "Croatia" },
+    { code: "HT", name: "Haiti" },
+    { code: "HU", name: "Hungary" },
+    { code: "ID", name: "Indonesia" },
+    { code: "IE", name: "Ireland" },
+    { code: "IL", name: "Israel" },
+    { code: "IM", name: "Isle of Man" },
+    { code: "IN", name: "India" },
+    { code: "IO", name: "British Indian Ocean Territory" },
+    { code: "IQ", name: "Iraq" },
+    { code: "IR", name: "Iran" },
+    { code: "IS", name: "Iceland" },
+    { code: "IT", name: "Italy" },
+    { code: "JE", name: "Jersey" },
+    { code: "JM", name: "Jamaica" },
+    { code: "JO", name: "Jordan" },
+    { code: "JP", name: "Japan" },
+    { code: "KE", name: "Kenya" },
+    { code: "KG", name: "Kyrgyzstan" },
+    { code: "KH", name: "Cambodia" },
+    { code: "KI", name: "Kiribati" },
+    { code: "KM", name: "Comoros" },
+    { code: "KN", name: "Saint Kitts and Nevis" },
+    { code: "KP", name: "North Korea" },
+    { code: "KR", name: "South Korea" },
+    { code: "KW", name: "Kuwait" },
+    { code: "KY", name: "Cayman Islands" },
+    { code: "KZ", name: "Kazakhstan" },
+    { code: "LA", name: "Laos" },
+    { code: "LB", name: "Lebanon" },
+    { code: "LC", name: "Saint Lucia" },
+    { code: "LI", name: "Liechtenstein" },
+    { code: "LK", name: "Sri Lanka" },
+    { code: "LR", name: "Liberia" },
+    { code: "LS", name: "Lesotho" },
+    { code: "LT", name: "Lithuania" },
+    { code: "LU", name: "Luxembourg" },
+    { code: "LV", name: "Latvia" },
+    { code: "LY", name: "Libya" },
+    { code: "MA", name: "Morocco" },
+    { code: "MC", name: "Monaco" },
+    { code: "MD", name: "Moldova" },
+    { code: "ME", name: "Montenegro" },
+    { code: "MF", name: "Saint Martin" },
+    { code: "MG", name: "Madagascar" },
+    { code: "MH", name: "Marshall Islands" },
+    { code: "MK", name: "North Macedonia" },
+    { code: "ML", name: "Mali" },
+    { code: "MM", name: "Myanmar" },
+    { code: "MN", name: "Mongolia" },
+    { code: "MO", name: "Macao" },
+    { code: "MP", name: "Northern Mariana Islands" },
+    { code: "MQ", name: "Martinique" },
+    { code: "MR", name: "Mauritania" },
+    { code: "MS", name: "Montserrat" },
+    { code: "MT", name: "Malta" },
+    { code: "MU", name: "Mauritius" },
+    { code: "MV", name: "Maldives" },
+    { code: "MW", name: "Malawi" },
+    { code: "MX", name: "Mexico" },
+    { code: "MY", name: "Malaysia" },
+    { code: "MZ", name: "Mozambique" },
+    { code: "NA", name: "Namibia" },
+    { code: "NC", name: "New Caledonia" },
+    { code: "NE", name: "Niger" },
+    { code: "NF", name: "Norfolk Island" },
+    { code: "NG", name: "Nigeria" },
+    { code: "NI", name: "Nicaragua" },
+    { code: "NL", name: "Netherlands" },
+    { code: "NO", name: "Norway" },
+    { code: "NP", name: "Nepal" },
+    { code: "NR", name: "Nauru" },
+    { code: "NU", name: "Niue" },
+    { code: "NZ", name: "New Zealand" },
+    { code: "OM", name: "Oman" },
+    { code: "PA", name: "Panama" },
+    { code: "PE", name: "Peru" },
+    { code: "PF", name: "French Polynesia" },
+    { code: "PG", name: "Papua New Guinea" },
+    { code: "PH", name: "Philippines" },
+    { code: "PK", name: "Pakistan" },
+    { code: "PL", name: "Poland" },
+    { code: "PM", name: "Saint Pierre and Miquelon" },
+    { code: "PN", name: "Pitcairn Islands" },
+    { code: "PR", name: "Puerto Rico" },
+    { code: "PS", name: "Palestine" },
+    { code: "PT", name: "Portugal" },
+    { code: "PW", name: "Palau" },
+    { code: "PY", name: "Paraguay" },
+    { code: "QA", name: "Qatar" },
+    { code: "RE", name: "Réunion" },
+    { code: "RO", name: "Romania" },
+    { code: "RS", name: "Serbia" },
+    { code: "RU", name: "Russia" },
+    { code: "RW", name: "Rwanda" },
+    { code: "SA", name: "Saudi Arabia" },
+    { code: "SB", name: "Solomon Islands" },
+    { code: "SC", name: "Seychelles" },
+    { code: "SD", name: "Sudan" },
+    { code: "SE", name: "Sweden" },
+    { code: "SG", name: "Singapore" },
+    { code: "SH", name: "Saint Helena" },
+    { code: "SI", name: "Slovenia" },
+    { code: "SJ", name: "Svalbard and Jan Mayen" },
+    { code: "SK", name: "Slovakia" },
+    { code: "SL", name: "Sierra Leone" },
+    { code: "SM", name: "San Marino" },
+    { code: "SN", name: "Senegal" },
+    { code: "SO", name: "Somalia" },
+    { code: "SR", name: "Suriname" },
+    { code: "SS", name: "South Sudan" },
+    { code: "ST", name: "São Tomé and Príncipe" },
+    { code: "SV", name: "El Salvador" },
+    { code: "SX", name: "Sint Maarten" },
+    { code: "SY", name: "Syria" },
+    { code: "SZ", name: "Eswatini" },
+    { code: "TC", name: "Turks and Caicos Islands" },
+    { code: "TD", name: "Chad" },
+    { code: "TF", name: "French Southern Territories" },
+    { code: "TG", name: "Togo" },
+    { code: "TH", name: "Thailand" },
+    { code: "TJ", name: "Tajikistan" },
+    { code: "TK", name: "Tokelau" },
+    { code: "TL", name: "East Timor" },
+    { code: "TM", name: "Turkmenistan" },
+    { code: "TN", name: "Tunisia" },
+    { code: "TO", name: "Tonga" },
+    { code: "TR", name: "Turkey" },
+    { code: "TT", name: "Trinidad and Tobago" },
+    { code: "TV", name: "Tuvalu" },
+    { code: "TW", name: "Taiwan" },
+    { code: "TZ", name: "Tanzania" },
+    { code: "UA", name: "Ukraine" },
+    { code: "UG", name: "Uganda" },
+    { code: "UM", name: "U.S. Minor Outlying Islands" },
+    { code: "US", name: "United States" },
+    { code: "UY", name: "Uruguay" },
+    { code: "UZ", name: "Uzbekistan" },
+    { code: "VA", name: "Vatican City" },
+    { code: "VC", name: "Saint Vincent and the Grenadines" },
+    { code: "VE", name: "Venezuela" },
+    { code: "VG", name: "British Virgin Islands" },
+    { code: "VI", name: "U.S. Virgin Islands" },
+    { code: "VN", name: "Vietnam" },
+    { code: "VU", name: "Vanuatu" },
+    { code: "WF", name: "Wallis and Futuna" },
+    { code: "WS", name: "Samoa" },
+    { code: "YE", name: "Yemen" },
+    { code: "YT", name: "Mayotte" },
+    { code: "ZA", name: "South Africa" },
+    { code: "ZM", name: "Zambia" },
+    { code: "ZW", name: "Zimbabwe" },
+  ];
+
+  // Pattern examples for suspicious patterns
+  const patternExamples = [
+    {
+      category: "SQL Injection",
+      patterns: [
+        "union.*select",
+        "or.*1=1",
+        "drop.*table",
+        "insert.*into",
+        "delete.*from",
+        "update.*set",
+        "exec.*xp_",
+        "sp_executesql",
+      ],
+    },
+    {
+      category: "XSS (Cross-Site Scripting)",
+      patterns: [
+        "<script",
+        "javascript:",
+        "onload=",
+        "onerror=",
+        "onclick=",
+        "onmouseover=",
+        "eval\\(",
+        "document\\.cookie",
+      ],
+    },
+    {
+      category: "Path Traversal",
+      patterns: [
+        "\\.\\./",
+        "\\.\\.\\\\",
+        "/etc/passwd",
+        "/windows/system32",
+        "boot\\.ini",
+        "web\\.config",
+        "wp-config\\.php",
+      ],
+    },
+    {
+      category: "Command Injection",
+      patterns: [
+        ";.*cat",
+        "\\|.*ls",
+        "&&.*rm",
+        "\\$\\(.*\\)",
+        "`.*`",
+        "nc.*-e",
+        "/bin/sh",
+        "cmd\\.exe",
+      ],
+    },
+    {
+      category: "File Inclusion",
+      patterns: [
+        "php://input",
+        "php://filter",
+        "data://text",
+        "file://",
+        "expect://",
+        "zip://",
+      ],
+    },
+    {
+      category: "Bot Detection",
+      patterns: [
+        "bot",
+        "crawler",
+        "spider",
+        "scraper",
+        "automated",
+        "python-requests",
+        "curl/",
+        "wget/",
+      ],
+    },
+  ];
+
+  // Filter countries based on search
+  const filteredCountries = countryCodes.filter(
+    (country) =>
+      country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+      country.code.toLowerCase().includes(countrySearch.toLowerCase())
+  );
 
   // Fetch data functions
   const fetchStats = async () => {
@@ -151,9 +505,7 @@ const FirewallAdmin = () => {
 
   useEffect(() => {
     loadData();
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
+    // Auto-refresh removed - data will only load on initial mount
   }, []);
 
   // Alert helper
@@ -547,13 +899,22 @@ const FirewallAdmin = () => {
           }}
         >
           <Typography variant="h5">Firewall Rules</Typography>
-          <Button
-            variant="contained"
-            startIcon={<PlusIcon />}
-            onClick={() => setShowRuleModal(true)}
-          >
-            Add Rule
-          </Button>
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<HelpIcon />}
+              onClick={() => setShowReferenceModal(true)}
+            >
+              Reference
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<PlusIcon />}
+              onClick={() => setShowRuleModal(true)}
+            >
+              Add Rule
+            </Button>
+          </Box>
         </Box>
 
         <TableContainer component={Paper}>
@@ -949,6 +1310,262 @@ const FirewallAdmin = () => {
           <Button onClick={handleBlockIP} variant="contained" color="error">
             Block IP
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reference Modal */}
+      <Dialog
+        open={showReferenceModal}
+        onClose={() => setShowReferenceModal(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { height: "90vh" },
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <SecurityIcon />
+            <Typography variant="h6">Firewall Reference Guide</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+            <Tabs
+              value={referenceTab}
+              onChange={(e, newValue) => setReferenceTab(newValue)}
+            >
+              <Tab
+                icon={<FlagIcon />}
+                label={`Country Codes (${countryCodes.length})`}
+              />
+              <Tab
+                icon={<CodeIcon />}
+                label={`Pattern Examples (${patternExamples.length})`}
+              />
+            </Tabs>
+          </Box>
+
+          {/* Country Codes Tab */}
+          {referenceTab === 0 && (
+            <Box>
+              <Box sx={{ mb: 2 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search countries..."
+                  value={countrySearch}
+                  onChange={(e) => setCountrySearch(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Use these 2-letter country codes in your firewall rules. For
+                example, to block all traffic from China, create a rule with
+                type "Country Block" and value "CN".
+              </Typography>
+
+              <Paper sx={{ maxHeight: 400, overflow: "auto" }}>
+                <List dense>
+                  {filteredCountries.map((country, index) => (
+                    <React.Fragment key={country.code}>
+                      <ListItem>
+                        <ListItemText
+                          primary={
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
+                              <Badge
+                                badgeContent={country.code}
+                                color="primary"
+                                sx={{
+                                  "& .MuiBadge-badge": {
+                                    fontSize: "0.75rem",
+                                    minWidth: "32px",
+                                    height: "20px",
+                                  },
+                                }}
+                              >
+                                <FlagIcon />
+                              </Badge>
+                              <Typography variant="body1">
+                                {country.name}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                        <ListItemSecondaryAction>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              setRuleForm({
+                                ...ruleForm,
+                                name: `Block ${country.name}`,
+                                type: "country_block",
+                                value: country.code,
+                                action: "block",
+                              });
+                              setShowReferenceModal(false);
+                              setShowRuleModal(true);
+                            }}
+                          >
+                            Use Code
+                          </Button>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                      {index < filteredCountries.length - 1 && <Divider />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              </Paper>
+
+              {filteredCountries.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ textAlign: "center", py: 4 }}
+                >
+                  No countries found matching "{countrySearch}"
+                </Typography>
+              )}
+            </Box>
+          )}
+
+          {/* Pattern Examples Tab */}
+          {referenceTab === 1 && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                These are common patterns used to detect suspicious requests.
+                You can use these regex patterns in "Suspicious Pattern" rules
+                to block malicious traffic.
+              </Typography>
+
+              <Grid container spacing={2}>
+                {patternExamples.map((category, categoryIndex) => (
+                  <Grid item xs={12} md={6} key={categoryIndex}>
+                    <Card>
+                      <CardHeader
+                        title={
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <SecurityIcon color="error" />
+                            <Typography variant="h6">
+                              {category.category}
+                            </Typography>
+                            <Chip
+                              label={category.patterns.length}
+                              size="small"
+                              color="primary"
+                            />
+                          </Box>
+                        }
+                      />
+                      <CardContent>
+                        <List dense>
+                          {category.patterns.map((pattern, patternIndex) => (
+                            <ListItem
+                              key={patternIndex}
+                              divider={
+                                patternIndex < category.patterns.length - 1
+                              }
+                            >
+                              <ListItemText
+                                primary={
+                                  <Typography
+                                    variant="body2"
+                                    component="code"
+                                    sx={{
+                                      bgcolor: "grey.100",
+                                      p: 0.5,
+                                      borderRadius: 1,
+                                      fontSize: "0.8rem",
+                                    }}
+                                  >
+                                    {pattern}
+                                  </Typography>
+                                }
+                              />
+                              <ListItemSecondaryAction>
+                                <Tooltip title="Use this pattern">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => {
+                                      setRuleForm({
+                                        ...ruleForm,
+                                        name: `Block ${
+                                          category.category
+                                        } - ${pattern.substring(0, 20)}...`,
+                                        type: "suspicious_pattern",
+                                        value: pattern,
+                                        action: "block",
+                                        description: `Blocks requests matching ${category.category.toLowerCase()} pattern`,
+                                      });
+                                      setShowReferenceModal(false);
+                                      setShowRuleModal(true);
+                                    }}
+                                  >
+                                    <PlusIcon />
+                                  </IconButton>
+                                </Tooltip>
+                              </ListItemSecondaryAction>
+                            </ListItem>
+                          ))}
+                        </List>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+
+              <Box sx={{ mt: 3, p: 2, bgcolor: "info.light", borderRadius: 1 }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}
+                >
+                  <HelpIcon />
+                  Pattern Tips
+                </Typography>
+                <Typography variant="body2" component="div">
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    <li>Patterns are case-insensitive by default</li>
+                    <li>
+                      Use <code>.*</code> to match any characters
+                    </li>
+                    <li>
+                      Use <code>\\.</code> to match literal dots
+                    </li>
+                    <li>
+                      Use <code>^</code> to match start of string
+                    </li>
+                    <li>
+                      Use <code>$</code> to match end of string
+                    </li>
+                    <li>Test your patterns carefully before enabling</li>
+                  </ul>
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowReferenceModal(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Container>
