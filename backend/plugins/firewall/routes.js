@@ -169,27 +169,69 @@ router.get("/rules", requireAdmin, async (req, res) => {
 // Create firewall rule (admin only)
 router.post("/rules", requireAdmin, async (req, res) => {
   try {
+    console.log("=== Creating Firewall Rule ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log(
+      "User:",
+      req.user ? { email: req.user.email, role: req.user.role } : "No user"
+    );
+
     const { name, type, value, action, enabled, priority, description } =
       req.body;
 
+    // Enhanced validation
     if (!name || !type || !value) {
+      console.log("Validation failed - missing required fields");
       return res.status(400).json({
         success: false,
         message: "Name, type, and value are required",
+        received: { name: !!name, type: !!type, value: !!value },
       });
     }
 
-    const rule = new FirewallRule({
+    // Validate type
+    const validTypes = [
+      "ip_block",
+      "country_block",
+      "rate_limit",
+      "suspicious_pattern",
+    ];
+    if (!validTypes.includes(type)) {
+      console.log("Invalid type:", type);
+      return res.status(400).json({
+        success: false,
+        message: `Invalid type. Must be one of: ${validTypes.join(", ")}`,
+        received: type,
+      });
+    }
+
+    // Validate action
+    const validActions = ["block", "allow", "rate_limit"];
+    if (action && !validActions.includes(action)) {
+      console.log("Invalid action:", action);
+      return res.status(400).json({
+        success: false,
+        message: `Invalid action. Must be one of: ${validActions.join(", ")}`,
+        received: action,
+      });
+    }
+
+    const ruleData = {
       name,
       type,
       value,
       action: action || "block",
       enabled: enabled !== false,
       priority: priority || 100,
-      description,
-    });
+      description: description || "",
+    };
 
+    console.log("Creating rule with data:", JSON.stringify(ruleData, null, 2));
+
+    const rule = new FirewallRule(ruleData);
     await rule.save();
+
+    console.log("Rule created successfully:", rule._id);
 
     res.status(201).json({
       success: true,
@@ -197,10 +239,35 @@ router.post("/rules", requireAdmin, async (req, res) => {
       data: rule,
     });
   } catch (error) {
-    console.error("Error creating firewall rule:", error);
+    console.error("=== Error creating firewall rule ===");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+
+    if (error.name === "ValidationError") {
+      console.error("Validation errors:", error.errors);
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: Object.keys(error.errors).map((key) => ({
+          field: key,
+          message: error.errors[key].message,
+        })),
+      });
+    }
+
+    if (error.code === 11000) {
+      console.error("Duplicate key error:", error.keyPattern);
+      return res.status(409).json({
+        success: false,
+        message: "A rule with similar parameters already exists",
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Error creating firewall rule",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });

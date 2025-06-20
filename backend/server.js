@@ -194,7 +194,17 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.log("CORS blocked origin:", origin);
-      callback(new Error("Not allowed by CORS"));
+      // In development, be more permissive for localhost
+      if (
+        process.env.NODE_ENV !== "production" &&
+        origin &&
+        origin.includes("localhost")
+      ) {
+        console.log("Allowing localhost origin in development:", origin);
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
     }
   },
   credentials: true,
@@ -207,6 +217,7 @@ const corsOptions = {
     "Origin",
     "Cookie",
     "Set-Cookie",
+    "X-Admin-Bypass",
   ],
 };
 
