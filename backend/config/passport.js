@@ -32,7 +32,7 @@ const getGravatarUrl = (email) => {
 // Helper function to get callback URL
 const getCallbackUrl = (provider) => {
   if (process.env.NODE_ENV === "production") {
-    return `${process.env.FRONTEND_URL}api/auth/${provider}/callback`;
+    return `${process.env.FRONTEND_URL}/api/auth/${provider}/callback`;
   }
   // In development, use the backend URL for callbacks
   return `http://localhost:${process.env.PORT_BACKEND}api/auth/${provider}/callback`;
