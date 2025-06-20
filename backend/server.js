@@ -227,6 +227,55 @@ if (app.plugins.licensing) {
 }
 // --- End Example ---
 
+// --- Admin Routes (only if firewall plugin is loaded) ---
+if (app.plugins.firewall) {
+  console.log("=== Registering Admin Routes ===");
+  const { requireAdmin } = app.plugins.firewall.middleware;
+
+  // Admin routes - only accessible to admin users
+  const adminRouter = express.Router();
+
+  // Admin dashboard
+  adminRouter.get("/", requireAdmin, (req, res) => {
+    res.json({
+      success: true,
+      message: "Admin dashboard access granted",
+      user: {
+        email: req.user.email,
+        role: req.user.role,
+        name: req.user.name,
+      },
+      availablePlugins: Object.keys(app.plugins),
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Admin user info
+  adminRouter.get("/user", requireAdmin, (req, res) => {
+    res.json({
+      success: true,
+      user: {
+        id: req.user._id,
+        email: req.user.email,
+        name: req.user.name,
+        role: req.user.role,
+        isAdmin: req.user.isAdmin(),
+        createdAt: req.user.createdAt,
+      },
+    });
+  });
+
+  app.use("/api/admin", adminRouter);
+  console.log("Admin routes registered at /api/admin");
+  console.log("Available admin endpoints:");
+  console.log("  - GET /api/admin - Admin dashboard");
+  console.log("  - GET /api/admin/user - Admin user info");
+  console.log("=== Admin Routes Registration Complete ===");
+} else {
+  console.log("Firewall plugin not loaded - admin routes not registered");
+}
+// --- End Admin Routes ---
+
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../frontend/build")));
@@ -270,6 +319,14 @@ const connectWithRetry = async () => {
       socketTimeoutMS: 45000,
     });
     console.log("Connected to MongoDB");
+
+    // Upgrade admin users after successful MongoDB connection
+    const User = require("./models/User");
+    try {
+      await User.upgradeAdminUsers();
+    } catch (error) {
+      console.error("Error upgrading admin users:", error);
+    }
   } catch (err) {
     console.error("MongoDB connection error:", err);
     console.log("Retrying connection in 5 seconds...");

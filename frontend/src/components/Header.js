@@ -28,6 +28,7 @@ import {
   Menu as MenuIcon,
   Brightness4,
   Brightness7,
+  AdminPanelSettings,
 } from "@mui/icons-material";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -43,6 +44,9 @@ const Header = ({ mode, toggleColorMode, user }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorElUser, setAnchorElUser] = useState(null);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+
+  // Check if user is admin
+  const isAdmin = user?.role === "admin";
 
   const navItems = [
     { label: "Home", path: "/" },
@@ -355,6 +359,25 @@ const Header = ({ mode, toggleColorMode, user }) => {
                     >
                       <Typography textAlign="center">Dashboard</Typography>
                     </MenuItem>
+                    {isAdmin && (
+                      <>
+                        <Divider />
+                        <MenuItem
+                          onClick={() => {
+                            handleCloseUserMenu();
+                            navigate("/admin");
+                          }}
+                          sx={{
+                            color: "primary.main",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          <AdminPanelSettings sx={{ mr: 1, fontSize: 20 }} />
+                          <Typography textAlign="center">Admin</Typography>
+                        </MenuItem>
+                      </>
+                    )}
+                    <Divider />
                     <MenuItem
                       onClick={() => {
                         handleCloseUserMenu();
