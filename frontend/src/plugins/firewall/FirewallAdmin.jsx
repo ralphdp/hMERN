@@ -58,11 +58,13 @@ import {
   Flag as FlagIcon,
   Security as SecurityIcon,
   ArrowBack as ArrowBackIcon,
+  Settings as SettingsIcon,
 } from "@mui/icons-material";
 
 const FirewallAdmin = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({});
   const [rules, setRules] = useState([]);
   const [blockedIPs, setBlockedIPs] = useState([]);
@@ -79,6 +81,21 @@ const FirewallAdmin = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [referenceTab, setReferenceTab] = useState(0);
   const [countrySearch, setCountrySearch] = useState("");
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    rateLimit: {
+      perMinute: 50,
+      perHour: 400,
+    },
+    progressiveDelays: [10, 60, 90, 120], // in seconds
+    features: {
+      ipBlocking: true,
+      countryBlocking: true,
+      rateLimiting: true,
+      suspiciousPatterns: true,
+    },
+  });
 
   // Form states
   const [ruleForm, setRuleForm] = useState({
@@ -494,6 +511,40 @@ const FirewallAdmin = () => {
     }
   };
 
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch("/api/firewall/settings", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSettings(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      const response = await fetch("/api/firewall/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(settings),
+      });
+
+      if (response.ok) {
+        showAlert("Settings saved successfully!", "success");
+      } else {
+        const error = await response.json();
+        showAlert(error.message || "Error saving settings", "error");
+      }
+    } catch (error) {
+      showAlert("Error saving settings", "error");
+    }
+  };
+
   // Load all data
   const loadData = async () => {
     setLoading(true);
@@ -502,8 +553,22 @@ const FirewallAdmin = () => {
       fetchRules(),
       fetchBlockedIPs(),
       fetchLogs(),
+      fetchSettings(),
     ]);
     setLoading(false);
+  };
+
+  // Refresh data (for refresh button)
+  const refreshData = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchStats(),
+      fetchRules(),
+      fetchBlockedIPs(),
+      fetchLogs(),
+      fetchSettings(),
+    ]);
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -721,10 +786,13 @@ const FirewallAdmin = () => {
         </Box>
         <Button
           variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={loadData}
+          startIcon={
+            refreshing ? <CircularProgress size={20} /> : <RefreshIcon />
+          }
+          onClick={refreshData}
+          disabled={refreshing}
         >
-          Refresh Data
+          {refreshing ? "Refreshing..." : "Refresh Data"}
         </Button>
       </Box>
 
@@ -752,6 +820,7 @@ const FirewallAdmin = () => {
             label={`Blocked IPs (${blockedIPs.length})`}
           />
           <Tab icon={<EyeIcon />} label={`Logs (${logs.length})`} />
+          <Tab icon={<SettingsIcon />} label="Settings" />
         </Tabs>
       </Box>
 
@@ -839,7 +908,20 @@ const FirewallAdmin = () => {
                           .slice(0, 5)
                           .map((country, index) => (
                             <TableRow key={index}>
-                              <TableCell>{country._id || "Unknown"}</TableCell>
+                              <TableCell>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1,
+                                  }}
+                                >
+                                  <FlagIcon />
+                                  <Typography variant="body1">
+                                    {country._id || "Unknown"}
+                                  </Typography>
+                                </Box>
+                              </TableCell>
                               <TableCell>
                                 <Chip
                                   label={country.count}
@@ -1043,7 +1125,20 @@ const FirewallAdmin = () => {
                       {ip.ip}
                     </Typography>
                   </TableCell>
-                  <TableCell>{ip.country || "Unknown"}</TableCell>
+                  <TableCell>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                      }}
+                    >
+                      <FlagIcon />
+                      <Typography variant="body1">
+                        {ip.country || "Unknown"}
+                      </Typography>
+                    </Box>
+                  </TableCell>
                   <TableCell>{ip.reason}</TableCell>
                   <TableCell>
                     <Chip
@@ -1108,7 +1203,20 @@ const FirewallAdmin = () => {
                           {log.ip}
                         </Typography>
                       </TableCell>
-                      <TableCell>{log.country || "Unknown"}</TableCell>
+                      <TableCell>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                          }}
+                        >
+                          <FlagIcon />
+                          <Typography variant="body1">
+                            {log.country || "Unknown"}
+                          </Typography>
+                        </Box>
+                      </TableCell>
                       <TableCell>{getActionChip(log.action)}</TableCell>
                       <TableCell>{log.rule || "-"}</TableCell>
                       <TableCell>
@@ -1131,6 +1239,258 @@ const FirewallAdmin = () => {
             </TableContainer>
           </CardContent>
         </Card>
+      </TabPanel>
+
+      {/* Settings Tab */}
+      <TabPanel value={activeTab} index={4}>
+        <Typography variant="h5" sx={{ mb: 3 }}>
+          Firewall Settings
+        </Typography>
+
+        <Grid container spacing={3}>
+          {/* Rate Limiting Settings */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardHeader
+                title={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <ChartIcon />
+                    <Typography variant="h6">Rate Limiting</Typography>
+                  </Box>
+                }
+              />
+              <CardContent>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Requests per Minute"
+                      value={settings.rateLimit.perMinute}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          rateLimit: {
+                            ...settings.rateLimit,
+                            perMinute: parseInt(e.target.value) || 0,
+                          },
+                        })
+                      }
+                      inputProps={{ min: 1, max: 1000 }}
+                      helperText="Maximum requests allowed per minute per IP"
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Requests per Hour"
+                      value={settings.rateLimit.perHour}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          rateLimit: {
+                            ...settings.rateLimit,
+                            perHour: parseInt(e.target.value) || 0,
+                          },
+                        })
+                      }
+                      inputProps={{ min: 1, max: 10000 }}
+                      helperText="Maximum requests allowed per hour per IP"
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Progressive Delays Settings */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardHeader
+                title={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <SecurityIcon />
+                    <Typography variant="h6">Progressive Delays</Typography>
+                  </Box>
+                }
+              />
+              <CardContent>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Delay durations for successive rate limit violations (in
+                  seconds)
+                </Typography>
+                <Grid container spacing={2}>
+                  {settings.progressiveDelays.map((delay, index) => (
+                    <Grid item xs={6} key={index}>
+                      <TextField
+                        fullWidth
+                        type="number"
+                        label={`Violation ${index + 1}`}
+                        value={delay}
+                        onChange={(e) => {
+                          const newDelays = [...settings.progressiveDelays];
+                          newDelays[index] = parseInt(e.target.value) || 0;
+                          setSettings({
+                            ...settings,
+                            progressiveDelays: newDelays,
+                          });
+                        }}
+                        inputProps={{ min: 1, max: 3600 }}
+                        InputProps={{
+                          endAdornment: (
+                            <Typography variant="body2">s</Typography>
+                          ),
+                        }}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Feature Toggles */}
+          <Grid item xs={12}>
+            <Card>
+              <CardHeader
+                title={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <SettingsIcon />
+                    <Typography variant="h6">Feature Controls</Typography>
+                  </Box>
+                }
+              />
+              <CardContent>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={settings.features.ipBlocking}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              features: {
+                                ...settings.features,
+                                ipBlocking: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                      }
+                      label="IP Blocking"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Enable/disable IP-based blocking rules
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={settings.features.countryBlocking}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              features: {
+                                ...settings.features,
+                                countryBlocking: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                      }
+                      label="Country Blocking"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Enable/disable geo-blocking by country
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={settings.features.rateLimiting}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              features: {
+                                ...settings.features,
+                                rateLimiting: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                      }
+                      label="Rate Limiting"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Enable/disable rate limiting protection
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={settings.features.suspiciousPatterns}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              features: {
+                                ...settings.features,
+                                suspiciousPatterns: e.target.checked,
+                              },
+                            })
+                          }
+                        />
+                      }
+                      label="Pattern Detection"
+                    />
+                    <Typography variant="body2" color="text.secondary">
+                      Enable/disable suspicious pattern detection
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Save Settings */}
+          <Grid item xs={12}>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  // Reset to defaults
+                  setSettings({
+                    rateLimit: {
+                      perMinute: 50,
+                      perHour: 400,
+                    },
+                    progressiveDelays: [10, 60, 90, 120],
+                    features: {
+                      ipBlocking: true,
+                      countryBlocking: true,
+                      rateLimiting: true,
+                      suspiciousPatterns: true,
+                    },
+                  });
+                  showAlert("Settings reset to defaults", "info");
+                }}
+              >
+                Reset to Defaults
+              </Button>
+              <Button variant="contained" onClick={saveSettings}>
+                Save Settings
+              </Button>
+            </Box>
+          </Grid>
+        </Grid>
       </TabPanel>
 
       {/* Rule Modal */}
@@ -1399,21 +1759,10 @@ const FirewallAdmin = () => {
                                 gap: 1,
                               }}
                             >
-                              <Badge
-                                badgeContent={country.code}
-                                color="primary"
-                                sx={{
-                                  "& .MuiBadge-badge": {
-                                    fontSize: "0.55rem",
-                                    minWidth: "30px",
-                                    height: "18px",
-                                  },
-                                }}
-                              >
-                                <Typography variant="body1">
-                                  {country.name}
-                                </Typography>
-                              </Badge>
+                              <FlagIcon />
+                              <Typography variant="body1">
+                                {country.name}
+                              </Typography>
                             </Box>
                           }
                         />

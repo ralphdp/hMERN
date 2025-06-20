@@ -414,4 +414,111 @@ router.delete("/logs", requireAdmin, async (req, res) => {
   }
 });
 
+// Debug endpoint to check authentication status
+router.get("/debug/auth", (req, res) => {
+  res.json({
+    success: true,
+    debug: {
+      isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+      user: req.user
+        ? {
+            id: req.user._id,
+            email: req.user.email,
+            role: req.user.role,
+            isAdmin: req.user.isAdmin ? req.user.isAdmin() : false,
+          }
+        : null,
+      sessionID: req.sessionID,
+      session: req.session,
+    },
+  });
+});
+
+// Get firewall settings (admin only)
+router.get("/settings", requireAdmin, async (req, res) => {
+  try {
+    // For now, return default settings - in a real app you'd store these in DB
+    const defaultSettings = {
+      rateLimit: {
+        perMinute: 50,
+        perHour: 400,
+      },
+      progressiveDelays: [10, 60, 90, 120], // in seconds
+      features: {
+        ipBlocking: true,
+        countryBlocking: true,
+        rateLimiting: true,
+        suspiciousPatterns: true,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: defaultSettings,
+    });
+  } catch (error) {
+    console.error("Error getting firewall settings:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving firewall settings",
+    });
+  }
+});
+
+// Update firewall settings (admin only)
+router.put("/settings", requireAdmin, async (req, res) => {
+  try {
+    const { rateLimit, progressiveDelays, features } = req.body;
+
+    // Validate settings
+    if (rateLimit) {
+      if (rateLimit.perMinute < 1 || rateLimit.perMinute > 1000) {
+        return res.status(400).json({
+          success: false,
+          message: "Rate limit per minute must be between 1 and 1000",
+        });
+      }
+      if (rateLimit.perHour < 1 || rateLimit.perHour > 10000) {
+        return res.status(400).json({
+          success: false,
+          message: "Rate limit per hour must be between 1 and 10000",
+        });
+      }
+    }
+
+    if (progressiveDelays) {
+      if (!Array.isArray(progressiveDelays) || progressiveDelays.length !== 4) {
+        return res.status(400).json({
+          success: false,
+          message: "Progressive delays must be an array of 4 values",
+        });
+      }
+      for (const delay of progressiveDelays) {
+        if (delay < 1 || delay > 3600) {
+          return res.status(400).json({
+            success: false,
+            message: "Progressive delays must be between 1 and 3600 seconds",
+          });
+        }
+      }
+    }
+
+    // In a real app, you would save these settings to database
+    // For now, just return success
+    console.log("Firewall settings updated:", req.body);
+
+    res.json({
+      success: true,
+      message: "Firewall settings updated successfully",
+      data: req.body,
+    });
+  } catch (error) {
+    console.error("Error updating firewall settings:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating firewall settings",
+    });
+  }
+});
+
 module.exports = router;
