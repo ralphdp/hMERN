@@ -308,12 +308,41 @@ const firewallMiddleware = async (req, res, next) => {
 
 // Admin middleware to check if user is admin
 const requireAdmin = (req, res, next) => {
+  console.log("=== ADMIN CHECK ===");
+  console.log("Session ID:", req.sessionID);
+  console.log(
+    "Is authenticated:",
+    req.isAuthenticated ? req.isAuthenticated() : false
+  );
+  console.log("User:", req.user);
+  console.log("User role:", req.user?.role);
+  console.log(
+    "User isAdmin():",
+    req.user?.isAdmin ? req.user.isAdmin() : false
+  );
+  console.log("==================");
+
+  // TEMPORARY BYPASS FOR TESTING - REMOVE IN PRODUCTION
+  if (
+    process.env.NODE_ENV === "development" &&
+    req.headers["x-admin-bypass"] === "true"
+  ) {
+    console.log("🚨 DEVELOPMENT ADMIN BYPASS ACTIVATED");
+    return next();
+  }
+
   if (!req.user || !req.user.isAdmin()) {
     return res.status(403).json({
       success: false,
       error: "Access Denied",
       message: "Admin access required",
       code: "ADMIN_REQUIRED",
+      debug: {
+        isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+        hasUser: !!req.user,
+        userRole: req.user?.role,
+        userEmail: req.user?.email,
+      },
     });
   }
   next();

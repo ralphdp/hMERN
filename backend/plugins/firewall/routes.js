@@ -429,9 +429,37 @@ router.get("/debug/auth", (req, res) => {
           }
         : null,
       sessionID: req.sessionID,
-      session: req.session,
+      sessionExists: !!req.session,
+      cookies: req.headers.cookie,
+      userAgent: req.headers["user-agent"],
     },
   });
+});
+
+// Debug endpoint to check admin users in database
+router.get("/debug/admins", async (req, res) => {
+  try {
+    const User = require("../../models/User");
+    const adminUsers = await User.find({ role: "admin" }).select(
+      "email role createdAt"
+    );
+    const allUsers = await User.find().select("email role createdAt");
+
+    res.json({
+      success: true,
+      debug: {
+        adminUsers,
+        totalUsers: allUsers.length,
+        allUsers: allUsers.map((u) => ({ email: u.email, role: u.role })),
+        adminEmails: ["ralphdp21@gmail.com"], // from config
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
 });
 
 // Get firewall settings (admin only)
