@@ -38,13 +38,18 @@ console.log("Plugins directory:", pluginsDir);
 
 if (fs.existsSync(pluginsDir)) {
   console.log("Plugins directory exists, scanning for plugins...");
-  fs.readdirSync(pluginsDir).forEach((pluginName) => {
+
+  // First pass: Load plugins without dependencies
+  const pluginFiles = fs.readdirSync(pluginsDir);
+  const loadedPlugins = new Set();
+  const failedPlugins = [];
+
+  pluginFiles.forEach((pluginName) => {
     const pluginPath = path.join(pluginsDir, pluginName);
     console.log(`Checking plugin: ${pluginName} at ${pluginPath}`);
 
     if (fs.statSync(pluginPath).isDirectory()) {
       try {
-        // Check for index.js in the plugin directory
         const pluginIndexPath = path.join(pluginPath, "index.js");
         console.log(`Looking for index.js at: ${pluginIndexPath}`);
 
@@ -52,11 +57,21 @@ if (fs.existsSync(pluginsDir)) {
           console.log(`Loading plugin: ${pluginName}`);
           const plugin = require(pluginIndexPath);
           if (plugin && typeof plugin.register === "function") {
-            plugin.register(app);
-            app.plugins[pluginName] = plugin;
-            console.log(
-              `Successfully loaded plugin: ${plugin.name} v${plugin.version}`
-            );
+            // Check if plugin has dependencies
+            if (!plugin.dependencies || plugin.dependencies.length === 0) {
+              const success = plugin.register(app);
+              if (success !== false) {
+                app.plugins[pluginName] = plugin;
+                loadedPlugins.add(pluginName);
+                console.log(
+                  `Successfully loaded plugin: ${plugin.name} v${plugin.version}`
+                );
+              } else {
+                failedPlugins.push({ name: pluginName, plugin });
+              }
+            } else {
+              failedPlugins.push({ name: pluginName, plugin });
+            }
           } else {
             console.log(
               `Plugin ${pluginName} does not have a valid register function`
@@ -72,6 +87,80 @@ if (fs.existsSync(pluginsDir)) {
       console.log(`Skipping ${pluginName} - not a directory`);
     }
   });
+
+  // Second pass: Load plugins with dependencies
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (failedPlugins.length > 0 && attempts < maxAttempts) {
+    attempts++;
+    console.log(`Plugin dependency resolution attempt ${attempts}...`);
+
+    const remainingPlugins = [];
+
+    failedPlugins.forEach(({ name: pluginName, plugin }) => {
+      // Check if all dependencies are loaded
+      const dependenciesMet = plugin.dependencies.every((dep) =>
+        loadedPlugins.has(dep)
+      );
+
+      if (dependenciesMet) {
+        console.log(
+          `Dependencies met for ${pluginName}, attempting to load...`
+        );
+        try {
+          const success = plugin.register(app);
+          if (success !== false) {
+            app.plugins[pluginName] = plugin;
+            loadedPlugins.add(pluginName);
+            console.log(
+              `Successfully loaded plugin: ${plugin.name} v${plugin.version}`
+            );
+          } else {
+            console.log(`Plugin ${pluginName} registration returned false`);
+            remainingPlugins.push({ name: pluginName, plugin });
+          }
+        } catch (error) {
+          console.error(`Failed to register plugin: ${pluginName}`, error);
+          remainingPlugins.push({ name: pluginName, plugin });
+        }
+      } else {
+        const missingDeps = plugin.dependencies.filter(
+          (dep) => !loadedPlugins.has(dep)
+        );
+        console.log(
+          `Plugin ${pluginName} waiting for dependencies: ${missingDeps.join(
+            ", "
+          )}`
+        );
+        remainingPlugins.push({ name: pluginName, plugin });
+      }
+    });
+
+    // Update failed plugins list
+    failedPlugins.length = 0;
+    failedPlugins.push(...remainingPlugins);
+
+    // If no progress was made in this iteration, break to avoid infinite loop
+    if (remainingPlugins.length === failedPlugins.length) {
+      break;
+    }
+  }
+
+  // Report any plugins that couldn't be loaded
+  if (failedPlugins.length > 0) {
+    console.log(
+      "The following plugins could not be loaded due to unmet dependencies:"
+    );
+    failedPlugins.forEach(({ name: pluginName, plugin }) => {
+      const missingDeps = plugin.dependencies.filter(
+        (dep) => !loadedPlugins.has(dep)
+      );
+      console.log(
+        `  - ${pluginName}: missing dependencies [${missingDeps.join(", ")}]`
+      );
+    });
+  }
 } else {
   console.log("Plugins directory does not exist");
 }

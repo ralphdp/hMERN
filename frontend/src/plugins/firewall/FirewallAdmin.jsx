@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Container,
   Grid,
@@ -56,9 +57,11 @@ import {
   Code as CodeIcon,
   Flag as FlagIcon,
   Security as SecurityIcon,
+  ArrowBack as ArrowBackIcon,
 } from "@mui/icons-material";
 
 const FirewallAdmin = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({});
   const [rules, setRules] = useState([]);
@@ -702,9 +705,19 @@ const FirewallAdmin = () => {
           mb: 4,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <ShieldIcon sx={{ mr: 1, fontSize: 32 }} />
-          <Typography variant="h4">Firewall Administration</Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate("/admin")}
+            sx={{ minWidth: "auto" }}
+          >
+            Back to Admin
+          </Button>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <ShieldIcon sx={{ mr: 1, fontSize: 32 }} />
+            <Typography variant="h4">Firewall Administration</Typography>
+          </Box>
         </Box>
         <Button
           variant="outlined"
@@ -1372,7 +1385,7 @@ const FirewallAdmin = () => {
                 type "Country Block" and value "CN".
               </Typography>
 
-              <Paper sx={{ maxHeight: 400, overflow: "auto" }}>
+              <Paper sx={{ maxHeight: "100%", overflow: "auto" }}>
                 <List dense>
                   {filteredCountries.map((country, index) => (
                     <React.Fragment key={country.code}>
@@ -1391,17 +1404,16 @@ const FirewallAdmin = () => {
                                 color="primary"
                                 sx={{
                                   "& .MuiBadge-badge": {
-                                    fontSize: "0.75rem",
-                                    minWidth: "32px",
-                                    height: "20px",
+                                    fontSize: "0.55rem",
+                                    minWidth: "30px",
+                                    height: "18px",
                                   },
                                 }}
                               >
-                                <FlagIcon />
+                                <Typography variant="body1">
+                                  {country.name}
+                                </Typography>
                               </Badge>
-                              <Typography variant="body1">
-                                {country.name}
-                              </Typography>
                             </Box>
                           }
                         />
@@ -1452,10 +1464,22 @@ const FirewallAdmin = () => {
                 to block malicious traffic.
               </Typography>
 
-              <Grid container spacing={2}>
+              <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
                 {patternExamples.map((category, categoryIndex) => (
-                  <Grid item xs={12} md={6} key={categoryIndex}>
-                    <Card>
+                  <Grid
+                    item
+                    xs={12}
+                    md={6}
+                    key={categoryIndex}
+                    sx={{ display: "flex" }}
+                  >
+                    <Card
+                      sx={{
+                        width: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
                       <CardHeader
                         title={
                           <Box
@@ -1477,7 +1501,7 @@ const FirewallAdmin = () => {
                           </Box>
                         }
                       />
-                      <CardContent>
+                      <CardContent sx={{ flexGrow: 1 }}>
                         <List dense>
                           {category.patterns.map((pattern, patternIndex) => (
                             <ListItem
@@ -1534,7 +1558,7 @@ const FirewallAdmin = () => {
                 ))}
               </Grid>
 
-              <Box sx={{ mt: 3, p: 2, bgcolor: "info.light", borderRadius: 1 }}>
+              <Box sx={{ mt: 3, p: 2, bgcolor: "lightgray", borderRadius: 1 }}>
                 <Typography
                   variant="subtitle2"
                   sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}
