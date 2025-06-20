@@ -35,7 +35,7 @@ const getCallbackUrl = (provider) => {
     return `${process.env.FRONTEND_URL}api/auth/${provider}/callback`;
   }
   // In development, use the backend URL for callbacks
-  return `http://localhost:${process.env.PORT_BACKEND}/api/auth/${provider}/callback`;
+  return `http://localhost:${process.env.PORT_BACKEND}api/auth/${provider}/callback`;
 };
 
 // Serialize user for the session
