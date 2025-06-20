@@ -12,6 +12,18 @@ router.get("/test", (req, res) => {
   });
 });
 
+// Simple connectivity test without auth
+router.get("/ping", (req, res) => {
+  res.json({
+    success: true,
+    message: "Firewall API is reachable",
+    timestamp: new Date().toISOString(),
+    sessionId: req.sessionID,
+    hasUser: !!req.user,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+  });
+});
+
 // Health check
 router.get("/health", (req, res) => {
   res.json({

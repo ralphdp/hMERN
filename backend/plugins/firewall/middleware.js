@@ -320,16 +320,8 @@ const requireAdmin = (req, res, next) => {
     "User isAdmin():",
     req.user?.isAdmin ? req.user.isAdmin() : false
   );
+  console.log("Headers:", req.headers.cookie);
   console.log("==================");
-
-  // TEMPORARY BYPASS FOR TESTING - REMOVE IN PRODUCTION
-  if (
-    process.env.NODE_ENV === "development" &&
-    req.headers["x-admin-bypass"] === "true"
-  ) {
-    console.log("🚨 DEVELOPMENT ADMIN BYPASS ACTIVATED");
-    return next();
-  }
 
   if (!req.user || !req.user.isAdmin()) {
     return res.status(403).json({
@@ -342,6 +334,7 @@ const requireAdmin = (req, res, next) => {
         hasUser: !!req.user,
         userRole: req.user?.role,
         userEmail: req.user?.email,
+        sessionId: req.sessionID,
       },
     });
   }

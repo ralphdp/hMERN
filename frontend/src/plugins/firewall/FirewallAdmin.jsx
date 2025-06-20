@@ -460,10 +460,6 @@ const FirewallAdmin = () => {
     try {
       const response = await fetch("/api/firewall/stats", {
         credentials: "include",
-        headers: {
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
-        },
       });
       if (response.ok) {
         const data = await response.json();
@@ -488,10 +484,6 @@ const FirewallAdmin = () => {
     try {
       const response = await fetch("/api/firewall/rules", {
         credentials: "include",
-        headers: {
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
-        },
       });
       if (response.ok) {
         const data = await response.json();
@@ -512,10 +504,6 @@ const FirewallAdmin = () => {
     try {
       const response = await fetch("/api/firewall/blocked-ips", {
         credentials: "include",
-        headers: {
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
-        },
       });
       if (response.ok) {
         const data = await response.json();
@@ -536,10 +524,6 @@ const FirewallAdmin = () => {
     try {
       const response = await fetch("/api/firewall/logs?limit=100", {
         credentials: "include",
-        headers: {
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
-        },
       });
       if (response.ok) {
         const data = await response.json();
@@ -560,10 +544,6 @@ const FirewallAdmin = () => {
     try {
       const response = await fetch("/api/firewall/settings", {
         credentials: "include",
-        headers: {
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
-        },
       });
       if (response.ok) {
         const data = await response.json();
@@ -586,8 +566,6 @@ const FirewallAdmin = () => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
         },
         credentials: "include",
         body: JSON.stringify(settings),
@@ -631,7 +609,54 @@ const FirewallAdmin = () => {
   };
 
   useEffect(() => {
-    loadData();
+    // Check authentication status first
+    const checkAuth = async () => {
+      try {
+        console.log("=== CHECKING AUTHENTICATION ===");
+
+        // Test firewall ping (no auth required)
+        const pingResponse = await fetch("/api/firewall/ping", {
+          credentials: "include",
+        });
+        const pingData = await pingResponse.json();
+        console.log("Firewall ping:", pingData);
+
+        // Test main auth endpoint
+        const authResponse = await fetch("/api/auth/status", {
+          credentials: "include",
+        });
+        const authData = await authResponse.json();
+        console.log("Auth status:", authData);
+
+        // Test admin endpoint
+        const adminResponse = await fetch("/api/admin/user", {
+          credentials: "include",
+        });
+        console.log("Admin endpoint status:", adminResponse.status);
+        if (adminResponse.ok) {
+          const adminData = await adminResponse.json();
+          console.log("Admin data:", adminData);
+        } else {
+          const adminError = await adminResponse.json();
+          console.log("Admin error:", adminError);
+        }
+
+        // Test firewall debug endpoint
+        const firewallResponse = await fetch("/api/firewall/debug/auth", {
+          credentials: "include",
+        });
+        const firewallData = await firewallResponse.json();
+        console.log("Firewall auth debug:", firewallData);
+
+        console.log("=== END AUTH CHECK ===");
+      } catch (error) {
+        console.error("Auth check error:", error);
+      }
+    };
+
+    checkAuth().then(() => {
+      loadData();
+    });
     // Auto-refresh removed - data will only load on initial mount
   }, []);
 
@@ -656,8 +681,6 @@ const FirewallAdmin = () => {
         method,
         headers: {
           "Content-Type": "application/json",
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
         },
         credentials: "include",
         body: JSON.stringify(ruleForm),
@@ -693,10 +716,6 @@ const FirewallAdmin = () => {
       const response = await fetch(`/api/firewall/rules/${ruleId}`, {
         method: "DELETE",
         credentials: "include",
-        headers: {
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
-        },
       });
 
       if (response.ok) {
@@ -731,8 +750,6 @@ const FirewallAdmin = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
         },
         credentials: "include",
         body: JSON.stringify(blockForm),
@@ -764,10 +781,6 @@ const FirewallAdmin = () => {
       const response = await fetch(`/api/firewall/blocked-ips/${ipId}`, {
         method: "DELETE",
         credentials: "include",
-        headers: {
-          // TEMPORARY: Remove this in production
-          "X-Admin-Bypass": "true",
-        },
       });
 
       if (response.ok) {
