@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getBackendUrl } from "../../utils/config";
 import {
   Container,
   Grid,
@@ -462,7 +463,7 @@ const FirewallAdmin = () => {
   // Fetch data functions
   const fetchStats = async () => {
     try {
-      const response = await fetch("/api/firewall/stats", {
+      const response = await fetch(`${getBackendUrl()}/api/firewall/stats`, {
         credentials: "include",
         headers: {
           "X-Admin-Bypass": "testing",
@@ -489,7 +490,7 @@ const FirewallAdmin = () => {
 
   const fetchRules = async () => {
     try {
-      const response = await fetch("/api/firewall/rules", {
+      const response = await fetch(`${getBackendUrl()}/api/firewall/rules`, {
         credentials: "include",
         headers: {
           "X-Admin-Bypass": "testing",
@@ -512,12 +513,15 @@ const FirewallAdmin = () => {
 
   const fetchBlockedIPs = async () => {
     try {
-      const response = await fetch("/api/firewall/blocked-ips", {
-        credentials: "include",
-        headers: {
-          "X-Admin-Bypass": "testing",
-        },
-      });
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/blocked-ips`,
+        {
+          credentials: "include",
+          headers: {
+            "X-Admin-Bypass": "testing",
+          },
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setBlockedIPs(data.data);
@@ -535,12 +539,15 @@ const FirewallAdmin = () => {
 
   const fetchLogs = async () => {
     try {
-      const response = await fetch("/api/firewall/logs?limit=100", {
-        credentials: "include",
-        headers: {
-          "X-Admin-Bypass": "testing",
-        },
-      });
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/logs?limit=100`,
+        {
+          credentials: "include",
+          headers: {
+            "X-Admin-Bypass": "testing",
+          },
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setLogs(data.data);
@@ -558,7 +565,7 @@ const FirewallAdmin = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch("/api/firewall/settings", {
+      const response = await fetch(`${getBackendUrl()}/api/firewall/settings`, {
         credentials: "include",
         headers: {
           "X-Admin-Bypass": "testing",
@@ -581,7 +588,7 @@ const FirewallAdmin = () => {
 
   const saveSettings = async () => {
     try {
-      const response = await fetch("/api/firewall/settings", {
+      const response = await fetch(`${getBackendUrl()}/api/firewall/settings`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -645,24 +652,27 @@ const FirewallAdmin = () => {
         console.log("=== CHECKING AUTHENTICATION ===");
 
         // Test firewall ping (no auth required)
-        const pingResponse = await fetch("/api/firewall/ping", {
-          credentials: "include",
-          headers: {
-            "X-Admin-Bypass": "testing",
-          },
-        });
+        const pingResponse = await fetch(
+          `${getBackendUrl()}/api/firewall/ping`,
+          {
+            credentials: "include",
+            headers: {
+              "X-Admin-Bypass": "testing",
+            },
+          }
+        );
         const pingData = await pingResponse.json();
         console.log("Firewall ping:", pingData);
 
         // Test main auth endpoint
-        const authResponse = await fetch("/api/auth/status", {
+        const authResponse = await fetch(`${getBackendUrl()}/api/auth/status`, {
           credentials: "include",
         });
         const authData = await authResponse.json();
         console.log("Auth status:", authData);
 
         // Test admin endpoint
-        const adminResponse = await fetch("/api/admin/user", {
+        const adminResponse = await fetch(`${getBackendUrl()}/api/admin/user`, {
           credentials: "include",
         });
         console.log("Admin endpoint status:", adminResponse.status);
@@ -675,12 +685,15 @@ const FirewallAdmin = () => {
         }
 
         // Test firewall debug endpoint
-        const firewallResponse = await fetch("/api/firewall/debug/session", {
-          credentials: "include",
-          headers: {
-            "X-Admin-Bypass": "testing",
-          },
-        });
+        const firewallResponse = await fetch(
+          `${getBackendUrl()}/api/firewall/debug/session`,
+          {
+            credentials: "include",
+            headers: {
+              "X-Admin-Bypass": "testing",
+            },
+          }
+        );
         const firewallData = await firewallResponse.json();
         console.log("Firewall session debug:", firewallData);
 
@@ -709,8 +722,8 @@ const FirewallAdmin = () => {
   const handleSaveRule = async () => {
     try {
       const url = selectedRule
-        ? `/api/firewall/rules/${selectedRule._id}`
-        : "/api/firewall/rules";
+        ? `${getBackendUrl()}/api/firewall/rules/${selectedRule._id}`
+        : `${getBackendUrl()}/api/firewall/rules`;
       const method = selectedRule ? "PUT" : "POST";
 
       const response = await fetch(url, {
@@ -750,13 +763,16 @@ const FirewallAdmin = () => {
     if (!window.confirm("Are you sure you want to delete this rule?")) return;
 
     try {
-      const response = await fetch(`/api/firewall/rules/${ruleId}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "X-Admin-Bypass": "testing",
-        },
-      });
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/rules/${ruleId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+          headers: {
+            "X-Admin-Bypass": "testing",
+          },
+        }
+      );
 
       if (response.ok) {
         showAlert("Rule deleted successfully!");
@@ -786,15 +802,18 @@ const FirewallAdmin = () => {
   // IP blocking
   const handleBlockIP = async () => {
     try {
-      const response = await fetch("/api/firewall/blocked-ips", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Admin-Bypass": "testing",
-        },
-        credentials: "include",
-        body: JSON.stringify(blockForm),
-      });
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/blocked-ips`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Bypass": "testing",
+          },
+          credentials: "include",
+          body: JSON.stringify(blockForm),
+        }
+      );
 
       if (response.ok) {
         showAlert("IP blocked successfully!");
@@ -819,13 +838,16 @@ const FirewallAdmin = () => {
     if (!window.confirm("Are you sure you want to unblock this IP?")) return;
 
     try {
-      const response = await fetch(`/api/firewall/blocked-ips/${ipId}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: {
-          "X-Admin-Bypass": "testing",
-        },
-      });
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/blocked-ips/${ipId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+          headers: {
+            "X-Admin-Bypass": "testing",
+          },
+        }
+      );
 
       if (response.ok) {
         showAlert("IP unblocked successfully!");
