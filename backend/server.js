@@ -418,16 +418,33 @@ require("./config/passport");
 
 // Register firewall routes AFTER session and passport setup
 if (app.plugins.firewall && app.registerFirewallRoutes) {
-  isPluginEnabled("firewall").then((enabled) => {
-    if (enabled) {
-      console.log("=== Registering Firewall Routes After Session Setup ===");
+  console.log("=== Attempting to register firewall routes ===");
+  console.log("Firewall plugin detected:", !!app.plugins.firewall);
+  console.log("Register function available:", !!app.registerFirewallRoutes);
+
+  isPluginEnabled("firewall")
+    .then((enabled) => {
+      console.log("=== Firewall plugin enabled status:", enabled, "===");
+      if (enabled) {
+        console.log("=== Registering Firewall Routes After Session Setup ===");
+        app.registerFirewallRoutes();
+        console.log("=== Firewall routes registration complete ===");
+      } else {
+        console.log(
+          "=== Firewall plugin is disabled - skipping route registration ==="
+        );
+      }
+    })
+    .catch((error) => {
+      console.error("=== Error checking firewall plugin status:", error, "===");
+      // Fallback: register routes anyway since plugin is loaded
+      console.log("=== Registering firewall routes as fallback ===");
       app.registerFirewallRoutes();
-    } else {
-      console.log(
-        "=== Firewall plugin is disabled - skipping route registration ==="
-      );
-    }
-  });
+    });
+} else {
+  console.log("=== Firewall plugin or register function not available ===");
+  console.log("Firewall plugin:", !!app.plugins.firewall);
+  console.log("Register function:", !!app.registerFirewallRoutes);
 }
 
 // Register web performance routes AFTER session and passport setup
@@ -480,15 +497,73 @@ if (app.plugins.licensing) {
 
 // --- Admin Routes (only if firewall plugin is loaded and enabled) ---
 if (app.plugins.firewall) {
-  isPluginEnabled("firewall").then((enabled) => {
-    if (enabled) {
-      console.log("=== Registering Admin Routes ===");
+  console.log("=== Attempting to register admin routes ===");
+
+  isPluginEnabled("firewall")
+    .then((enabled) => {
+      console.log(
+        "=== Firewall plugin enabled for admin routes:",
+        enabled,
+        "==="
+      );
+      if (enabled) {
+        console.log("=== Registering Admin Routes ===");
+        const { requireAdmin } = app.plugins.firewall.middleware;
+
+        // Admin routes - only accessible to admin users
+        const adminRouter = express.Router();
+
+        // Admin dashboard
+        adminRouter.get("/", requireAdmin, (req, res) => {
+          res.json({
+            success: true,
+            message: "Admin dashboard access granted",
+            user: {
+              email: req.user.email,
+              role: req.user.role,
+              name: req.user.name,
+            },
+            availablePlugins: Object.keys(app.plugins),
+            timestamp: new Date().toISOString(),
+          });
+        });
+
+        // Admin user info
+        adminRouter.get("/user", requireAdmin, (req, res) => {
+          res.json({
+            success: true,
+            user: {
+              id: req.user._id,
+              email: req.user.email,
+              name: req.user.name,
+              role: req.user.role,
+              isAdmin: req.user.isAdmin(),
+              createdAt: req.user.createdAt,
+            },
+          });
+        });
+
+        app.use("/api/admin", adminRouter);
+        console.log("Admin routes registered at /api/admin");
+        console.log("Available admin endpoints:");
+        console.log("  - GET /api/admin - Admin dashboard");
+        console.log("  - GET /api/admin/user - Admin user info");
+        console.log("=== Admin Routes Registration Complete ===");
+      } else {
+        console.log("Firewall plugin disabled - admin routes not registered");
+      }
+    })
+    .catch((error) => {
+      console.error(
+        "=== Error checking firewall plugin status for admin routes:",
+        error,
+        "==="
+      );
+      // Fallback: register admin routes anyway
+      console.log("=== Registering admin routes as fallback ===");
       const { requireAdmin } = app.plugins.firewall.middleware;
 
-      // Admin routes - only accessible to admin users
       const adminRouter = express.Router();
-
-      // Admin dashboard
       adminRouter.get("/", requireAdmin, (req, res) => {
         res.json({
           success: true,
@@ -503,7 +578,6 @@ if (app.plugins.firewall) {
         });
       });
 
-      // Admin user info
       adminRouter.get("/user", requireAdmin, (req, res) => {
         res.json({
           success: true,
@@ -519,15 +593,8 @@ if (app.plugins.firewall) {
       });
 
       app.use("/api/admin", adminRouter);
-      console.log("Admin routes registered at /api/admin");
-      console.log("Available admin endpoints:");
-      console.log("  - GET /api/admin - Admin dashboard");
-      console.log("  - GET /api/admin/user - Admin user info");
-      console.log("=== Admin Routes Registration Complete ===");
-    } else {
-      console.log("Firewall plugin disabled - admin routes not registered");
-    }
-  });
+      console.log("=== Admin routes registered as fallback ===");
+    });
 } else {
   console.log("Firewall plugin not loaded - admin routes not registered");
 }
