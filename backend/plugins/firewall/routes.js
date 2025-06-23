@@ -2281,6 +2281,28 @@ function fillMissingTimeSlots(data, startTime, endTime, granularity) {
   return filled;
 }
 
+// Clear all rate limit violations (admin only) - for debugging
+router.delete("/rate-limits/clear", requireAdmin, async (req, res) => {
+  try {
+    const { RateLimit } = require("./models");
+    const result = await RateLimit.deleteMany({});
+
+    console.log(`Cleared ${result.deletedCount} rate limit records`);
+
+    res.json({
+      success: true,
+      message: `Cleared ${result.deletedCount} rate limit violation records`,
+      cleared: result.deletedCount,
+    });
+  } catch (error) {
+    console.error("Error clearing rate limits:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error clearing rate limit records",
+    });
+  }
+});
+
 module.exports = {
   router,
   addCommonFirewallRules,

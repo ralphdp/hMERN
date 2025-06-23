@@ -378,7 +378,7 @@ app.use(mongoSanitize());
 app.use(hpp());
 app.use(compression());
 
-// Rate limiter configuration
+// Rate limiter configuration - DISABLE in production when firewall is active
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
@@ -395,9 +395,13 @@ const limiter = rateLimit({
     // Also skip if admin bypass header is present
     const hasAdminBypass = req.headers["x-admin-bypass"];
 
-    if (isAdminRoute || hasAdminBypass) {
+    // IMPORTANT: Skip global rate limiter if firewall plugin is active
+    const firewallActive =
+      app.plugins.firewall && process.env.NODE_ENV === "production";
+
+    if (isAdminRoute || hasAdminBypass || firewallActive) {
       console.log(
-        `[Global Rate Limiter] Skipping rate limit for admin route: ${req.originalUrl}`
+        `[Global Rate Limiter] Skipping rate limit for: ${req.originalUrl} (firewall active: ${firewallActive})`
       );
       return true;
     }
@@ -410,8 +414,15 @@ const limiter = rateLimit({
   },
 });
 
-// Apply conditional rate limiter
-app.use(limiter);
+// Only apply global rate limiter if firewall plugin is not active
+if (!app.plugins.firewall || process.env.NODE_ENV !== "production") {
+  app.use(limiter);
+  console.log("Global rate limiter applied");
+} else {
+  console.log(
+    "Global rate limiter skipped - firewall plugin handles rate limiting"
+  );
+}
 
 // Additional body parsing middleware for debugging
 app.use((req, res, next) => {
@@ -818,5 +829,30 @@ server.on("error", (error) => {
 
 // Start MongoDB connection
 connectWithRetry();
+
+// Emergency rate limit reset endpoint (temporary for debugging)
+app.post("/api/emergency/reset-rate-limits", async (req, res) => {
+  try {
+    if (process.env.NODE_ENV !== "production") {
+      return res
+        .status(403)
+        .json({ error: "Only available in production for emergency" });
+    }
+
+    // Clear rate limit collection
+    const mongoose = require("mongoose");
+    await mongoose.connection.db.collection("ratelimits").deleteMany({});
+
+    console.log("🚨 EMERGENCY: All rate limits cleared");
+
+    res.json({
+      success: true,
+      message: "Emergency rate limit reset completed",
+    });
+  } catch (error) {
+    console.error("Emergency reset failed:", error);
+    res.status(500).json({ error: "Emergency reset failed" });
+  }
+});
 
 module.exports = app;

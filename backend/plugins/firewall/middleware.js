@@ -139,12 +139,10 @@ class SettingsCache {
       this.settings = {
         rateLimit: settings.rateLimit,
         features: settings.features || this.defaults.features,
-        progressiveDelays: settings.progressiveDelays.map((d) => d * 1000),
+        progressiveDelays: settings.progressiveDelays,
         adminRateLimit: {
           ...settings.adminRateLimit,
-          progressiveDelays: settings.adminRateLimit.progressiveDelays.map(
-            (d) => d * 1000
-          ),
+          progressiveDelays: settings.adminRateLimit.progressiveDelays,
         },
         ruleCache: {
           ...settings.ruleCache,
@@ -219,10 +217,31 @@ const invalidateSettingsCache = () => settingsCache.invalidate();
 
 // --- Helper Functions ---
 const getClientIp = (req) => {
-  let ip = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+  // Heroku-specific IP detection
+  let ip =
+    req.headers["x-forwarded-for"] ||
+    req.headers["x-real-ip"] ||
+    req.connection.remoteAddress ||
+    req.socket.remoteAddress ||
+    req.ip;
+
+  // Handle comma-separated IPs (take the first one)
+  if (ip && ip.includes(",")) {
+    ip = ip.split(",")[0].trim();
+  }
+
+  // Remove IPv6 prefix if present
   if (ip && ip.startsWith("::ffff:")) {
     ip = ip.substring(7);
   }
+
+  console.log(`[IP Detection] Raw headers:`, {
+    "x-forwarded-for": req.headers["x-forwarded-for"],
+    "x-real-ip": req.headers["x-real-ip"],
+    "connection.remoteAddress": req.connection.remoteAddress,
+    detected: ip,
+  });
+
   return ip || "127.0.0.1";
 };
 const isValidIP = (ip) => {
