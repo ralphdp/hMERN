@@ -185,7 +185,57 @@ if (fs.existsSync(pluginsDir)) {
 
 console.log("Loaded plugins:", Object.keys(app.plugins));
 console.log("=== Plugin System Initialization Complete ===");
-// --- End Plugin System ---
+
+// EMERGENCY FALLBACK: Force register critical routes if they weren't registered
+setTimeout(() => {
+  console.error("🚨 HEROKU DEBUG: Emergency fallback check running");
+
+  // Check if admin routes exist
+  const adminRouteExists = app._router.stack.some((layer) =>
+    layer.regexp.source.includes("admin")
+  );
+
+  console.error("🚨 HEROKU DEBUG: Admin route exists:", adminRouteExists);
+
+  if (!adminRouteExists && app.plugins.firewall) {
+    console.error("🚨 HEROKU DEBUG: EMERGENCY: Registering admin routes now");
+    const { requireAdmin } = app.plugins.firewall.middleware;
+    const adminRouter = express.Router();
+
+    adminRouter.get("/", requireAdmin, (req, res) => {
+      res.json({
+        success: true,
+        message: "Admin dashboard access granted (EMERGENCY FALLBACK)",
+        user: {
+          email: req.user.email,
+          role: req.user.role,
+          name: req.user.name,
+        },
+        availablePlugins: Object.keys(app.plugins),
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    app.use("/api/admin", adminRouter);
+    console.error("🚨 HEROKU DEBUG: EMERGENCY admin routes registered");
+  }
+
+  // Force register firewall routes if needed
+  if (app.plugins.firewall && app.registerFirewallRoutes) {
+    console.error(
+      "🚨 HEROKU DEBUG: EMERGENCY: Registering firewall routes now"
+    );
+    try {
+      app.registerFirewallRoutes();
+      console.error("🚨 HEROKU DEBUG: EMERGENCY firewall routes registered");
+    } catch (error) {
+      console.error(
+        "🚨 HEROKU DEBUG: EMERGENCY firewall route registration failed:",
+        error
+      );
+    }
+  }
+}, 5000); // Wait 5 seconds after server start
 
 // Trust proxy for Heroku
 app.set("trust proxy", 1);
@@ -417,34 +467,46 @@ app.use((req, res, next) => {
 require("./config/passport");
 
 // Register firewall routes AFTER session and passport setup
+console.error("🚨 HEROKU DEBUG: Starting firewall routes registration check");
 if (app.plugins.firewall && app.registerFirewallRoutes) {
-  console.log("=== Attempting to register firewall routes ===");
-  console.log("Firewall plugin detected:", !!app.plugins.firewall);
-  console.log("Register function available:", !!app.registerFirewallRoutes);
+  console.error("🚨 HEROKU DEBUG: Firewall plugin and register function found");
 
   isPluginEnabled("firewall")
     .then((enabled) => {
-      console.log("=== Firewall plugin enabled status:", enabled, "===");
+      console.error(
+        "🚨 HEROKU DEBUG: Firewall routes enabled status:",
+        enabled
+      );
       if (enabled) {
-        console.log("=== Registering Firewall Routes After Session Setup ===");
+        console.error(
+          "🚨 HEROKU DEBUG: Registering Firewall Routes After Session Setup"
+        );
         app.registerFirewallRoutes();
-        console.log("=== Firewall routes registration complete ===");
+        console.error("🚨 HEROKU DEBUG: Firewall routes registration complete");
       } else {
-        console.log(
-          "=== Firewall plugin is disabled - skipping route registration ==="
+        console.error(
+          "🚨 HEROKU DEBUG: Firewall plugin is disabled - skipping route registration"
         );
       }
     })
     .catch((error) => {
-      console.error("=== Error checking firewall plugin status:", error, "===");
+      console.error(
+        "🚨 HEROKU DEBUG: Error checking firewall plugin status:",
+        error
+      );
       // Fallback: register routes anyway since plugin is loaded
-      console.log("=== Registering firewall routes as fallback ===");
+      console.error("🚨 HEROKU DEBUG: Registering firewall routes as fallback");
       app.registerFirewallRoutes();
     });
 } else {
-  console.log("=== Firewall plugin or register function not available ===");
-  console.log("Firewall plugin:", !!app.plugins.firewall);
-  console.log("Register function:", !!app.registerFirewallRoutes);
+  console.error(
+    "🚨 HEROKU DEBUG: Firewall plugin or register function not available"
+  );
+  console.error("🚨 HEROKU DEBUG: Firewall plugin:", !!app.plugins.firewall);
+  console.error(
+    "🚨 HEROKU DEBUG: Register function:",
+    !!app.registerFirewallRoutes
+  );
 }
 
 // Register web performance routes AFTER session and passport setup
@@ -496,25 +558,57 @@ if (app.plugins.licensing) {
 // --- End Example ---
 
 // --- Admin Routes (only if firewall plugin is loaded and enabled) ---
+console.error("🚨 HEROKU DEBUG: Starting admin routes registration check");
+console.error(
+  "🚨 HEROKU DEBUG: app.plugins.firewall exists:",
+  !!app.plugins.firewall
+);
+
 if (app.plugins.firewall) {
-  console.log("=== Attempting to register admin routes ===");
+  console.error(
+    "🚨 HEROKU DEBUG: Firewall plugin found, attempting to register admin routes"
+  );
 
   isPluginEnabled("firewall")
     .then((enabled) => {
-      console.log(
-        "=== Firewall plugin enabled for admin routes:",
-        enabled,
-        "==="
+      console.error(
+        "🚨 HEROKU DEBUG: Firewall plugin enabled status:",
+        enabled
       );
       if (enabled) {
-        console.log("=== Registering Admin Routes ===");
+        console.error("🚨 HEROKU DEBUG: Registering Admin Routes");
         const { requireAdmin } = app.plugins.firewall.middleware;
 
         // Admin routes - only accessible to admin users
         const adminRouter = express.Router();
 
+        // Add comprehensive logging middleware to admin routes
+        adminRouter.use((req, res, next) => {
+          console.error(
+            `🚨 HEROKU DEBUG: Admin route hit: ${req.method} ${req.originalUrl}`
+          );
+          console.error(
+            `🚨 HEROKU DEBUG: User:`,
+            req.user
+              ? {
+                  id: req.user._id,
+                  email: req.user.email,
+                  role: req.user.role,
+                }
+              : "No user"
+          );
+          console.error(
+            `🚨 HEROKU DEBUG: Authenticated:`,
+            req.isAuthenticated ? req.isAuthenticated() : false
+          );
+          next();
+        });
+
         // Admin dashboard
         adminRouter.get("/", requireAdmin, (req, res) => {
+          console.error(
+            "🚨 HEROKU DEBUG: Admin dashboard endpoint hit successfully"
+          );
           res.json({
             success: true,
             message: "Admin dashboard access granted",
@@ -544,30 +638,43 @@ if (app.plugins.firewall) {
         });
 
         app.use("/api/admin", adminRouter);
-        console.log("Admin routes registered at /api/admin");
-        console.log("Available admin endpoints:");
-        console.log("  - GET /api/admin - Admin dashboard");
-        console.log("  - GET /api/admin/user - Admin user info");
-        console.log("=== Admin Routes Registration Complete ===");
+        console.error("🚨 HEROKU DEBUG: Admin routes registered at /api/admin");
+        console.error("🚨 HEROKU DEBUG: Available admin endpoints:");
+        console.error("🚨 HEROKU DEBUG:   - GET /api/admin - Admin dashboard");
+        console.error(
+          "🚨 HEROKU DEBUG:   - GET /api/admin/user - Admin user info"
+        );
+        console.error("🚨 HEROKU DEBUG: Admin Routes Registration Complete");
       } else {
-        console.log("Firewall plugin disabled - admin routes not registered");
+        console.error(
+          "🚨 HEROKU DEBUG: Firewall plugin disabled - admin routes not registered"
+        );
       }
     })
     .catch((error) => {
       console.error(
-        "=== Error checking firewall plugin status for admin routes:",
-        error,
-        "==="
+        "🚨 HEROKU DEBUG: Error checking firewall plugin status for admin routes:",
+        error
       );
       // Fallback: register admin routes anyway
-      console.log("=== Registering admin routes as fallback ===");
+      console.error("🚨 HEROKU DEBUG: Registering admin routes as fallback");
       const { requireAdmin } = app.plugins.firewall.middleware;
 
       const adminRouter = express.Router();
+
+      // Add logging middleware
+      adminRouter.use((req, res, next) => {
+        console.error(
+          `🚨 HEROKU DEBUG FALLBACK: Admin route hit: ${req.method} ${req.originalUrl}`
+        );
+        next();
+      });
+
       adminRouter.get("/", requireAdmin, (req, res) => {
+        console.error("🚨 HEROKU DEBUG FALLBACK: Admin dashboard endpoint hit");
         res.json({
           success: true,
-          message: "Admin dashboard access granted",
+          message: "Admin dashboard access granted (fallback)",
           user: {
             email: req.user.email,
             role: req.user.role,
@@ -593,12 +700,45 @@ if (app.plugins.firewall) {
       });
 
       app.use("/api/admin", adminRouter);
-      console.log("=== Admin routes registered as fallback ===");
+      console.error("🚨 HEROKU DEBUG: Admin routes registered as fallback");
     });
 } else {
-  console.log("Firewall plugin not loaded - admin routes not registered");
+  console.error(
+    "🚨 HEROKU DEBUG: Firewall plugin not loaded - admin routes not registered"
+  );
 }
 // --- End Admin Routes ---
+
+// Debug endpoint for Heroku troubleshooting
+app.get("/api/debug/heroku", (req, res) => {
+  console.error("🚨 HEROKU DEBUG: Debug endpoint hit");
+  res.json({
+    success: true,
+    message: "Heroku debug endpoint working",
+    timestamp: new Date().toISOString(),
+    user: req.user
+      ? {
+          email: req.user.email,
+          role: req.user.role,
+          isAdmin: req.user.isAdmin ? req.user.isAdmin() : false,
+        }
+      : null,
+    authenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+    sessionId: req.sessionID,
+    plugins: Object.keys(app.plugins),
+    nodeEnv: process.env.NODE_ENV,
+  });
+});
+
+// Test admin route without authentication
+app.get("/api/debug/admin-test", (req, res) => {
+  console.error("🚨 HEROKU DEBUG: Admin test endpoint hit");
+  res.json({
+    success: true,
+    message: "Admin test endpoint working (no auth required)",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {

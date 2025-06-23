@@ -47,15 +47,41 @@ const Admin = () => {
     // Fetch admin data
     const fetchAdminData = async () => {
       try {
-        const response = await fetch("/api/admin", { credentials: "include" });
+        console.error("🚨 FRONTEND DEBUG: Attempting to fetch admin data");
+        const response = await fetch("/api/admin", {
+          credentials: "include",
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
+
+        console.error("🚨 FRONTEND DEBUG: Response status:", response.status);
+        console.error(
+          "🚨 FRONTEND DEBUG: Response headers:",
+          Object.fromEntries(response.headers.entries())
+        );
+
         if (response.ok) {
           const data = await response.json();
+          console.error(
+            "🚨 FRONTEND DEBUG: Admin data fetched successfully:",
+            data
+          );
           setAdminData(data);
         } else {
-          setError("Failed to load admin data");
+          const errorText = await response.text();
+          console.error(
+            "🚨 FRONTEND DEBUG: Failed to load admin data:",
+            response.status,
+            errorText
+          );
+          setError(
+            `Failed to load admin data: ${response.status} ${response.statusText}`
+          );
         }
       } catch (err) {
-        setError("Error connecting to admin API");
+        console.error("🚨 FRONTEND DEBUG: Error connecting to admin API:", err);
+        setError("Error connecting to admin API: " + err.message);
       } finally {
         setLoading(false);
       }
