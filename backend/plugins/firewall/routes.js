@@ -1368,26 +1368,43 @@ router.get("/logs", requireAdmin, async (req, res) => {
   }
 });
 
-// Clear old logs (admin only)
+// Clear logs (admin only)
 router.delete("/logs", requireAdmin, async (req, res) => {
   try {
-    const { olderThan = 30 } = req.query; // Default: older than 30 days
-    const cutoffDate = new Date(Date.now() - olderThan * 24 * 60 * 60 * 1000);
+    const { olderThan, all } = req.query;
 
-    const result = await FirewallLog.deleteMany({
-      timestamp: { $lt: cutoffDate },
-    });
+    let result;
+    let message;
+
+    if (all === "true") {
+      // Delete ALL logs when explicitly requested
+      result = await FirewallLog.deleteMany({});
+      message = `Successfully deleted ${result.deletedCount} firewall logs`;
+    } else {
+      // Delete logs older than specified days (default: 30 days)
+      const days = parseInt(olderThan) || 30;
+      const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      result = await FirewallLog.deleteMany({
+        timestamp: { $lt: cutoffDate },
+      });
+      message = `Deleted ${result.deletedCount} log entries older than ${days} days`;
+    }
 
     res.json({
       success: true,
-      message: `Deleted ${result.deletedCount} log entries older than ${olderThan} days`,
-      deletedCount: result.deletedCount,
+      message,
+      data: {
+        deletedCount: result.deletedCount,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
     console.error("Error clearing logs:", error);
     res.status(500).json({
       success: false,
-      message: "Error clearing logs",
+      message: "Failed to delete firewall logs",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -1753,6 +1770,54 @@ router.get("/traffic-trends", requireAdmin, async (req, res) => {
         startTime = new Date(now.getTime() - 12 * 60 * 60 * 1000);
     }
 
+    // Debug: Check what logs exist and their timestamps
+    const logCount = await FirewallLog.countDocuments();
+    const oldestLog = await FirewallLog.findOne().sort({ timestamp: 1 });
+    const newestLog = await FirewallLog.findOne().sort({ timestamp: -1 });
+
+    console.log(
+      `[TrafficTrends] Time range: ${timeRange}, Granularity: ${granularity}`
+    );
+    console.log(
+      `[TrafficTrends] Query range: ${startTime.toISOString()} to ${now.toISOString()}`
+    );
+    console.log(`[TrafficTrends] Total logs in DB: ${logCount}`);
+    if (oldestLog)
+      console.log(
+        `[TrafficTrends] Oldest log: ${oldestLog.timestamp.toISOString()}`
+      );
+    if (newestLog)
+      console.log(
+        `[TrafficTrends] Newest log: ${newestLog.timestamp.toISOString()}`
+      );
+
+    // Check how many logs are in our time range
+    const originalLogsInRange = await FirewallLog.countDocuments({
+      timestamp: { $gte: startTime },
+    });
+    console.log(`[TrafficTrends] Logs in range: ${originalLogsInRange}`);
+
+    let autoExpanded = false;
+
+    // If no data in the selected range but we have data, expand the range to include existing data
+    if (originalLogsInRange === 0 && logCount > 0 && newestLog) {
+      const oldestTime = oldestLog ? oldestLog.timestamp : newestLog.timestamp;
+      const timeSinceOldest = now.getTime() - oldestTime.getTime();
+
+      console.log(
+        `[TrafficTrends] No data in selected range. Time since oldest log: ${Math.round(
+          timeSinceOldest / (1000 * 60)
+        )} minutes`
+      );
+
+      // Expand startTime to include all available data, but respect the granularity choice
+      startTime = new Date(oldestTime.getTime() - 60 * 1000); // Add 1 minute buffer
+      autoExpanded = true;
+      console.log(
+        `[TrafficTrends] Expanded range to: ${startTime.toISOString()} to ${now.toISOString()}`
+      );
+    }
+
     // Determine aggregation grouping based on granularity and time range
     let groupStage;
 
@@ -2104,6 +2169,9 @@ router.get("/traffic-trends", requireAdmin, async (req, res) => {
         endTime: now.toISOString(),
         dataPoints: filledData.length,
         chartData: filledData,
+        autoExpanded: autoExpanded,
+        totalLogsInDB: logCount,
+        logsInOriginalRange: originalLogsInRange,
       },
     });
   } catch (error) {

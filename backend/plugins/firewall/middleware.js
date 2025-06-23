@@ -743,10 +743,58 @@ const firewallMiddleware = async (req, res, next) => {
   next();
 };
 const requireAdmin = async (req, res, next) => {
-  if (req.user && req.user.isAdmin) {
-    return next();
+  console.log("=== Firewall Admin Auth Check ===");
+  console.log(
+    "User:",
+    req.user
+      ? { id: req.user._id, email: req.user.email, role: req.user.role }
+      : "No user"
+  );
+  console.log(
+    "Is authenticated:",
+    req.isAuthenticated ? req.isAuthenticated() : "No isAuthenticated method"
+  );
+  console.log("Session ID:", req.sessionID);
+  console.log("User role:", req.user?.role);
+  console.log(
+    "User isAdmin method:",
+    req.user?.isAdmin ? req.user.isAdmin() : "no method"
+  );
+
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    console.log("User not authenticated - returning 401");
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required",
+      error: "User not authenticated",
+    });
   }
-  res.status(403).json({ error: "Admin access required" });
+
+  if (!req.user) {
+    console.log("No user object - returning 401");
+    return res.status(401).json({
+      success: false,
+      message: "User not found in session",
+      error: "No user object",
+    });
+  }
+
+  // Check both role property and isAdmin method for compatibility
+  const isAdminByRole = req.user.role === "admin";
+  const isAdminByMethod = req.user.isAdmin && req.user.isAdmin();
+  const isAdmin = isAdminByRole || isAdminByMethod;
+
+  if (!isAdmin) {
+    console.log(`User role '${req.user.role}' is not admin - returning 403`);
+    return res.status(403).json({
+      success: false,
+      message: "Admin access required",
+      error: "Insufficient permissions",
+    });
+  }
+
+  console.log("Admin access granted");
+  next();
 };
 
 module.exports = {
