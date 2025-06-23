@@ -51,6 +51,7 @@ import {
   Schedule as ScheduleIcon,
   Send as SendIcon,
   Preview as PreviewIcon,
+  ClearAll as ClearAllIcon,
 } from "@mui/icons-material";
 
 // Memoized sub-component for a generic settings card to prevent re-renders
@@ -1266,6 +1267,132 @@ const EmailReports = React.memo(({ settings, updateSetting, showAlert }) => {
   );
 });
 
+const LogManagement = React.memo(({ showAlert }) => {
+  const [deletingLogs, setDeletingLogs] = useState(false);
+  const [showDeleteLogsDialog, setShowDeleteLogsDialog] = useState(false);
+
+  const handleDeleteLogs = async () => {
+    setDeletingLogs(true);
+    try {
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/logs?all=true`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Bypass": "testing",
+          },
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showAlert(
+          data.message || "All firewall logs have been deleted successfully",
+          "success"
+        );
+        setShowDeleteLogsDialog(false);
+      } else {
+        showAlert(data.message || "Failed to delete firewall logs", "error");
+      }
+    } catch (error) {
+      console.error("Error deleting firewall logs:", error);
+      showAlert("Network error while deleting firewall logs", "error");
+    } finally {
+      setDeletingLogs(false);
+    }
+  };
+
+  return (
+    <>
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Paper sx={{ p: 2, height: "100%" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+              <ClearAllIcon />
+              <Typography variant="subtitle1">Log Management</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Delete all firewall logs to free up storage space. This action is
+              permanent and cannot be undone.
+            </Typography>
+
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                <strong>Warning:</strong> This will permanently delete all
+                firewall logs including attack records, traffic data, and
+                historical security information.
+              </Typography>
+            </Alert>
+
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => setShowDeleteLogsDialog(true)}
+              disabled={deletingLogs}
+              startIcon={
+                deletingLogs ? <CircularProgress size={20} /> : <ClearAllIcon />
+              }
+              size="large"
+            >
+              {deletingLogs ? "Deleting Logs..." : "Delete All Logs"}
+            </Button>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Delete Logs Confirmation Dialog */}
+      <Dialog
+        open={showDeleteLogsDialog}
+        onClose={() => setShowDeleteLogsDialog(false)}
+        aria-labelledby="delete-logs-dialog-title"
+      >
+        <DialogTitle id="delete-logs-dialog-title">
+          Confirm Log Deletion
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete <strong>ALL</strong> firewall logs?
+            This action will permanently remove:
+          </DialogContentText>
+          <Box component="ul" sx={{ mt: 1, mb: 2 }}>
+            <li>All attack and security logs</li>
+            <li>Traffic analysis data</li>
+            <li>Rule performance history</li>
+            <li>Blocked IP records</li>
+            <li>Rate limiting history</li>
+          </Box>
+          <DialogContentText color="error">
+            <strong>This action cannot be undone.</strong>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setShowDeleteLogsDialog(false)}
+            color="primary"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteLogs}
+            color="error"
+            variant="contained"
+            disabled={deletingLogs}
+            startIcon={
+              deletingLogs ? <CircularProgress size={20} /> : <ClearAllIcon />
+            }
+            autoFocus
+          >
+            {deletingLogs ? "Deleting..." : "Delete All Logs"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
+});
+
 const FirewallTestingSuite = React.memo(
   ({ onTestBypass, onTestRule, testing, rules, showAlert, fetchRules }) => {
     const [addingXssRule, setAddingXssRule] = useState(false);
@@ -1522,6 +1649,11 @@ const FirewallAdminSettings = ({
               showAlert={showAlert}
               fetchRules={fetchRules}
             />
+          </SectionCard>
+        </Grid>
+        <Grid item xs={12}>
+          <SectionCard title="Log Management" icon={<ClearAllIcon />}>
+            <LogManagement showAlert={showAlert} />
           </SectionCard>
         </Grid>
         <Grid item xs={12}>

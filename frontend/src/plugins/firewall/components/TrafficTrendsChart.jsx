@@ -158,6 +158,13 @@ const TrafficTrendsChart = () => {
 
       if (result.success) {
         setData(result.data.chartData);
+
+        // Show notification if time range was auto-expanded
+        if (result.data.autoExpanded) {
+          console.log(
+            `[TrafficTrends] Time range auto-expanded to include existing data. Total logs: ${result.data.totalLogsInDB}, Original range had: ${result.data.logsInOriginalRange}`
+          );
+        }
       } else {
         throw new Error(result.message || "Failed to fetch data");
       }
