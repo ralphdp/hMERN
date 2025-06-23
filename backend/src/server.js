@@ -682,7 +682,7 @@ app.use("/api/*", (req, res, next) => {
 
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname, "../frontend/build")));
+  app.use(express.static(path.join(__dirname, "../../frontend/build")));
 
   // Catch-all for non-API routes only
   app.get("*", (req, res) => {
@@ -698,7 +698,7 @@ if (process.env.NODE_ENV === "production") {
       });
     }
 
-    res.sendFile(path.join(__dirname, "../frontend/build", "index.html"));
+    res.sendFile(path.join(__dirname, "../../frontend/build", "index.html"));
   });
 }
 
