@@ -535,7 +535,7 @@ const checkRateLimit = async (ip, req) => {
   const hourAgo = new Date(now.getTime() - settings.timeWindows.hourMs);
 
   // Check if this is an admin user and apply reduced limits
-  const isAdmin = req.user && req.user.isAdmin;
+  const isAdmin = req.user && req.user.isAdmin();
   let rateConfig = isAdmin ? settings.adminRateLimit : settings.rateLimit;
 
   // Check if current URL matches any specific rate limit rules
@@ -700,7 +700,7 @@ const firewallMiddleware = async (req, res, next) => {
     )
       return next();
     // Simplified admin check for brevity
-    if (req.user && req.user.isAdmin) return next();
+    if (req.user && req.user.isAdmin()) return next();
   }
 
   const ruleCheck = await checkFirewallRules(ip, req);
