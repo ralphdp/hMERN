@@ -464,22 +464,31 @@ if (app.plugins.firewall && app.registerFirewallRoutes) {
 }
 
 // Register web performance routes AFTER session and passport setup
+console.log(
+  "🚀 WEB PERFORMANCE DEBUG: Starting web performance routes registration check"
+);
 if (
   app.plugins["web-performance-optimization"] &&
   app.registerWebPerformanceRoutes
 ) {
-  isPluginEnabled("web-performance-optimization").then((enabled) => {
-    if (enabled) {
-      console.log(
-        "=== Registering Web Performance Routes After Session Setup ==="
-      );
-      app.registerWebPerformanceRoutes();
-    } else {
-      console.log(
-        "=== Web Performance plugin is disabled - skipping route registration ==="
-      );
-    }
-  });
+  console.log(
+    "🚀 WEB PERFORMANCE DEBUG: Registering web performance routes IMMEDIATELY"
+  );
+  try {
+    app.registerWebPerformanceRoutes();
+    console.log(
+      "🚀 WEB PERFORMANCE DEBUG: ✅ Web Performance routes registered SYNCHRONOUSLY"
+    );
+  } catch (error) {
+    console.error(
+      "🚀 WEB PERFORMANCE DEBUG: ❌ Error registering web performance routes:",
+      error
+    );
+  }
+} else {
+  console.log(
+    "🚀 WEB PERFORMANCE DEBUG: Web Performance plugin or register function not available"
+  );
 }
 
 // Import routes
