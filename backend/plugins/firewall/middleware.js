@@ -680,6 +680,18 @@ const firewallMiddleware = async (req, res, next) => {
   const isTest = req.headers["x-firewall-test"] === "live-attack";
   const settings = await settingsCache.getSettings();
 
+  // CRITICAL: Skip firewall for admin API routes
+  if (req.originalUrl.startsWith("/api/admin")) {
+    console.error("🚨 FIREWALL: Skipping admin API route:", req.originalUrl);
+    return next();
+  }
+
+  // CRITICAL: Skip firewall for auth API routes
+  if (req.originalUrl.startsWith("/api/auth")) {
+    console.error("🚨 FIREWALL: Skipping auth API route:", req.originalUrl);
+    return next();
+  }
+
   if (!isTest) {
     if (process.env.NODE_ENV === "development") return next();
     if (
