@@ -1,4 +1,4 @@
-// frontend/src/App.js
+// frontend/src/App.jsx
 
 import React, { useState, useEffect, useMemo } from "react";
 import {

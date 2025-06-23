@@ -13,7 +13,7 @@ const PLUGINS_CONFIG_PATH = path.join(__dirname, "../config/plugins.json");
 const BACKEND_PLUGINS_PATH = path.join(__dirname, "../plugins");
 const FRONTEND_PLUGINS_PATH = path.join(
   __dirname,
-  "../../frontend/src/plugins"
+  "../../../frontend/src/plugins"
 );
 
 // Ensure plugins config file exists

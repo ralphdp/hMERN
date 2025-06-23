@@ -1469,6 +1469,7 @@ const FirewallAdmin = () => {
           onTestRule={handleLiveAttackTest}
           testing={testing}
           fetchRules={fetchRules}
+          fetchLogs={fetchLogs}
         />
       </TabPanel>
 

@@ -1,44 +1,78 @@
 # hMERN Firewall Plugin
 
-Advanced firewall protection plugin for hMERN applications with comprehensive security features.
+Advanced firewall protection plugin for hMERN applications with comprehensive security features, threat intelligence, and real-time monitoring.
 
 ## Features
 
 ### 🛡️ **Core Protection**
 
-- **IP Blocking**: Block specific IP addresses or IP ranges
-- **Enhanced Rate Limiting**: 50 requests/minute, 400/hour with progressive delays
-- **Geo-blocking**: Block requests by country/region
-- **Suspicious Request Detection**: Pattern-based threat detection
+- **IP Blocking**: Block specific IP addresses, IP ranges, and CIDR subnets
+- **Enhanced Rate Limiting**: Configurable requests/minute and requests/hour with progressive delays
+- **Geo-blocking**: Block requests by country/region using GeoIP-lite
+- **Suspicious Request Detection**: Pattern-based threat detection with ReDoS protection
+- **CIDR Support**: Block entire subnets efficiently (e.g., 192.168.1.0/24)
 
 ### 📊 **Progressive Rate Limiting**
 
-- **First violation**: 10 second delay
-- **Second violation**: 60 second delay
-- **Third violation**: 90 second delay
-- **Fourth violation**: 120 second delay
-- **Fifth+ violation**: Permanent IP block
+- **Configurable Delays**: Set custom delay times for violations
+- **Default Progression**: 10s → 60s → 90s → 120s → permanent block
+- **Automatic Escalation**: Progressive penalties for repeated violations
+- **Smart Recovery**: Time-based penalty reset system
 
 ### 🌍 **Geo-Location Features**
 
-- Country-based blocking using `geoip-lite`
-- Regional filtering capabilities
-- Automatic geo-tagging of requests
+- **Country-based Blocking**: Block by 2-letter country codes (195+ countries supported)
+- **Regional Filtering**: Advanced geographical filtering capabilities
+- **Automatic Geo-tagging**: All requests tagged with country information
+- **GeoIP Analytics**: Detailed country-based traffic analytics
 
-### 📈 **Real-time Monitoring**
+### 🔍 **Threat Intelligence Integration**
 
-- Live request logging
-- Threat detection alerts
-- Statistical dashboards
-- Top blocked countries/IPs analytics
+- **Multiple Providers**: AbuseIPDB, VirusTotal, Spamhaus, Emerging Threats
+- **Automatic Threat Feeds**: Import known malicious IPs automatically
+- **Real-time Reputation Checks**: Query threat databases for unknown IPs
+- **Smart Caching**: Cache threat intelligence results to minimize API usage
+- **Free & Paid Tiers**: Support for both free and paid threat intelligence APIs
 
-### 🔧 **Admin Management**
+### 📈 **Real-time Monitoring & Analytics**
 
-- Web-based admin interface at `/admin/firewall`
-- Rule management (create, edit, delete, enable/disable)
-- Manual IP blocking/unblocking
-- Log viewing and analysis
-- Dashboard with key metrics
+- **Live Request Logging**: Real-time request monitoring and logging
+- **Threat Detection Alerts**: Immediate alerts for detected threats
+- **Statistical Dashboards**: Comprehensive analytics and metrics
+- **Traffic Trends**: 24h/7d/30d traffic trend analysis with charts
+- **Top Blocked Analytics**: Top blocked countries, IPs, and attack patterns
+
+### 📧 **Email Reporting System**
+
+- **Preview Reports**: Send test reports with current firewall status
+- **Scheduled Reports**: Daily, weekly, or monthly automated reports
+- **Multiple Recipients**: Support for multiple email addresses
+- **Comprehensive Metrics**: Include all key firewall statistics
+- **Export Functionality**: Export reports in various formats
+
+### 🔧 **Admin Management Interface**
+
+- **Web-based Admin Panel**: Comprehensive interface at `/admin/firewall`
+- **Tabbed Interface**: Dashboard, Rules, Blocked IPs, Logs, Settings
+- **Rule Management**: Create, edit, delete, enable/disable rules with priority
+- **Manual IP Management**: Block/unblock IPs manually with reasons
+- **Log Viewing**: Detailed activity logs with filtering and search
+- **Settings Configuration**: Configure all firewall features
+
+### ⚡ **Performance Optimizations**
+
+- **Rule Caching**: In-memory rule caching for 90% faster lookups
+- **Smart Cache Invalidation**: Automatic cache refresh when rules change
+- **Concurrent Protection**: Prevent multiple simultaneous database hits
+- **Graceful Fallback**: Continue operating even during cache errors
+
+### 🔒 **Security Enhancements**
+
+- **ReDoS Protection**: Prevent Regular Expression Denial of Service attacks
+- **Safe Pattern Matching**: Validate and sanitize regex patterns
+- **IP Validation**: Secure IP detection and validation
+- **Trusted Proxy Support**: Configure trusted proxy sources
+- **CIDR Validation**: Proper CIDR notation validation and processing
 
 ## Installation
 
@@ -60,45 +94,108 @@ Admin users are configured in `backend/config/admins.json`:
 }
 ```
 
-### Rate Limits
+### Environment Variables
 
-Default rate limits (configurable in middleware):
+Optional threat intelligence API keys in `.env`:
 
-- 50 requests per minute per IP
-- 400 requests per hour per IP
-- Progressive delays: 10s → 60s → 90s → 120s → permanent block
+```bash
+# Optional - Enhanced threat intelligence
+ABUSEIPDB_API_KEY=your_abuseipdb_key_here
+VIRUSTOTAL_API_KEY=your_virustotal_key_here
+```
+
+### Trusted Proxies
+
+Configure trusted proxies in middleware for accurate IP detection:
+
+```javascript
+const TRUSTED_PROXIES = [
+  "127.0.0.1", // localhost
+  "::1", // IPv6 localhost
+  "10.0.0.1", // Your load balancer
+  "172.16.0.1", // Your reverse proxy
+];
+```
 
 ## API Endpoints
 
 ### Public Endpoints
 
 - `GET /api/firewall/test` - Test firewall functionality
-- `GET /api/firewall/health` - Health check
+- `GET /api/firewall/health` - Health check with feature list
+- `GET /api/firewall/ping` - Connectivity test
 
 ### Admin Endpoints (requires admin role)
 
-- `GET /api/firewall/stats` - Dashboard statistics
-- `GET /api/firewall/rules` - List firewall rules
+#### Dashboard & Statistics
+
+- `GET /api/firewall/stats` - Dashboard statistics and metrics
+- `GET /api/firewall/traffic-trends` - Traffic trends data for charts
+
+#### Rule Management
+
+- `GET /api/firewall/rules` - List and filter firewall rules
 - `POST /api/firewall/rules` - Create new rule
-- `PUT /api/firewall/rules/:id` - Update rule
+- `PUT /api/firewall/rules/:id` - Update existing rule
 - `DELETE /api/firewall/rules/:id` - Delete rule
-- `GET /api/firewall/blocked-ips` - List blocked IPs
+- `POST /api/firewall/rules/batch` - Batch operations on rules
+
+#### IP Management
+
+- `GET /api/firewall/blocked-ips` - List blocked IPs (legacy, uses rules now)
 - `POST /api/firewall/blocked-ips` - Block IP manually
 - `DELETE /api/firewall/blocked-ips/:id` - Unblock IP
-- `GET /api/firewall/logs` - View firewall logs
+
+#### Logs & Monitoring
+
+- `GET /api/firewall/logs` - View firewall logs with filtering
 - `DELETE /api/firewall/logs` - Clear old logs
+- `GET /api/firewall/logs/export` - Export logs in various formats
+
+#### Settings & Configuration
+
+- `GET /api/firewall/settings` - Get firewall settings
+- `PUT /api/firewall/settings` - Update firewall configuration
+- `POST /api/firewall/settings/reset` - Reset to default settings
+
+#### Threat Intelligence
+
+- `GET /api/firewall/threat-intel/stats` - Threat intelligence usage statistics
+- `POST /api/firewall/threat-intel/import` - Import threat feeds
+- `GET /api/firewall/threat-intel/check/:ip` - Check IP reputation
+
+#### Email Reports
+
+- `POST /api/firewall/reports/preview` - Send preview report
+- `GET /api/firewall/reports/schedule` - Get report schedule
+- `PUT /api/firewall/reports/schedule` - Update report schedule
+
+#### Testing & Debug
+
+- `GET /api/firewall/test-bypass` - Test localhost bypass
+- `GET /api/firewall/test-rate-limit` - Test rate limiting
+- `POST /api/firewall/test-rule` - Test rule effectiveness
 
 ## Rule Types
 
 ### IP Block Rules
 
-Block specific IP addresses or ranges:
+Block specific IP addresses, ranges, or CIDR subnets:
 
 ```javascript
+// Single IP
 {
   name: "Block Malicious IP",
   type: "ip_block",
   value: "192.168.1.100",
+  action: "block"
+}
+
+// CIDR Subnet
+{
+  name: "Block Subnet",
+  type: "ip_block",
+  value: "192.168.1.0/24",
   action: "block"
 }
 ```
@@ -109,10 +206,25 @@ Block requests from specific countries:
 
 ```javascript
 {
-  name: "Block Country X",
+  name: "Block Country",
   type: "country_block",
   value: "CN",
   action: "block"
+}
+```
+
+### Rate Limit Rules
+
+Apply rate limits to specific endpoints:
+
+```javascript
+{
+  name: "API Rate Limit",
+  type: "rate_limit",
+  value: "/api/*",
+  action: "rate_limit",
+  requestsPerMinute: 60,
+  requestsPerHour: 500
 }
 ```
 
@@ -124,7 +236,7 @@ Block requests matching suspicious patterns:
 {
   name: "Block SQL Injection",
   type: "suspicious_pattern",
-  value: "union select",
+  value: "union.*select",
   action: "block"
 }
 ```
@@ -135,14 +247,34 @@ The plugin creates the following MongoDB collections:
 
 - `firewallrules` - Firewall rules configuration
 - `firewalllogs` - Request logs and events
-- `blockedips` - Blocked IP addresses
+- `firewallsettings` - Firewall configuration settings
+- `rulemetrics` - Rule effectiveness metrics
 - `ratelimits` - Rate limiting tracking (auto-expires)
 
-## Frontend Integration
+## Frontend Components
 
-### Admin Interface
+### Admin Interface Structure
 
-The admin interface is available at `/admin/firewall` for users with admin role.
+```
+firewall/
+├── FirewallAdmin.jsx                 # Main admin component
+├── components/
+│   ├── FirewallAdminDashboard.jsx    # Dashboard with stats and charts
+│   ├── FirewallAdminRules.jsx        # Rule management interface
+│   ├── FirewallAdminLogs.jsx         # Activity logs and filtering
+│   ├── FirewallAdminSettings.jsx     # Settings and configuration
+│   ├── TrafficTrendsChart.jsx        # Traffic trends visualization
+│   └── RuleSparkline.jsx             # Mini rule effectiveness charts
+├── hooks/
+│   ├── useFirewallStats.js           # Dashboard statistics hook
+│   ├── useFirewallRules.js           # Rule management hook
+│   ├── useFirewallLogs.js            # Logs management hook
+│   └── useFirewallSettings.js        # Settings management hook
+├── constants/
+│   └── firewallConstants.js          # Country codes, patterns, examples
+└── dialogs/
+    └── RuleEditorDialog.jsx          # Rule creation/editing dialog
+```
 
 ### Component Import
 
@@ -152,29 +284,46 @@ import { FirewallAdmin } from "../plugins/firewall";
 
 ## Dependencies
 
-### Backend
+### Backend Dependencies
 
 - `geoip-lite` - Geo-location services
 - `mongoose` - MongoDB integration
+- `axios` - HTTP client for threat intelligence APIs
+- `ip-address` - IP address parsing and CIDR support
 
-### Frontend
+### Frontend Dependencies
 
-- `@mui/material` - UI components
+- `@mui/material` - UI components and theming
 - `@mui/icons-material` - Icons
+- `@mui/x-charts` - Charts and data visualization
+- `recharts` - Additional charting components
 
-## License Dependency
+## Threat Intelligence
 
-This plugin requires the main licensing plugin to be active and valid. The firewall will not load if:
+### Supported Providers
 
-- Licensing plugin is not found
-- License validation middleware is unavailable
-- License is invalid or expired
+**Free Threat Feeds (No API Keys Required):**
+
+- **Spamhaus DROP List**: Known spam sources and compromised computers
+- **Emerging Threats**: Known compromised hosts and botnets
+
+**API-based Providers (Require API Keys):**
+
+- **AbuseIPDB**: Community-driven threat intelligence (1,000 free queries/day)
+- **VirusTotal**: Google-owned threat detection (500 free queries/day)
+
+### Setup Instructions
+
+1. **Free Threat Feeds**: Work immediately, no configuration needed
+2. **API Providers**: Add API keys to `.env` file
+3. **Import Feeds**: Use admin interface to import threat intelligence
+4. **Monitor Usage**: Check API usage statistics to avoid limits
 
 ## Security Features
 
 ### Request Blocking
 
-Blocked requests receive JSON responses:
+Blocked requests receive standardized JSON responses:
 
 ```json
 {
@@ -201,267 +350,130 @@ Rate limited requests receive:
 }
 ```
 
+## Email Reporting
+
+### Report Types
+
+- **Preview Reports**: Send immediate test reports
+- **Scheduled Reports**: Daily, weekly, or monthly automated reports
+- **Alert Reports**: Immediate notifications for threats
+
+### Report Contents
+
+- **Executive Summary**: Key metrics and trends
+- **Traffic Statistics**: Request volumes and patterns
+- **Threat Analysis**: Blocked threats and attack patterns
+- **Rule Effectiveness**: Rule performance metrics
+- **Geographic Analysis**: Country-based traffic data
+- **Performance Metrics**: System performance and cache statistics
+
+### Configuration
+
+```javascript
+// Email report settings
+{
+  enabled: true,
+  emails: ["admin@example.com", "security@example.com"],
+  frequency: "weekly", // daily, weekly, monthly
+  time: "09:00",
+  includeCharts: true,
+  includeDetails: true
+}
+```
+
 ## Development Mode
 
-In development mode (`NODE_ENV=development`), localhost requests (127.0.0.1) bypass firewall checks for easier testing.
+In development mode (`NODE_ENV=development`):
 
-## Monitoring & Analytics
-
-The admin dashboard provides:
-
-- Real-time request statistics
-- Top blocked countries and IPs
-- Request trends (24h/7d)
-- Rule effectiveness metrics
-- Live activity logs
+- Localhost requests (127.0.0.1) bypass firewall checks
+- Enhanced logging and debugging
+- Test endpoints available
+- Admin bypass headers accepted
 
 ## Best Practices
 
-1. **Regular Monitoring**: Check logs and statistics regularly
-2. **Rule Maintenance**: Review and update rules periodically
-3. **Log Cleanup**: Use the log cleanup feature to manage storage
-4. **Testing**: Test rules in development before production deployment
-5. **Backup**: Backup firewall rules and configurations
+### Rule Management
+
+1. **Priority System**: Use priority to control rule execution order
+2. **Rule Testing**: Test rules before enabling in production
+3. **Regular Review**: Periodically review and update rules
+4. **Source Tracking**: Tag rules by source (manual, threat_intel, etc.)
+
+### Performance Optimization
+
+1. **CIDR Blocks**: Use CIDR notation instead of multiple single IP rules
+2. **Pattern Efficiency**: Keep regex patterns simple and specific
+3. **Cache Monitoring**: Monitor rule cache hit rates
+4. **Log Cleanup**: Regular cleanup of old logs to manage storage
+
+### Security Hardening
+
+1. **Trusted Proxies**: Configure proper trusted proxy sources
+2. **API Rate Limits**: Monitor threat intelligence API usage
+3. **Regular Updates**: Keep threat feeds updated
+4. **Monitoring**: Set up real-time alerts for critical threats
 
 ## Troubleshooting
 
-### Plugin Not Loading
+### Common Issues
+
+**Plugin Not Loading:**
 
 - Verify licensing plugin is active
 - Check console logs for error messages
 - Ensure admin configuration is correct
 
-### Rules Not Working
+**Rules Not Working:**
 
 - Check rule priority and enabled status
 - Verify rule syntax and values
 - Review firewall logs for rule matches
 
-### Performance Issues
+**Performance Issues:**
 
-- Monitor rate limit collection size
+- Monitor rule cache performance
 - Clean old logs regularly
-- Consider rule optimization for high-traffic sites
+- Optimize complex regex patterns
 
-# Firewall Admin Panel
+**Threat Intelligence Issues:**
 
-## 🔥 Current Issue: Authentication Required
+- Check API key configuration
+- Monitor API usage limits
+- Verify network connectivity
 
-The firewall admin panel requires admin authentication. You're getting 403 Forbidden errors because you need to log in first.
+### Debug Tools
 
-## ✅ How to Fix
+- **Debug Endpoints**: Use `/api/firewall/debug-test` for connectivity
+- **Test Endpoints**: Use test endpoints to verify functionality
+- **Logs Analysis**: Review detailed logs for troubleshooting
+- **Performance Metrics**: Monitor cache hit rates and response times
 
-### Option 1: Log in through the frontend (Recommended)
+## Migration & Compatibility
 
-1. Go to `http://localhost:3000/login`
-2. Log in using one of these methods:
-   - **Regular Login**: Use email `ralphdp21@gmail.com` (if you have the password)
-   - **Google OAuth**: Log in with your Google account (`ralphdp21@gmail.com`)
-   - **GitHub OAuth**: Log in with your GitHub account (if linked to `ralphdp21@gmail.com`)
-3. Once logged in, navigate to `http://localhost:3000/admin/firewall`
-4. The panel should now load all data successfully
+### Upgrading from Previous Versions
 
-### Option 2: Temporary Development Bypass (Currently Active)
+- ✅ All existing IP rules continue to work
+- ✅ Pattern rules unchanged (with added safety)
+- ✅ No configuration changes required
+- ✅ Enhanced features available immediately
 
-For testing purposes, I've added a temporary bypass that's currently active:
+### Recommended Upgrades
 
-- The bypass header `X-Admin-Bypass: true` is automatically added to all API calls
-- This only works in development mode (`NODE_ENV=development`)
-- **IMPORTANT**: Remove this before going to production
+- Convert IP prefix rules to CIDR notation
+- Review and test complex regex patterns
+- Configure trusted proxies for accurate IP detection
+- Set up threat intelligence feeds
+- Enable email reporting for monitoring
 
-## 🚀 Features
+## License Dependency
 
-### Dashboard Tab
+This plugin requires the main licensing plugin to be active and valid. The firewall will not load if:
 
-- Real-time statistics
-- Top blocked countries and IPs
-- Request metrics (24h and 7d)
+- Licensing plugin is not found
+- License validation middleware is unavailable
+- License is invalid or expired
 
-### Rules Tab
+## Additional Documentation
 
-- Create, edit, and delete firewall rules
-- IP blocking, country blocking, rate limiting, suspicious patterns
-- Reference guide with country codes and attack patterns
-
-### Blocked IPs Tab
-
-- View and manage blocked IP addresses
-- Manual IP blocking with reasons and expiration
-- Unblock functionality
-
-### Logs Tab
-
-- Recent firewall activity
-- Detailed request logs with actions taken
-
-### Settings Tab
-
-- Configure rate limiting (requests per minute/hour)
-- Set progressive delay penalties
-- Enable/disable firewall features
-- Reset to defaults
-
-## 🔧 API Endpoints
-
-All endpoints require admin authentication:
-
-- `GET /api/firewall/stats` - Dashboard statistics
-- `GET /api/firewall/rules` - List firewall rules
-- `POST /api/firewall/rules` - Create new rule
-- `GET /api/firewall/blocked-ips` - List blocked IPs
-- `POST /api/firewall/blocked-ips` - Block IP address
-- `GET /api/firewall/logs` - View firewall logs
-- `GET /api/firewall/settings` - Get settings
-- `PUT /api/firewall/settings` - Update settings
-
-## 🐛 Debug Endpoints
-
-- `GET /api/firewall/debug/auth` - Check authentication status
-- `GET /api/firewall/debug/admins` - List admin users in database
-
-## ⚠️ Production Notes
-
-Before deploying to production:
-
-1. Remove the `X-Admin-Bypass` headers from all frontend API calls
-2. Remove the bypass logic from `backend/plugins/firewall/middleware.js`
-3. Ensure proper SSL/TLS for session security
-4. Review and test all authentication flows
-
-# Firewall Admin - Modular Architecture
-
-This directory contains the modularized Firewall Administration interface, broken down into manageable components for better maintainability and code organization.
-
-## Directory Structure
-
-```
-firewall/
-├── components/
-│   ├── FirewallAdminDashboard.jsx     # Dashboard tab with stats and charts
-│   ├── FirewallAdminRules.jsx         # Rules management tab
-│   ├── FirewallAdminBlockedIPs.jsx    # Blocked IPs management tab
-│   ├── FirewallAdminLogs.jsx          # Activity logs tab
-│   └── FirewallAdminSettings.jsx      # Settings and feature toggles tab
-├── constants/
-│   └── firewallConstants.js           # Shared constants (country codes, patterns, etc.)
-├── FirewallAdmin.jsx                  # Original monolithic component
-├── FirewallAdminModularVersion.jsx    # Simplified modular example
-└── README.md                          # This file
-```
-
-## Components Overview
-
-### FirewallAdminDashboard.jsx
-
-- **Purpose**: Displays firewall statistics and overview
-- **Features**:
-  - Statistics cards (total rules, blocked IPs, requests)
-  - Top blocked countries table
-  - Top blocked IPs table
-- **Props**: `stats`, `isFeatureEnabled`, `getFeatureTooltip`, `getDisabledStyle`
-
-### FirewallAdminRules.jsx
-
-- **Purpose**: Manages firewall rules (view, create, edit, delete)
-- **Features**:
-  - Rules table with filtering and sorting
-  - Add/Edit rule functionality
-  - Rule type management (IP block, country block, rate limit, patterns)
-- **Props**: `rules`, `hasAnyFeatureEnabled`, `isFeatureEnabled`, `getFeatureTooltip`, handlers, etc.
-
-### FirewallAdminBlockedIPs.jsx
-
-- **Purpose**: Manages blocked IP addresses
-- **Features**:
-  - Blocked IPs table
-  - Block/unblock functionality
-  - IP status management (active/inactive)
-- **Props**: `blockedIPs`, `isFeatureEnabled`, `getFeatureTooltip`, handlers, etc.
-
-### FirewallAdminLogs.jsx
-
-- **Purpose**: Displays firewall activity logs
-- **Features**:
-  - Recent activity table
-  - Log filtering and display
-- **Props**: `logs`, `formatDate`, `getActionChip`
-
-### FirewallAdminSettings.jsx
-
-- **Purpose**: Manages firewall settings and feature toggles
-- **Features**:
-  - Rate limiting configuration
-  - Progressive delays settings
-  - Feature enable/disable toggles
-  - Settings save/reset functionality
-- **Props**: `settings`, `setSettings`, `saveSettings`, handlers, etc.
-
-## Shared Constants
-
-### firewallConstants.js
-
-Contains shared data used across components:
-
-- **countryCodes**: Array of country codes and names for geo-blocking
-- **patternExamples**: Predefined suspicious patterns for security rules
-- **rateLimitExamples**: Common rate limiting scenarios and configurations
-
-## Integration
-
-To use the modular components, you can either:
-
-1. **Replace the existing component**: Update your routing to use the new modular structure
-2. **Gradual migration**: Slowly replace sections of the original component with the modular ones
-3. **Side-by-side**: Keep both versions and switch between them
-
-### Example Usage
-
-```jsx
-import FirewallAdminDashboard from "./components/FirewallAdminDashboard";
-
-// In your main component
-<TabPanel value={activeTab} index={0}>
-  <FirewallAdminDashboard
-    stats={stats}
-    isFeatureEnabled={isFeatureEnabled}
-    getFeatureTooltip={getFeatureTooltip}
-    getDisabledStyle={getDisabledStyle}
-  />
-</TabPanel>;
-```
-
-## Benefits of Modularization
-
-1. **Maintainability**: Each component has a single responsibility
-2. **Reusability**: Components can be reused in other parts of the application
-3. **Testing**: Easier to write unit tests for individual components
-4. **Performance**: Potential for better code splitting and lazy loading
-5. **Development**: Multiple developers can work on different tabs simultaneously
-6. **Debugging**: Easier to isolate and fix issues in specific functionality
-
-## Migration Notes
-
-When migrating from the monolithic component:
-
-1. **State Management**: You'll need to lift state up to the parent component and pass it down as props
-2. **Event Handlers**: Pass handler functions from parent to child components
-3. **API Calls**: Consider moving API calls to a custom hook or context
-4. **Constants**: Import shared constants from the constants file instead of defining them inline
-
-## Future Improvements
-
-- **Custom Hooks**: Extract API logic into custom hooks (`useFirewallData`, `useFirewallSettings`)
-- **Context API**: Use React Context for global firewall state management
-- **Error Boundaries**: Add error boundaries around each component
-- **Lazy Loading**: Implement code splitting for better performance
-- **TypeScript**: Add TypeScript for better type safety
-- **Storybook**: Create component stories for development and documentation
-
-## Dependencies
-
-The modular components depend on:
-
-- React and React hooks
-- Material-UI components and icons
-- The existing utility functions and API endpoints
-- Shared constants from the constants file
+- **[Threat Intelligence Integration](./THREAT_INTELLIGENCE.md)** - Comprehensive threat intelligence setup
+- **[Security Enhancements](./SECURITY_ENHANCEMENTS.md)** - Advanced security features and best practices

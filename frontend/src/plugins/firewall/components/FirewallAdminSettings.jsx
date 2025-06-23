@@ -1267,7 +1267,7 @@ const EmailReports = React.memo(({ settings, updateSetting, showAlert }) => {
   );
 });
 
-const LogManagement = React.memo(({ showAlert }) => {
+const LogManagement = React.memo(({ showAlert, fetchLogs }) => {
   const [deletingLogs, setDeletingLogs] = useState(false);
   const [showDeleteLogsDialog, setShowDeleteLogsDialog] = useState(false);
 
@@ -1294,6 +1294,8 @@ const LogManagement = React.memo(({ showAlert }) => {
           "success"
         );
         setShowDeleteLogsDialog(false);
+        // Refresh logs table after successful deletion (same pattern as XSS rule addition)
+        await fetchLogs();
       } else {
         showAlert(data.message || "Failed to delete firewall logs", "error");
       }
@@ -1551,6 +1553,7 @@ const FirewallAdminSettings = ({
   onTestRule,
   testing,
   fetchRules,
+  fetchLogs,
 }) => {
   const [settings, setSettings] = useState(initialSettings);
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -1653,7 +1656,7 @@ const FirewallAdminSettings = ({
         </Grid>
         <Grid item xs={12}>
           <SectionCard title="Log Management" icon={<ClearAllIcon />}>
-            <LogManagement showAlert={showAlert} />
+            <LogManagement showAlert={showAlert} fetchLogs={fetchLogs} />
           </SectionCard>
         </Grid>
         <Grid item xs={12}>
