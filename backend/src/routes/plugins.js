@@ -24,24 +24,37 @@ const initializePluginsConfig = async () => {
     const defaultConfig = {};
 
     // Scan for existing plugins and read their metadata
+    let backendPlugins = [];
+    let frontendPlugins = [];
+
+    // Try to scan backend plugins
     try {
-      const backendPlugins = await fs.readdir(BACKEND_PLUGINS_PATH);
-      const frontendPlugins = await fs.readdir(FRONTEND_PLUGINS_PATH);
-      const allPlugins = [...new Set([...backendPlugins, ...frontendPlugins])];
+      backendPlugins = await fs.readdir(BACKEND_PLUGINS_PATH);
+    } catch (backendError) {
+      console.log("Backend plugins directory not found or not accessible");
+    }
 
-      for (const plugin of allPlugins) {
-        if (plugin.startsWith(".")) continue;
+    // Try to scan frontend plugins (may not exist in production)
+    try {
+      frontendPlugins = await fs.readdir(FRONTEND_PLUGINS_PATH);
+    } catch (frontendError) {
+      console.log(
+        "Frontend plugins directory not found or not accessible (this is normal in production)"
+      );
+    }
 
-        const pluginConfig = await getPluginMetadata(plugin);
-        if (pluginConfig) {
-          defaultConfig[plugin] = pluginConfig;
-        } else {
-          // Fallback for plugins without metadata
-          defaultConfig[plugin] = { enabled: false, dependsOn: ["core"] };
-        }
+    const allPlugins = [...new Set([...backendPlugins, ...frontendPlugins])];
+
+    for (const plugin of allPlugins) {
+      if (plugin.startsWith(".")) continue;
+
+      const pluginConfig = await getPluginMetadata(plugin);
+      if (pluginConfig) {
+        defaultConfig[plugin] = pluginConfig;
+      } else {
+        // Fallback for plugins without metadata
+        defaultConfig[plugin] = { enabled: false, dependsOn: ["core"] };
       }
-    } catch (scanError) {
-      console.log("Plugin scan failed, using empty config");
     }
 
     await fs.writeFile(
@@ -178,8 +191,25 @@ router.get("/", requireAdmin, async (req, res) => {
     const plugins = [];
 
     // Scan for all plugin directories
-    const backendPlugins = await fs.readdir(BACKEND_PLUGINS_PATH);
-    const frontendPlugins = await fs.readdir(FRONTEND_PLUGINS_PATH);
+    let backendPlugins = [];
+    let frontendPlugins = [];
+
+    // Try to scan backend plugins
+    try {
+      backendPlugins = await fs.readdir(BACKEND_PLUGINS_PATH);
+    } catch (backendError) {
+      console.log("Backend plugins directory not found:", backendError.message);
+    }
+
+    // Try to scan frontend plugins (may not exist in production)
+    try {
+      frontendPlugins = await fs.readdir(FRONTEND_PLUGINS_PATH);
+    } catch (frontendError) {
+      console.log(
+        "Frontend plugins directory not found (this is normal in production):",
+        frontendError.message
+      );
+    }
 
     const allPluginNames = new Set([...backendPlugins, ...frontendPlugins]);
 
