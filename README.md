@@ -25,6 +25,49 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
   - Request size limits
   - Secure MongoDB connection
 
+- **Advanced Plugin System**
+
+  - **Firewall Protection Plugin**
+
+    - IP blocking and rate limiting
+    - Geo-blocking by country/region
+    - Suspicious request detection
+    - Real-time threat monitoring
+
+  - **Web Performance Optimization Plugin**
+
+    - **File Optimization**
+
+      - CSS/JS minification and concatenation (modular, preserves plugin structure)
+      - Image optimization and WebP conversion (processes `frontend/public/assets/upload`)
+      - GZIP/Brotli compression with configurable levels
+      - Unused CSS removal and comment preservation options
+
+    - **Advanced Caching Layers**
+
+      - Database query caching with Redis (pre-configured: redis-10904.c246.us-east-1-4.ec2.redns.redis-cloud.com:10904)
+      - Fragment and object caching for dynamic content
+      - Static file caching with Cloudflare R2 integration (credentials stored in database)
+      - Browser caching with HTTP headers, ETag, and Last-Modified support
+
+    - **Performance Features**
+
+      - Lazy loading for images and iframes with configurable thresholds
+      - Critical CSS injection with automatic extraction
+      - Resource preloading (DNS prefetch, preconnect, fonts, critical images)
+      - Performance monitoring and real-time metrics collection
+
+    - **Processing & Analytics**
+      - Background processing queue for optimization tasks
+      - Real-time performance metrics and dashboard
+      - File size reduction tracking and bandwidth savings
+      - Cache hit/miss ratio monitoring and response time analytics
+
+  - **Licensing Plugin**
+    - License validation and management
+    - Feature access control
+    - Secure license verification
+
 - **Modern Development**
   - ES6+ JavaScript
   - React Hooks
@@ -87,6 +130,19 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
    npm install
    ```
 
+   **Note:** The backend now includes additional dependencies for web performance optimization:
+
+   - `redis` (v4.6.0) - For database query caching and session management
+   - `sharp` (v0.33.0) - For advanced image processing, optimization, and WebP conversion
+
+   **Important:** Add the Redis endpoint to your `.env` file:
+
+   ```
+   REDIS_PUBLIC_ENDPOINT=redis-10904.c246.us-east-1-4.ec2.redns.redis-cloud.com:10904
+   ```
+
+   This Redis instance is shared across the core application and all plugins for optimal performance.
+
 5. Create environment files:
 
    Backend (.env):
@@ -100,6 +156,7 @@ hMERN is a full-stack, web application, boilerplate, built with MERN stack (Mong
    FRONTEND_URL=your_frontend_url
    MONGODB_URI=your_mongodb_uri
    SESSION_SECRET=your_session_secret
+   REDIS_PUBLIC_ENDPOINT=redis-10904.c246.us-east-1-4.ec2.redns.redis-cloud.com:10904
    GOOGLE_CLIENT_ID=your_google_client_id
    GOOGLE_CLIENT_SECRET=your_google_client_secret
    GITHUB_CLIENT_ID=your_github_client_id
@@ -201,6 +258,7 @@ The application will be available at:
                      REACT_APP_FRONTEND_URL=https://your-app.herokuapp.com /
                      REACT_APP_BACKEND_URL=https://your-app.herokuapp.com /
                      SESSION_SECRET=your_session_secret /
+                     REDIS_PUBLIC_ENDPOINT=redis-10904.c246.us-east-1-4.ec2.redns.redis-cloud.com:10904 /
                      GOOGLE_CLIENT_ID=your_google_client_id /
                      GOOGLE_CLIENT_SECRET=your_google_client_secret /
                      GITHUB_CLIENT_ID=your_github_client_id /
@@ -293,9 +351,14 @@ hmern/
 │   │   │   ├── PrivateRoute.js         # Private route wrapper
 │   │   │   └── ScrollToTop.js          # Scroll to top component
 │   │   ├── contexts/                   # React context providers
-│   │   │   └── AuthContext.js          # Authentication context
+│   │   │   ├── AuthContext.js          # Authentication context
+│   │   │   └── PluginContext.js        # Plugin management context
 │   │   ├── pages/                      # Page components
 │   │   │   ├── About.js                # About page
+│   │   │   ├── Admin.js                # Admin dashboard
+│   │   │   ├── AdminFirewall.js        # Firewall admin page
+│   │   │   ├── AdminPlugins.js         # Plugin management page
+│   │   │   ├── AdminWebPerformance.js  # Web performance admin page
 │   │   │   ├── Contact.js              # Contact page
 │   │   │   ├── Cookies.js              # Cookies page
 │   │   │   ├── Dashboard.js            # Dashboard page
@@ -307,9 +370,27 @@ hmern/
 │   │   │   ├── Register.js             # Registration page
 │   │   │   ├── ResendVerification.js   # Resend verification page
 │   │   │   ├── ResetPassword.js        # Reset password page
+│   │   │   ├── SwitchTest.js           # Switch testing page
 │   │   │   ├── Terms.js                # Terms page
 │   │   │   ├── Verify.js               # Verify account page
 │   │   │   └── VerifyEmail.js          # Verify email address form page
+│   │   ├── plugins/                    # Frontend plugin components
+│   │   │   ├── firewall/               # Firewall plugin frontend
+│   │   │   │   ├── components/         # Firewall components
+│   │   │   │   ├── constants/          # Firewall constants
+│   │   │   │   ├── FirewallAdmin.jsx   # Main firewall admin component
+│   │   │   │   ├── index.js            # Plugin export
+│   │   │   │   └── ...                 # Other firewall files
+│   │   │   ├── licensing/              # Licensing plugin frontend
+│   │   │   │   ├── LicenseIndicator.jsx # License status component
+│   │   │   │   ├── index.js            # Plugin export
+│   │   │   │   └── README.md           # Plugin documentation
+│   │   │   └── web-performance-optimization/ # Web performance plugin
+│   │   │       ├── components/         # Performance components
+│   │   │       │   ├── WebPerformanceOverview.jsx
+│   │   │       │   └── WebPerformanceSettings.jsx
+│   │   │       ├── WebPerformanceAdmin.jsx # Main admin component
+│   │   │       └── index.js            # Plugin export
 │   │   ├── services/                   # API services
 │   │   │   ├── auth.js                 # Authentication service
 │   │   │   └── license.js              # License service
@@ -337,13 +418,25 @@ hmern/
 │   │   ├── Token.js                    # Token model
 │   │   └── User.js                     # User model
 │   ├── plugins/                        # Plugin system
-│   │   └── licensing/                  # Licensing plugin
+│   │   ├── firewall/                   # Firewall plugin
+│   │   │   ├── index.js                # Plugin entry point
+│   │   │   ├── middleware.js           # Firewall middleware
+│   │   │   ├── models.js               # Firewall data models
+│   │   │   ├── routes.js               # Firewall API routes
+│   │   │   └── threat-intelligence.js  # Threat intelligence
+│   │   ├── licensing/                  # Licensing plugin
+│   │   │   ├── index.js                # Plugin entry point
+│   │   │   ├── middleware.js           # License validation middleware
+│   │   │   └── routes.js               # License API routes
+│   │   └── web-performance-optimization/ # Web performance plugin
 │   │       ├── index.js                # Plugin entry point
-│   │       ├── middleware.js           # License validation middleware
-│   │       └── routes.js               # License API routes
+│   │       ├── middleware.js           # Performance middleware
+│   │       ├── models.js               # Performance data models
+│   │       └── routes.js               # Performance API routes
 │   ├── routes/                         # API routes
 │   │   ├── auth.js                     # Authentication routes
-│   │   └── contact.js                  # Contact form routes
+│   │   ├── contact.js                  # Contact form routes
+│   │   └── plugins.js                  # Plugin management routes
 │   ├── services/                       # Business logic services
 │   │   └── emailService.js             # Email service
 │   ├── .env.example                            # Environment variables
@@ -357,6 +450,57 @@ hmern/
 ├── Procfile                            # Heroku deployment configuration
 └── README.md                           # Project documentation
 ```
+
+## 🔌 API Endpoints
+
+### Web Performance Optimization API
+
+The web performance plugin provides comprehensive REST API endpoints for managing optimization settings, monitoring performance, and processing files:
+
+**Settings Management:**
+
+- `GET /api/web-performance/settings` - Retrieve current performance settings
+- `PUT /api/web-performance/settings` - Update performance configuration
+- `GET /api/web-performance/health` - Plugin health check and feature list
+
+**Performance Monitoring:**
+
+- `GET /api/web-performance/stats` - Real-time performance statistics and metrics
+- `GET /api/web-performance/metrics` - Historical performance data with time range filtering
+- `POST /api/web-performance/optimize` - Add files to optimization queue
+
+**Processing Queue:**
+
+- `GET /api/web-performance/queue` - View processing queue status and statistics
+- `DELETE /api/web-performance/queue/completed` - Clear completed/failed queue items
+
+**Testing & Validation:**
+
+- `POST /api/web-performance/test-redis` - Test Redis connection with provided credentials
+- `POST /api/web-performance/test-r2` - Test Cloudflare R2 connection and configuration
+
+**Feature Categories:**
+
+- **File Optimization:** CSS/JS minification, image optimization, WebP conversion, compression
+- **Caching:** Redis database caching, fragment caching, R2 static file caching, browser caching
+- **Performance:** Lazy loading, critical CSS, preloading, performance monitoring
+
+### Firewall API
+
+- `GET /api/firewall/stats` - Firewall statistics and metrics
+- `GET /api/firewall/rules` - Retrieve firewall rules
+- `POST /api/firewall/rules` - Add new firewall rule
+- `PUT /api/firewall/rules/:id` - Update existing rule
+- `DELETE /api/firewall/rules/:id` - Delete firewall rule
+- `GET /api/firewall/logs` - Access firewall logs
+- `GET /api/firewall/settings` - Retrieve firewall settings
+- `PUT /api/firewall/settings` - Update firewall configuration
+
+### Plugin Management API
+
+- `GET /api/plugins` - List all available plugins and their status
+- `POST /api/plugins/:pluginName/toggle` - Enable/disable specific plugin
+- `GET /api/plugins/:pluginName/status` - Get individual plugin status
 
 ## 🔐 Authentication
 
@@ -508,6 +652,40 @@ The application includes a comprehensive licensing system that validates license
 - `GET /api/license/info` - Get public information about the configured license key
 - `GET /api/license/status` - Check license validation status (used by frontend indicator)
 - `GET /api/license/debug` - Debug endpoint for manual license validation testing
+
+### Firewall Endpoints (`/api/firewall/`)
+
+The firewall plugin provides comprehensive security protection with IP blocking, rate limiting, and threat detection.
+
+#### Firewall Management (Admin Only)
+
+- `GET /api/firewall/test` - Test firewall plugin functionality
+- `GET /api/firewall/health` - Firewall health check
+- `GET /api/firewall/stats` - Dashboard statistics and metrics
+- `GET /api/firewall/settings` - Get firewall settings
+- `PUT /api/firewall/settings` - Update firewall settings
+- `GET /api/firewall/rules` - Get firewall rules
+- `POST /api/firewall/rules` - Create new firewall rule
+- `GET /api/firewall/blocked-ips` - Get blocked IP addresses
+- `GET /api/firewall/logs` - View firewall logs
+
+### Web Performance Endpoints (`/api/web-performance/`)
+
+The web performance optimization plugin provides advanced caching, compression, and optimization features.
+
+#### Performance Management (Admin Only)
+
+- `GET /api/web-performance/test` - Test web performance plugin functionality
+- `GET /api/web-performance/health` - Performance plugin health check
+- `GET /api/web-performance/stats` - Dashboard statistics and optimization metrics
+- `GET /api/web-performance/settings` - Get performance optimization settings
+- `PUT /api/web-performance/settings` - Update performance optimization settings
+
+#### Performance Features
+
+- **File Optimization**: CSS/JS minification, image optimization, WebP conversion
+- **Caching Layers**: Database query caching (Redis), static file caching (Cloudflare R2), browser caching
+- **Performance Features**: Lazy loading, critical CSS, preloading, performance monitoring
 
 #### License Validation
 

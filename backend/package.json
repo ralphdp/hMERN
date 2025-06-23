@@ -8,6 +8,8 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.832.0",
+    "archiver": "^7.0.1",
     "axios": "^1.10.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.0",
@@ -21,13 +23,18 @@
     "geoip-lite": "^1.4.10",
     "helmet": "^7.1.0",
     "hpp": "^0.2.3",
+    "ip-address": "^9.0.5",
     "mongoose": "^8.2.1",
+    "multer": "^2.0.1",
     "nodemailer": "^7.0.3",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
     "passport-local": "^1.0.0",
+    "redis": "^4.6.0",
+    "sharp": "^0.33.0",
+    "unzipper": "^0.12.3",
     "xss-clean": "^0.1.4"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Container,
   Paper,
@@ -8,12 +8,12 @@ import {
   Button,
   Box,
   Alert,
-  CircularProgress
-} from '@mui/material';
-import axios from 'axios';
+  CircularProgress,
+} from "@mui/material";
+import axios from "axios";
 
 const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -26,13 +26,20 @@ const ForgotPassword = () => {
     setMessage(null);
 
     try {
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
-      await axios.post(`${backendUrl}/api/auth/forgot-password`, { email }, {
-        withCredentials: true
-      });
-      setMessage('Password reset instructions have been sent to your email.');
+      const backendUrl =
+        process.env.REACT_APP_BACKEND_URL || "http://localhost:5000";
+      await axios.post(
+        `${backendUrl}/api/auth/forgot-password`,
+        { email },
+        {
+          withCredentials: true,
+        }
+      );
+      setMessage("Password reset instructions have been sent to your email.");
     } catch (error) {
-      setError(error.response?.data?.message || 'Error sending password reset email');
+      setError(
+        error.response?.data?.message || "Error sending password reset email"
+      );
     } finally {
       setLoading(false);
     }
@@ -42,21 +49,20 @@ const ForgotPassword = () => {
     <Container maxWidth="sm">
       <Box
         sx={{
-          
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          py: 4
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          py: 4,
         }}
       >
         <Paper
           elevation={3}
           sx={{
             p: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            bgcolor: 'background.paper'
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            bgcolor: "background.paper",
           }}
         >
           <Typography
@@ -64,9 +70,9 @@ const ForgotPassword = () => {
             variant="h4"
             gutterBottom
             sx={{
-              fontWeight: 'bold',
-              color: 'text.primary',
-              mb: 3
+              fontWeight: "bold",
+              color: "text.primary",
+              mb: 3,
             }}
           >
             Forgot Password
@@ -76,21 +82,22 @@ const ForgotPassword = () => {
             variant="body1"
             sx={{
               mb: 4,
-              textAlign: 'center',
-              color: 'text.secondary'
+              textAlign: "center",
+              color: "text.secondary",
             }}
           >
-            Enter your email address and we'll send you instructions to reset your password.
+            Enter your email address and we'll send you instructions to reset
+            your password.
           </Typography>
 
           {error && (
-            <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
+            <Alert severity="error" sx={{ width: "100%", mb: 3 }}>
               {error}
             </Alert>
           )}
 
           {message && (
-            <Alert severity="success" sx={{ width: '100%', mb: 3 }}>
+            <Alert severity="success" sx={{ width: "100%", mb: 3 }}>
               {message}
             </Alert>
           )}
@@ -99,27 +106,28 @@ const ForgotPassword = () => {
             component="form"
             onSubmit={handleSubmit}
             sx={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2
+              width: "100%",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
             }}
           >
             <TextField
               required
               fullWidth
+              id="email"
               label="Email Address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}
               sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: 'divider',
+                "& .MuiOutlinedInput-root": {
+                  "& fieldset": {
+                    borderColor: "divider",
                   },
-                  '&:hover fieldset': {
-                    borderColor: 'primary.main',
+                  "&:hover fieldset": {
+                    borderColor: "primary.main",
                   },
                 },
               }}
@@ -135,24 +143,24 @@ const ForgotPassword = () => {
                 mt: 2,
                 py: 1.5,
                 borderRadius: 2,
-                textTransform: 'none',
-                fontSize: '1.1rem'
+                textTransform: "none",
+                fontSize: "1.1rem",
               }}
             >
               {loading ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
-                'Send Reset Instructions'
+                "Send Reset Instructions"
               )}
             </Button>
 
             <Button
               component="button"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate("/login")}
               sx={{
                 mt: 1,
-                textTransform: 'none',
-                color: 'text.secondary'
+                textTransform: "none",
+                color: "text.secondary",
               }}
             >
               Back to Login
@@ -164,4 +172,4 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword; 
+export default ForgotPassword;

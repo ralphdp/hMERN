@@ -171,6 +171,7 @@ const Login = () => {
             <TextField
               required
               fullWidth
+              id="email"
               label="Email Address"
               type="email"
               value={email}
@@ -189,6 +190,7 @@ const Login = () => {
             />
 
             <PasswordInput
+              id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}

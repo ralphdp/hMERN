@@ -63,44 +63,22 @@ const Dashboard = () => {
           <Typography variant="h4" component="h1" gutterBottom>
             Dashboard
           </Typography>
-          {user.avatar ? (
-            <Box
-              component="img"
-              src={user.avatar}
-              alt={user.name}
-              onError={(e) => {
-                e.target.onerror = null;
-                const hash = MD5(user.email.toLowerCase().trim()).toString();
-                e.target.src = `https://www.gravatar.com/avatar/${hash}?d=mp&s=200`;
-              }}
-              sx={{
-                width: 100,
-                height: 100,
-                borderRadius: "50%",
-                objectFit: "cover",
-                border: "2px solid",
-                borderColor: "divider",
-                bgcolor: "background.default",
-              }}
-            />
-          ) : (
-            <Box
-              component="img"
-              src={`https://www.gravatar.com/avatar/${MD5(
-                user.email.toLowerCase().trim()
-              ).toString()}?d=mp&s=200`}
-              alt={user.name}
-              sx={{
-                width: 100,
-                height: 100,
-                borderRadius: "50%",
-                objectFit: "cover",
-                border: "2px solid",
-                borderColor: "divider",
-                bgcolor: "background.default",
-              }}
-            />
-          )}
+          <Box
+            component="img"
+            src={`https://www.gravatar.com/avatar/${MD5(
+              user.email.toLowerCase().trim()
+            ).toString()}?d=mp&s=200`}
+            alt={user.name}
+            sx={{
+              width: 100,
+              height: 100,
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "2px solid",
+              borderColor: "divider",
+              bgcolor: "background.default",
+            }}
+          />
           <Stack spacing={1} width="100%" alignItems="center">
             <Typography variant="body1" color="text.secondary">
               Email: {user.email}

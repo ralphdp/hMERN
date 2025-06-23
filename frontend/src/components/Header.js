@@ -311,7 +311,12 @@ const Header = ({ mode, toggleColorMode, user }) => {
 
               {isAuthenticated && (
                 <>
-                  <Tooltip title="Open settings">
+                  <Tooltip
+                    title={
+                      <Typography variant="body2">Open settings</Typography>
+                    }
+                    arrow
+                  >
                     <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
                       <Avatar
                         alt={user?.name || "User"}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Tooltip } from "@mui/material";
+import { Box, Tooltip, Typography } from "@mui/material";
 
 // Inline license service to avoid external dependencies
 const checkLicenseStatus = async () => {
@@ -108,7 +108,11 @@ const LicenseIndicator = () => {
   }
 
   return (
-    <Tooltip title={tooltipText} arrow placement="top">
+    <Tooltip
+      title={<Typography variant="body2">{tooltipText}</Typography>}
+      arrow
+      placement="top"
+    >
       <Box
         sx={{
           width: 6,

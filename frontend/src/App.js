@@ -18,6 +18,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { PluginProvider } from "./contexts/PluginContext";
 import { getTheme } from "./theme";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -39,12 +40,29 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Admin from "./pages/Admin";
 import AdminFirewall from "./pages/AdminFirewall";
+import AdminPlugins from "./pages/AdminPlugins";
+import AdminWebPerformance from "./pages/AdminWebPerformance";
+import SwitchTest from "./pages/SwitchTest";
 
 function AppContent() {
   const { user, loading } = useAuth();
-  const [mode, setMode] = useState("light");
   const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
 
+  // Initialize theme mode from localStorage or system preference
+  const [mode, setMode] = useState(() => {
+    const savedMode = localStorage.getItem("themeMode");
+    if (savedMode && (savedMode === "light" || savedMode === "dark")) {
+      return savedMode;
+    }
+    return prefersDarkMode ? "dark" : "light";
+  });
+
+  // Update localStorage when mode changes
+  useEffect(() => {
+    localStorage.setItem("themeMode", mode);
+  }, [mode]);
+
+  // Only update from system preference if no saved preference exists
   useEffect(() => {
     if (!localStorage.getItem("themeMode")) {
       setMode(prefersDarkMode ? "dark" : "light");
@@ -126,6 +144,30 @@ function AppContent() {
                 </PrivateRoute>
               }
             />
+            <Route
+              path="/admin/plugins"
+              element={
+                <PrivateRoute>
+                  <AdminPlugins />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/web-performance-optimization"
+              element={
+                <PrivateRoute>
+                  <AdminWebPerformance />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/switch-test"
+              element={
+                <PrivateRoute>
+                  <SwitchTest />
+                </PrivateRoute>
+              }
+            />
 
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />
@@ -141,7 +183,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <PluginProvider>
+        <AppContent />
+      </PluginProvider>
     </AuthProvider>
   );
 }

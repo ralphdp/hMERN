@@ -33,6 +33,24 @@ const app = express();
 app.plugins = {};
 const pluginsDir = path.join(__dirname, "plugins");
 
+// Helper function to load plugins configuration
+const loadPluginsConfig = async () => {
+  const PLUGINS_CONFIG_PATH = path.join(__dirname, "config/plugins.json");
+  try {
+    const configData = await fs.promises.readFile(PLUGINS_CONFIG_PATH, "utf8");
+    return JSON.parse(configData);
+  } catch (error) {
+    console.error("Error loading plugins config:", error);
+    return {};
+  }
+};
+
+// Helper function to check if a plugin is enabled
+const isPluginEnabled = async (pluginName) => {
+  const config = await loadPluginsConfig();
+  return config[pluginName]?.enabled || false;
+};
+
 console.log("=== Plugin System Initialization ===");
 console.log("Plugins directory:", pluginsDir);
 
@@ -218,10 +236,35 @@ const corsOptions = {
     "Cookie",
     "Set-Cookie",
     "X-Admin-Bypass",
+    "X-Firewall-Test",
   ],
 };
 
+// Body parser middleware - Move BEFORE CORS to ensure it processes first
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
 app.use(cors(corsOptions));
+
+// Apply firewall middleware AFTER CORS
+if (app.plugins.firewall && app.getFirewallMiddleware) {
+  console.log(
+    "=== SERVER: Firewall plugin detected. Applying middleware... ==="
+  );
+  const middleware = app.getFirewallMiddleware();
+  if (typeof middleware === "function") {
+    app.use(middleware);
+    console.log("=== SERVER: Firewall middleware applied successfully. ===");
+  } else {
+    console.error(
+      "=== SERVER ERROR: getFirewallMiddleware() did not return a function! ==="
+    );
+  }
+} else {
+  console.log(
+    "=== SERVER: Firewall plugin not loaded or middleware not available. Skipping middleware application. ==="
+  );
+}
 
 // Handle preflight requests explicitly
 app.options("*", cors(corsOptions));
@@ -290,25 +333,50 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   trustProxy: true,
+  skip: (req) => {
+    // Skip rate limiting for admin routes and plugin APIs
+    const isAdminRoute =
+      req.originalUrl &&
+      (req.originalUrl.startsWith("/api/admin") ||
+        req.originalUrl.startsWith("/api/firewall") ||
+        req.originalUrl.startsWith("/api/web-performance") ||
+        req.originalUrl.includes("/admin"));
+
+    // Also skip if admin bypass header is present
+    const hasAdminBypass = req.headers["x-admin-bypass"];
+
+    if (isAdminRoute || hasAdminBypass) {
+      console.log(
+        `[Global Rate Limiter] Skipping rate limit for admin route: ${req.originalUrl}`
+      );
+      return true;
+    }
+
+    return false;
+  },
+  message: {
+    error: "Too many requests from this IP, please try again later.",
+    retryAfter: "15 minutes",
+  },
 });
 
-// Apply rate limiter to all requests
+// Apply conditional rate limiter
 app.use(limiter);
 
-// Body parser middleware - Enhanced for better parsing
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-
-// Additional body parsing middleware for edge cases
+// Additional body parsing middleware for debugging
 app.use((req, res, next) => {
   // Log request details for debugging
-  if (req.url.includes("/api/firewall/rules") && req.method === "POST") {
+  if (
+    req.url.includes("/api/firewall/") &&
+    (req.method === "POST" || req.method === "PUT")
+  ) {
     console.log("=== REQUEST DEBUG ===");
     console.log("URL:", req.url);
     console.log("Method:", req.method);
     console.log("Content-Type:", req.headers["content-type"]);
     console.log("Body (raw):", req.body);
-    console.log("Headers:", req.headers);
+    console.log("Body type:", typeof req.body);
+    console.log("Body keys:", req.body ? Object.keys(req.body) : "No keys");
     console.log("======================");
   }
   next();
@@ -348,13 +416,48 @@ app.use((req, res, next) => {
 // Import passport configuration
 require("./config/passport");
 
+// Register firewall routes AFTER session and passport setup
+if (app.plugins.firewall && app.registerFirewallRoutes) {
+  isPluginEnabled("firewall").then((enabled) => {
+    if (enabled) {
+      console.log("=== Registering Firewall Routes After Session Setup ===");
+      app.registerFirewallRoutes();
+    } else {
+      console.log(
+        "=== Firewall plugin is disabled - skipping route registration ==="
+      );
+    }
+  });
+}
+
+// Register web performance routes AFTER session and passport setup
+if (
+  app.plugins["web-performance-optimization"] &&
+  app.registerWebPerformanceRoutes
+) {
+  isPluginEnabled("web-performance-optimization").then((enabled) => {
+    if (enabled) {
+      console.log(
+        "=== Registering Web Performance Routes After Session Setup ==="
+      );
+      app.registerWebPerformanceRoutes();
+    } else {
+      console.log(
+        "=== Web Performance plugin is disabled - skipping route registration ==="
+      );
+    }
+  });
+}
+
 // Import routes
 const authRoutes = require("./routes/auth");
 const contactRoutes = require("./routes/contact");
+const pluginsRoutes = require("./routes/plugins");
 
 // Use routes
 app.use("/api/auth", authRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/plugins", pluginsRoutes);
 
 // --- Example of using the loaded licensing plugin ---
 if (app.plugins.licensing) {
@@ -375,50 +478,56 @@ if (app.plugins.licensing) {
 }
 // --- End Example ---
 
-// --- Admin Routes (only if firewall plugin is loaded) ---
+// --- Admin Routes (only if firewall plugin is loaded and enabled) ---
 if (app.plugins.firewall) {
-  console.log("=== Registering Admin Routes ===");
-  const { requireAdmin } = app.plugins.firewall.middleware;
+  isPluginEnabled("firewall").then((enabled) => {
+    if (enabled) {
+      console.log("=== Registering Admin Routes ===");
+      const { requireAdmin } = app.plugins.firewall.middleware;
 
-  // Admin routes - only accessible to admin users
-  const adminRouter = express.Router();
+      // Admin routes - only accessible to admin users
+      const adminRouter = express.Router();
 
-  // Admin dashboard
-  adminRouter.get("/", requireAdmin, (req, res) => {
-    res.json({
-      success: true,
-      message: "Admin dashboard access granted",
-      user: {
-        email: req.user.email,
-        role: req.user.role,
-        name: req.user.name,
-      },
-      availablePlugins: Object.keys(app.plugins),
-      timestamp: new Date().toISOString(),
-    });
+      // Admin dashboard
+      adminRouter.get("/", requireAdmin, (req, res) => {
+        res.json({
+          success: true,
+          message: "Admin dashboard access granted",
+          user: {
+            email: req.user.email,
+            role: req.user.role,
+            name: req.user.name,
+          },
+          availablePlugins: Object.keys(app.plugins),
+          timestamp: new Date().toISOString(),
+        });
+      });
+
+      // Admin user info
+      adminRouter.get("/user", requireAdmin, (req, res) => {
+        res.json({
+          success: true,
+          user: {
+            id: req.user._id,
+            email: req.user.email,
+            name: req.user.name,
+            role: req.user.role,
+            isAdmin: req.user.isAdmin(),
+            createdAt: req.user.createdAt,
+          },
+        });
+      });
+
+      app.use("/api/admin", adminRouter);
+      console.log("Admin routes registered at /api/admin");
+      console.log("Available admin endpoints:");
+      console.log("  - GET /api/admin - Admin dashboard");
+      console.log("  - GET /api/admin/user - Admin user info");
+      console.log("=== Admin Routes Registration Complete ===");
+    } else {
+      console.log("Firewall plugin disabled - admin routes not registered");
+    }
   });
-
-  // Admin user info
-  adminRouter.get("/user", requireAdmin, (req, res) => {
-    res.json({
-      success: true,
-      user: {
-        id: req.user._id,
-        email: req.user.email,
-        name: req.user.name,
-        role: req.user.role,
-        isAdmin: req.user.isAdmin(),
-        createdAt: req.user.createdAt,
-      },
-    });
-  });
-
-  app.use("/api/admin", adminRouter);
-  console.log("Admin routes registered at /api/admin");
-  console.log("Available admin endpoints:");
-  console.log("  - GET /api/admin - Admin dashboard");
-  console.log("  - GET /api/admin/user - Admin user info");
-  console.log("=== Admin Routes Registration Complete ===");
 } else {
   console.log("Firewall plugin not loaded - admin routes not registered");
 }

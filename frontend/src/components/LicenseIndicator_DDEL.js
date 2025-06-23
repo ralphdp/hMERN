@@ -1,7 +1,7 @@
 // frontend/src/components/LicenseIndicator.js
 
 import React, { useState, useEffect } from "react";
-import { Box, Tooltip } from "@mui/material";
+import { Box, Tooltip, Typography } from "@mui/material";
 import { checkLicenseStatus } from "../services/license";
 
 const LicenseIndicator = () => {
@@ -43,7 +43,11 @@ const LicenseIndicator = () => {
 
   return (
     <Tooltip
-      title={isValid ? "License Active" : "License Inactive"}
+      title={
+        <Typography variant="body2">
+          {isValid ? "License Active" : "License Inactive"}
+        </Typography>
+      }
       arrow
       placement="top"
     >

@@ -2,6 +2,27 @@ const express = require("express");
 const router = express.Router();
 const axios = require("axios");
 
+// Add CORS headers specifically for license routes in development
+if (process.env.NODE_ENV === "development") {
+  router.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS"
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With, Accept, Origin, Cookie, Set-Cookie"
+    );
+
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+    next();
+  });
+}
+
 const LICENSE_SERVER_URL =
   process.env.LICENSE_SERVER_URL || "https://hmern.com";
 const LICENSE_KEY = process.env.HMERN_LICENSE_KEY;

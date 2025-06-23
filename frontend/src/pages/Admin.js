@@ -22,12 +22,16 @@ import {
   Settings as SettingsIcon,
   BarChart as ChartIcon,
   ArrowBack as ArrowBackIcon,
+  Extension as ExtensionIcon,
+  Speed as SpeedIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../contexts/AuthContext";
+import { usePlugins } from "../contexts/PluginContext";
 import { useNavigate } from "react-router-dom";
 
 const Admin = () => {
   const { user } = useAuth();
+  const { isPluginEnabled } = usePlugins();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [adminData, setAdminData] = useState(null);
@@ -89,7 +93,7 @@ const Admin = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
+    <Container maxWidth="xxl" sx={{ my: 4 }}>
       <Box
         sx={{
           display: "flex",
@@ -145,17 +149,49 @@ const Admin = () => {
             />
             <CardContent sx={{ p: 0 }}>
               <List>
+                {isPluginEnabled("firewall") && (
+                  <ListItem
+                    button
+                    onClick={() => navigate("/admin/firewall")}
+                    sx={{ borderRadius: 1, mx: 1, my: 0.5 }}
+                  >
+                    <ListItemIcon>
+                      <ShieldIcon />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Firewall Management"
+                      secondary="Manage security rules"
+                    />
+                  </ListItem>
+                )}
+                {isPluginEnabled("web-performance-optimization") && (
+                  <ListItem
+                    button
+                    onClick={() =>
+                      navigate("/admin/web-performance-optimization")
+                    }
+                    sx={{ borderRadius: 1, mx: 1, my: 0.5 }}
+                  >
+                    <ListItemIcon>
+                      <SpeedIcon />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Web Performance"
+                      secondary="Optimize site performance"
+                    />
+                  </ListItem>
+                )}
                 <ListItem
                   button
-                  onClick={() => navigate("/admin/firewall")}
+                  onClick={() => navigate("/admin/plugins")}
                   sx={{ borderRadius: 1, mx: 1, my: 0.5 }}
                 >
                   <ListItemIcon>
-                    <ShieldIcon />
+                    <ExtensionIcon />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Firewall Management"
-                    secondary="Manage security rules"
+                    primary="Plugin Management"
+                    secondary="Install & configure plugins"
                   />
                 </ListItem>
                 <ListItem disabled sx={{ borderRadius: 1, mx: 1, my: 0.5 }}>
@@ -180,41 +216,83 @@ const Admin = () => {
 
         <Grid item lg={9} xs={12}>
           <Grid container spacing={3}>
-            <Grid item md={6} xs={12}>
-              <Card sx={{ height: "100%" }}>
-                <CardContent
-                  sx={{
-                    textAlign: "center",
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                >
-                  <ShieldIcon
-                    sx={{ fontSize: 48, color: "primary.main", mb: 2 }}
-                  />
-                  <Typography variant="h6" gutterBottom>
-                    Firewall Protection
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ flexGrow: 1, mb: 2 }}
+            {isPluginEnabled("firewall") && (
+              <Grid item md={6} xs={12}>
+                <Card sx={{ height: "100%" }}>
+                  <CardContent
+                    sx={{
+                      textAlign: "center",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
                   >
-                    Manage IP blocking, rate limiting, geo-blocking, and
-                    security rules. Monitor real-time threats and configure
-                    protection policies.
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    onClick={() => navigate("/admin/firewall")}
-                    fullWidth
+                    <ShieldIcon
+                      sx={{ fontSize: 48, color: "primary.main", mb: 2 }}
+                    />
+                    <Typography variant="h6" gutterBottom>
+                      Firewall Protection
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ flexGrow: 1, mb: 2 }}
+                    >
+                      Manage IP blocking, rate limiting, geo-blocking, and
+                      security rules. Monitor real-time threats and configure
+                      protection policies.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() => navigate("/admin/firewall")}
+                      fullWidth
+                    >
+                      Manage Firewall
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
+
+            {isPluginEnabled("web-performance-optimization") && (
+              <Grid item md={6} xs={12}>
+                <Card sx={{ height: "100%" }}>
+                  <CardContent
+                    sx={{
+                      textAlign: "center",
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
                   >
-                    Manage Firewall
-                  </Button>
-                </CardContent>
-              </Card>
-            </Grid>
+                    <SpeedIcon
+                      sx={{ fontSize: 48, color: "success.main", mb: 2 }}
+                    />
+                    <Typography variant="h6" gutterBottom>
+                      Web Performance
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ flexGrow: 1, mb: 2 }}
+                    >
+                      Optimize your site's performance with file compression,
+                      caching, image optimization, and advanced performance
+                      features.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() =>
+                        navigate("/admin/web-performance-optimization")
+                      }
+                      fullWidth
+                    >
+                      Manage Performance
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )}
 
             <Grid item md={6} xs={12}>
               <Card sx={{ height: "100%" }}>
@@ -288,22 +366,26 @@ const Admin = () => {
                     flexDirection: "column",
                   }}
                 >
-                  <SettingsIcon
+                  <ExtensionIcon
                     sx={{ fontSize: 48, color: "primary.main", mb: 2 }}
                   />
                   <Typography variant="h6" gutterBottom>
-                    System Settings
+                    Plugin Management
                   </Typography>
                   <Typography
                     variant="body2"
                     color="text.secondary"
                     sx={{ flexGrow: 1, mb: 2 }}
                   >
-                    Configure system-wide settings, manage plugins, and control
-                    application behavior and features.
+                    Install, configure, and manage plugins. Upload new plugins,
+                    enable/disable features, and download plugin packages.
                   </Typography>
-                  <Button variant="contained" disabled fullWidth>
-                    Coming Soon
+                  <Button
+                    variant="contained"
+                    onClick={() => navigate("/admin/plugins")}
+                    fullWidth
+                  >
+                    Manage Plugins
                   </Button>
                 </CardContent>
               </Card>

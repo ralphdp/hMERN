@@ -136,8 +136,10 @@ const Contact = () => {
                 <TextField
                   required
                   fullWidth
+                  id="name"
                   label="Full Name"
                   name="name"
+                  autoComplete="name"
                   value={formData.name}
                   onChange={handleChange}
                   disabled={loading}
@@ -156,9 +158,11 @@ const Contact = () => {
                 <TextField
                   required
                   fullWidth
+                  id="email"
                   label="Email Address"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   value={formData.email}
                   onChange={handleChange}
                   disabled={loading}
@@ -188,8 +192,10 @@ const Contact = () => {
                     },
                   }}
                 >
-                  <InputLabel>Subject</InputLabel>
+                  <InputLabel id="subject-label">Subject</InputLabel>
                   <Select
+                    labelId="subject-label"
+                    id="subject"
                     name="subject"
                     value={formData.subject}
                     onChange={handleChange}
@@ -205,8 +211,10 @@ const Contact = () => {
                 <TextField
                   required
                   fullWidth
+                  id="message"
                   label="Message"
                   name="message"
+                  autoComplete="off"
                   multiline
                   rows={4}
                   value={formData.message}

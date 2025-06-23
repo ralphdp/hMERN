@@ -126,6 +126,7 @@ const Register = () => {
             <TextField
               required
               fullWidth
+              id="name"
               label="Full Name"
               name="name"
               value={formData.name}
@@ -146,6 +147,7 @@ const Register = () => {
             <TextField
               required
               fullWidth
+              id="email"
               label="Email Address"
               type="email"
               name="email"
@@ -165,6 +167,7 @@ const Register = () => {
             />
 
             <PasswordInput
+              id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
@@ -172,6 +175,7 @@ const Register = () => {
             />
 
             <PasswordInput
+              id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}

@@ -35,25 +35,44 @@ const plugin = {
       "License validation available - proceeding with firewall registration"
     );
 
-    // Register firewall routes (protected by license validation)
-    app.use("/api/firewall", validateLicense, routes);
-    console.log("Firewall routes registered at /api/firewall");
+    // Store route registration function for later use (after session setup)
+    app.registerFirewallRoutes = () => {
+      console.log("=== Registering Firewall Routes (Post-Session) ===");
 
-    // Apply firewall middleware to all requests (after license check)
-    app.use(firewallMiddleware);
-    console.log("Firewall middleware applied to all requests");
+      // Register firewall routes (protected by license validation in production only)
+      if (process.env.NODE_ENV === "production") {
+        app.use("/api/firewall", validateLicense, routes.router);
+        console.log(
+          "Firewall routes registered at /api/firewall (with license validation)"
+        );
+      } else {
+        app.use("/api/firewall", routes.router);
+        console.log(
+          "Firewall routes registered at /api/firewall (development mode - no license validation)"
+        );
+      }
 
-    console.log("Available firewall endpoints:");
-    console.log("  - GET /api/firewall/test - Test firewall plugin");
-    console.log("  - GET /api/firewall/health - Firewall health check");
-    console.log("  - GET /api/firewall/stats - Dashboard statistics (admin)");
-    console.log("  - GET /api/firewall/rules - Manage firewall rules (admin)");
-    console.log(
-      "  - GET /api/firewall/blocked-ips - Manage blocked IPs (admin)"
-    );
-    console.log("  - GET /api/firewall/logs - View firewall logs (admin)");
-    console.log("Frontend admin page available at: /admin/firewall");
+      console.log("Available firewall endpoints:");
+      console.log("  - GET /api/firewall/test - Test firewall plugin");
+      console.log("  - GET /api/firewall/health - Firewall health check");
+      console.log("  - GET /api/firewall/stats - Dashboard statistics (admin)");
+      console.log(
+        "  - GET /api/firewall/rules - Manage firewall rules (admin)"
+      );
+      console.log(
+        "  - GET /api/firewall/blocked-ips - Manage blocked IPs (admin)"
+      );
+      console.log("  - GET /api/firewall/logs - View firewall logs (admin)");
+      console.log("Frontend admin page available at: /admin/firewall");
+      console.log("=== Firewall Routes Registration Complete ===");
+    };
+
+    // Make middleware available to the app
+    app.getFirewallMiddleware = () => firewallMiddleware;
+
     console.log("=== hMERN Firewall plugin registered successfully ===");
+    console.log("NOTE: Routes will be registered after session setup");
+    console.log("NOTE: Middleware will be applied by server.js after CORS");
 
     return true;
   },

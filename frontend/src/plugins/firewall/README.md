@@ -327,3 +327,141 @@ Before deploying to production:
 2. Remove the bypass logic from `backend/plugins/firewall/middleware.js`
 3. Ensure proper SSL/TLS for session security
 4. Review and test all authentication flows
+
+# Firewall Admin - Modular Architecture
+
+This directory contains the modularized Firewall Administration interface, broken down into manageable components for better maintainability and code organization.
+
+## Directory Structure
+
+```
+firewall/
+├── components/
+│   ├── FirewallAdminDashboard.jsx     # Dashboard tab with stats and charts
+│   ├── FirewallAdminRules.jsx         # Rules management tab
+│   ├── FirewallAdminBlockedIPs.jsx    # Blocked IPs management tab
+│   ├── FirewallAdminLogs.jsx          # Activity logs tab
+│   └── FirewallAdminSettings.jsx      # Settings and feature toggles tab
+├── constants/
+│   └── firewallConstants.js           # Shared constants (country codes, patterns, etc.)
+├── FirewallAdmin.jsx                  # Original monolithic component
+├── FirewallAdminModularVersion.jsx    # Simplified modular example
+└── README.md                          # This file
+```
+
+## Components Overview
+
+### FirewallAdminDashboard.jsx
+
+- **Purpose**: Displays firewall statistics and overview
+- **Features**:
+  - Statistics cards (total rules, blocked IPs, requests)
+  - Top blocked countries table
+  - Top blocked IPs table
+- **Props**: `stats`, `isFeatureEnabled`, `getFeatureTooltip`, `getDisabledStyle`
+
+### FirewallAdminRules.jsx
+
+- **Purpose**: Manages firewall rules (view, create, edit, delete)
+- **Features**:
+  - Rules table with filtering and sorting
+  - Add/Edit rule functionality
+  - Rule type management (IP block, country block, rate limit, patterns)
+- **Props**: `rules`, `hasAnyFeatureEnabled`, `isFeatureEnabled`, `getFeatureTooltip`, handlers, etc.
+
+### FirewallAdminBlockedIPs.jsx
+
+- **Purpose**: Manages blocked IP addresses
+- **Features**:
+  - Blocked IPs table
+  - Block/unblock functionality
+  - IP status management (active/inactive)
+- **Props**: `blockedIPs`, `isFeatureEnabled`, `getFeatureTooltip`, handlers, etc.
+
+### FirewallAdminLogs.jsx
+
+- **Purpose**: Displays firewall activity logs
+- **Features**:
+  - Recent activity table
+  - Log filtering and display
+- **Props**: `logs`, `formatDate`, `getActionChip`
+
+### FirewallAdminSettings.jsx
+
+- **Purpose**: Manages firewall settings and feature toggles
+- **Features**:
+  - Rate limiting configuration
+  - Progressive delays settings
+  - Feature enable/disable toggles
+  - Settings save/reset functionality
+- **Props**: `settings`, `setSettings`, `saveSettings`, handlers, etc.
+
+## Shared Constants
+
+### firewallConstants.js
+
+Contains shared data used across components:
+
+- **countryCodes**: Array of country codes and names for geo-blocking
+- **patternExamples**: Predefined suspicious patterns for security rules
+- **rateLimitExamples**: Common rate limiting scenarios and configurations
+
+## Integration
+
+To use the modular components, you can either:
+
+1. **Replace the existing component**: Update your routing to use the new modular structure
+2. **Gradual migration**: Slowly replace sections of the original component with the modular ones
+3. **Side-by-side**: Keep both versions and switch between them
+
+### Example Usage
+
+```jsx
+import FirewallAdminDashboard from "./components/FirewallAdminDashboard";
+
+// In your main component
+<TabPanel value={activeTab} index={0}>
+  <FirewallAdminDashboard
+    stats={stats}
+    isFeatureEnabled={isFeatureEnabled}
+    getFeatureTooltip={getFeatureTooltip}
+    getDisabledStyle={getDisabledStyle}
+  />
+</TabPanel>;
+```
+
+## Benefits of Modularization
+
+1. **Maintainability**: Each component has a single responsibility
+2. **Reusability**: Components can be reused in other parts of the application
+3. **Testing**: Easier to write unit tests for individual components
+4. **Performance**: Potential for better code splitting and lazy loading
+5. **Development**: Multiple developers can work on different tabs simultaneously
+6. **Debugging**: Easier to isolate and fix issues in specific functionality
+
+## Migration Notes
+
+When migrating from the monolithic component:
+
+1. **State Management**: You'll need to lift state up to the parent component and pass it down as props
+2. **Event Handlers**: Pass handler functions from parent to child components
+3. **API Calls**: Consider moving API calls to a custom hook or context
+4. **Constants**: Import shared constants from the constants file instead of defining them inline
+
+## Future Improvements
+
+- **Custom Hooks**: Extract API logic into custom hooks (`useFirewallData`, `useFirewallSettings`)
+- **Context API**: Use React Context for global firewall state management
+- **Error Boundaries**: Add error boundaries around each component
+- **Lazy Loading**: Implement code splitting for better performance
+- **TypeScript**: Add TypeScript for better type safety
+- **Storybook**: Create component stories for development and documentation
+
+## Dependencies
+
+The modular components depend on:
+
+- React and React hooks
+- Material-UI components and icons
+- The existing utility functions and API endpoints
+- Shared constants from the constants file

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBackendUrl } from "../../utils/config";
 import {
@@ -17,6 +17,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
   TextField,
   Alert,
@@ -60,39 +61,126 @@ import {
   Security as SecurityIcon,
   ArrowBack as ArrowBackIcon,
   Settings as SettingsIcon,
+  NotInterested as NotInterestedIcon,
+  Warning as WarningIcon,
+  Tune as TuneIcon,
+  Restore as RestoreIcon,
+  AdminPanelSettings as AdminIcon,
+  Timer as TimerIcon,
+  Memory as MemoryIcon,
+  ProxyIcon,
 } from "@mui/icons-material";
+import FirewallLocalStorage from "../../utils/localStorage";
+
+// Import modular components
+import FirewallAdminDashboard from "./components/FirewallAdminDashboard";
+import FirewallAdminRules from "./components/FirewallAdminRules";
+// REMOVED: FirewallAdminBlockedIPs - consolidated into rules system
+import FirewallAdminLogs from "./components/FirewallAdminLogs";
+import FirewallAdminSettings from "./components/FirewallAdminSettings";
+
+// Import constants
+import {
+  countryCodes,
+  patternExamples,
+  rateLimitExamples,
+} from "./constants/firewallConstants";
+
+// Import hooks
+import { useFirewallRules } from "./hooks/useFirewallRules";
+import { useFirewallLogs } from "./hooks/useFirewallLogs";
+import { useFirewallSettings } from "./hooks/useFirewallSettings";
+import { useFirewallStats } from "./hooks/useFirewallStats";
+
+// Import Dialog Components
+import RuleEditorDialog from "./dialogs/RuleEditorDialog";
+
+const defaultSettings = {
+  rateLimit: { perMinute: 120, perHour: 720 },
+  progressiveDelays: [10, 60, 90, 120],
+  adminRateLimit: { perMinute: 500, perHour: 4000 },
+  ruleCache: { enabled: true, ttl: 60 },
+  trustedProxies: ["127.0.0.1", "::1"],
+  securityThresholds: {
+    maxPatternLength: 500,
+    maxInputLength: 2000,
+    regexTimeout: 100,
+  },
+  cache: { enabled: true, ttl: 300, maxSize: 1000, strategy: "lru" },
+  responses: {
+    blocked: {
+      statusCode: 403,
+      message: "Request blocked by firewall rules",
+    },
+    rateLimited: { statusCode: 429, message: "Too many requests" },
+  },
+  monitoring: {
+    enableRealTimeAlerts: false,
+    alertEmail: "",
+  },
+};
+
+const TabPanel = (props) => {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`firewall-tabpanel-${index}`}
+      aria-labelledby={`firewall-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+};
 
 const FirewallAdmin = () => {
   const navigate = useNavigate();
+
+  // Initialize states from localStorage
+  const [activeTab, setActiveTab] = useState(() =>
+    FirewallLocalStorage.getLastActiveTab()
+  );
+
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+
   const [authError, setAuthError] = useState(false);
   const [stats, setStats] = useState({});
   const [rules, setRules] = useState([]);
-  const [blockedIPs, setBlockedIPs] = useState([]);
   const [logs, setLogs] = useState([]);
   const [showRuleModal, setShowRuleModal] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReferenceModal, setShowReferenceModal] = useState(false);
+  const [showThreatFeedDialog, setShowThreatFeedDialog] = useState(false);
+  const [threatFeedDialogData, setThreatFeedDialogData] = useState(null);
+  const [showIPBlockingDisableDialog, setShowIPBlockingDisableDialog] =
+    useState(false);
+  const [showTestResultModal, setShowTestResultModal] = useState(false);
+  const [testResult, setTestResult] = useState({
+    success: false,
+    title: "",
+    message: "",
+  });
+  const [pendingSettings, setPendingSettings] = useState(null);
+  const [testing, setTesting] = useState(false);
   const [selectedRule, setSelectedRule] = useState(null);
+  const [rulesVersion, setRulesVersion] = useState(0);
   const [alert, setAlert] = useState({
     show: false,
     message: "",
     severity: "success",
   });
-  // Load active tab from localStorage, default to 0
-  const [activeTab, setActiveTab] = useState(() => {
-    const saved = localStorage.getItem("firewallActiveTab");
-    return saved ? parseInt(saved) : 0;
-  });
   const [referenceTab, setReferenceTab] = useState(0);
   const [countrySearch, setCountrySearch] = useState("");
+  const [addingCommonRules, setAddingCommonRules] = useState(false);
+  const [importingThreats, setImportingThreats] = useState(false);
 
   // Settings state
   const [settings, setSettings] = useState({
     rateLimit: {
-      perMinute: 50,
-      perHour: 400,
+      perMinute: 120,
+      perHour: 720,
     },
     progressiveDelays: [10, 60, 90, 120], // in seconds
     features: {
@@ -100,6 +188,12 @@ const FirewallAdmin = () => {
       countryBlocking: true,
       rateLimiting: true,
       suspiciousPatterns: true,
+    },
+    threatIntelligence: {
+      abuseIPDB: { apiKey: "", enabled: false },
+      virusTotal: { apiKey: "", enabled: false },
+      autoImportFeeds: false,
+      feedUpdateInterval: 24,
     },
   });
 
@@ -121,344 +215,54 @@ const FirewallAdmin = () => {
     expiresIn: 3600,
   });
 
-  // Country codes reference data
-  const countryCodes = [
-    { code: "AD", name: "Andorra" },
-    { code: "AE", name: "United Arab Emirates" },
-    { code: "AF", name: "Afghanistan" },
-    { code: "AG", name: "Antigua and Barbuda" },
-    { code: "AI", name: "Anguilla" },
-    { code: "AL", name: "Albania" },
-    { code: "AM", name: "Armenia" },
-    { code: "AO", name: "Angola" },
-    { code: "AQ", name: "Antarctica" },
-    { code: "AR", name: "Argentina" },
-    { code: "AS", name: "American Samoa" },
-    { code: "AT", name: "Austria" },
-    { code: "AU", name: "Australia" },
-    { code: "AW", name: "Aruba" },
-    { code: "AX", name: "Åland Islands" },
-    { code: "AZ", name: "Azerbaijan" },
-    { code: "BA", name: "Bosnia and Herzegovina" },
-    { code: "BB", name: "Barbados" },
-    { code: "BD", name: "Bangladesh" },
-    { code: "BE", name: "Belgium" },
-    { code: "BF", name: "Burkina Faso" },
-    { code: "BG", name: "Bulgaria" },
-    { code: "BH", name: "Bahrain" },
-    { code: "BI", name: "Burundi" },
-    { code: "BJ", name: "Benin" },
-    { code: "BL", name: "Saint Barthélemy" },
-    { code: "BM", name: "Bermuda" },
-    { code: "BN", name: "Brunei" },
-    { code: "BO", name: "Bolivia" },
-    { code: "BQ", name: "Caribbean Netherlands" },
-    { code: "BR", name: "Brazil" },
-    { code: "BS", name: "Bahamas" },
-    { code: "BT", name: "Bhutan" },
-    { code: "BV", name: "Bouvet Island" },
-    { code: "BW", name: "Botswana" },
-    { code: "BY", name: "Belarus" },
-    { code: "BZ", name: "Belize" },
-    { code: "CA", name: "Canada" },
-    { code: "CC", name: "Cocos Islands" },
-    { code: "CD", name: "Democratic Republic of the Congo" },
-    { code: "CF", name: "Central African Republic" },
-    { code: "CG", name: "Republic of the Congo" },
-    { code: "CH", name: "Switzerland" },
-    { code: "CI", name: "Côte d'Ivoire" },
-    { code: "CK", name: "Cook Islands" },
-    { code: "CL", name: "Chile" },
-    { code: "CM", name: "Cameroon" },
-    { code: "CN", name: "China" },
-    { code: "CO", name: "Colombia" },
-    { code: "CR", name: "Costa Rica" },
-    { code: "CU", name: "Cuba" },
-    { code: "CV", name: "Cape Verde" },
-    { code: "CW", name: "Curaçao" },
-    { code: "CX", name: "Christmas Island" },
-    { code: "CY", name: "Cyprus" },
-    { code: "CZ", name: "Czech Republic" },
-    { code: "DE", name: "Germany" },
-    { code: "DJ", name: "Djibouti" },
-    { code: "DK", name: "Denmark" },
-    { code: "DM", name: "Dominica" },
-    { code: "DO", name: "Dominican Republic" },
-    { code: "DZ", name: "Algeria" },
-    { code: "EC", name: "Ecuador" },
-    { code: "EE", name: "Estonia" },
-    { code: "EG", name: "Egypt" },
-    { code: "EH", name: "Western Sahara" },
-    { code: "ER", name: "Eritrea" },
-    { code: "ES", name: "Spain" },
-    { code: "ET", name: "Ethiopia" },
-    { code: "FI", name: "Finland" },
-    { code: "FJ", name: "Fiji" },
-    { code: "FK", name: "Falkland Islands" },
-    { code: "FM", name: "Micronesia" },
-    { code: "FO", name: "Faroe Islands" },
-    { code: "FR", name: "France" },
-    { code: "GA", name: "Gabon" },
-    { code: "GB", name: "United Kingdom" },
-    { code: "GD", name: "Grenada" },
-    { code: "GE", name: "Georgia" },
-    { code: "GF", name: "French Guiana" },
-    { code: "GG", name: "Guernsey" },
-    { code: "GH", name: "Ghana" },
-    { code: "GI", name: "Gibraltar" },
-    { code: "GL", name: "Greenland" },
-    { code: "GM", name: "Gambia" },
-    { code: "GN", name: "Guinea" },
-    { code: "GP", name: "Guadeloupe" },
-    { code: "GQ", name: "Equatorial Guinea" },
-    { code: "GR", name: "Greece" },
-    { code: "GS", name: "South Georgia" },
-    { code: "GT", name: "Guatemala" },
-    { code: "GU", name: "Guam" },
-    { code: "GW", name: "Guinea-Bissau" },
-    { code: "GY", name: "Guyana" },
-    { code: "HK", name: "Hong Kong" },
-    { code: "HM", name: "Heard Island" },
-    { code: "HN", name: "Honduras" },
-    { code: "HR", name: "Croatia" },
-    { code: "HT", name: "Haiti" },
-    { code: "HU", name: "Hungary" },
-    { code: "ID", name: "Indonesia" },
-    { code: "IE", name: "Ireland" },
-    { code: "IL", name: "Israel" },
-    { code: "IM", name: "Isle of Man" },
-    { code: "IN", name: "India" },
-    { code: "IO", name: "British Indian Ocean Territory" },
-    { code: "IQ", name: "Iraq" },
-    { code: "IR", name: "Iran" },
-    { code: "IS", name: "Iceland" },
-    { code: "IT", name: "Italy" },
-    { code: "JE", name: "Jersey" },
-    { code: "JM", name: "Jamaica" },
-    { code: "JO", name: "Jordan" },
-    { code: "JP", name: "Japan" },
-    { code: "KE", name: "Kenya" },
-    { code: "KG", name: "Kyrgyzstan" },
-    { code: "KH", name: "Cambodia" },
-    { code: "KI", name: "Kiribati" },
-    { code: "KM", name: "Comoros" },
-    { code: "KN", name: "Saint Kitts and Nevis" },
-    { code: "KP", name: "North Korea" },
-    { code: "KR", name: "South Korea" },
-    { code: "KW", name: "Kuwait" },
-    { code: "KY", name: "Cayman Islands" },
-    { code: "KZ", name: "Kazakhstan" },
-    { code: "LA", name: "Laos" },
-    { code: "LB", name: "Lebanon" },
-    { code: "LC", name: "Saint Lucia" },
-    { code: "LI", name: "Liechtenstein" },
-    { code: "LK", name: "Sri Lanka" },
-    { code: "LR", name: "Liberia" },
-    { code: "LS", name: "Lesotho" },
-    { code: "LT", name: "Lithuania" },
-    { code: "LU", name: "Luxembourg" },
-    { code: "LV", name: "Latvia" },
-    { code: "LY", name: "Libya" },
-    { code: "MA", name: "Morocco" },
-    { code: "MC", name: "Monaco" },
-    { code: "MD", name: "Moldova" },
-    { code: "ME", name: "Montenegro" },
-    { code: "MF", name: "Saint Martin" },
-    { code: "MG", name: "Madagascar" },
-    { code: "MH", name: "Marshall Islands" },
-    { code: "MK", name: "North Macedonia" },
-    { code: "ML", name: "Mali" },
-    { code: "MM", name: "Myanmar" },
-    { code: "MN", name: "Mongolia" },
-    { code: "MO", name: "Macao" },
-    { code: "MP", name: "Northern Mariana Islands" },
-    { code: "MQ", name: "Martinique" },
-    { code: "MR", name: "Mauritania" },
-    { code: "MS", name: "Montserrat" },
-    { code: "MT", name: "Malta" },
-    { code: "MU", name: "Mauritius" },
-    { code: "MV", name: "Maldives" },
-    { code: "MW", name: "Malawi" },
-    { code: "MX", name: "Mexico" },
-    { code: "MY", name: "Malaysia" },
-    { code: "MZ", name: "Mozambique" },
-    { code: "NA", name: "Namibia" },
-    { code: "NC", name: "New Caledonia" },
-    { code: "NE", name: "Niger" },
-    { code: "NF", name: "Norfolk Island" },
-    { code: "NG", name: "Nigeria" },
-    { code: "NI", name: "Nicaragua" },
-    { code: "NL", name: "Netherlands" },
-    { code: "NO", name: "Norway" },
-    { code: "NP", name: "Nepal" },
-    { code: "NR", name: "Nauru" },
-    { code: "NU", name: "Niue" },
-    { code: "NZ", name: "New Zealand" },
-    { code: "OM", name: "Oman" },
-    { code: "PA", name: "Panama" },
-    { code: "PE", name: "Peru" },
-    { code: "PF", name: "French Polynesia" },
-    { code: "PG", name: "Papua New Guinea" },
-    { code: "PH", name: "Philippines" },
-    { code: "PK", name: "Pakistan" },
-    { code: "PL", name: "Poland" },
-    { code: "PM", name: "Saint Pierre and Miquelon" },
-    { code: "PN", name: "Pitcairn Islands" },
-    { code: "PR", name: "Puerto Rico" },
-    { code: "PS", name: "Palestine" },
-    { code: "PT", name: "Portugal" },
-    { code: "PW", name: "Palau" },
-    { code: "PY", name: "Paraguay" },
-    { code: "QA", name: "Qatar" },
-    { code: "RE", name: "Réunion" },
-    { code: "RO", name: "Romania" },
-    { code: "RS", name: "Serbia" },
-    { code: "RU", name: "Russia" },
-    { code: "RW", name: "Rwanda" },
-    { code: "SA", name: "Saudi Arabia" },
-    { code: "SB", name: "Solomon Islands" },
-    { code: "SC", name: "Seychelles" },
-    { code: "SD", name: "Sudan" },
-    { code: "SE", name: "Sweden" },
-    { code: "SG", name: "Singapore" },
-    { code: "SH", name: "Saint Helena" },
-    { code: "SI", name: "Slovenia" },
-    { code: "SJ", name: "Svalbard and Jan Mayen" },
-    { code: "SK", name: "Slovakia" },
-    { code: "SL", name: "Sierra Leone" },
-    { code: "SM", name: "San Marino" },
-    { code: "SN", name: "Senegal" },
-    { code: "SO", name: "Somalia" },
-    { code: "SR", name: "Suriname" },
-    { code: "SS", name: "South Sudan" },
-    { code: "ST", name: "São Tomé and Príncipe" },
-    { code: "SV", name: "El Salvador" },
-    { code: "SX", name: "Sint Maarten" },
-    { code: "SY", name: "Syria" },
-    { code: "SZ", name: "Eswatini" },
-    { code: "TC", name: "Turks and Caicos Islands" },
-    { code: "TD", name: "Chad" },
-    { code: "TF", name: "French Southern Territories" },
-    { code: "TG", name: "Togo" },
-    { code: "TH", name: "Thailand" },
-    { code: "TJ", name: "Tajikistan" },
-    { code: "TK", name: "Tokelau" },
-    { code: "TL", name: "East Timor" },
-    { code: "TM", name: "Turkmenistan" },
-    { code: "TN", name: "Tunisia" },
-    { code: "TO", name: "Tonga" },
-    { code: "TR", name: "Turkey" },
-    { code: "TT", name: "Trinidad and Tobago" },
-    { code: "TV", name: "Tuvalu" },
-    { code: "TW", name: "Taiwan" },
-    { code: "TZ", name: "Tanzania" },
-    { code: "UA", name: "Ukraine" },
-    { code: "UG", name: "Uganda" },
-    { code: "UM", name: "U.S. Minor Outlying Islands" },
-    { code: "US", name: "United States" },
-    { code: "UY", name: "Uruguay" },
-    { code: "UZ", name: "Uzbekistan" },
-    { code: "VA", name: "Vatican City" },
-    { code: "VC", name: "Saint Vincent and the Grenadines" },
-    { code: "VE", name: "Venezuela" },
-    { code: "VG", name: "British Virgin Islands" },
-    { code: "VI", name: "U.S. Virgin Islands" },
-    { code: "VN", name: "Vietnam" },
-    { code: "VU", name: "Vanuatu" },
-    { code: "WF", name: "Wallis and Futuna" },
-    { code: "WS", name: "Samoa" },
-    { code: "YE", name: "Yemen" },
-    { code: "YT", name: "Mayotte" },
-    { code: "ZA", name: "South Africa" },
-    { code: "ZM", name: "Zambia" },
-    { code: "ZW", name: "Zimbabwe" },
-  ];
-
-  // Pattern examples for suspicious patterns
-  const patternExamples = [
-    {
-      category: "SQL Injection",
-      patterns: [
-        "union.*select",
-        "or.*1=1",
-        "drop.*table",
-        "insert.*into",
-        "delete.*from",
-        "update.*set",
-        "exec.*xp_",
-        "sp_executesql",
-      ],
-    },
-    {
-      category: "XSS (Cross-Site Scripting)",
-      patterns: [
-        "<script",
-        "javascript:",
-        "onload=",
-        "onerror=",
-        "onclick=",
-        "onmouseover=",
-        "eval\\(",
-        "document\\.cookie",
-      ],
-    },
-    {
-      category: "Path Traversal",
-      patterns: [
-        "\\.\\./",
-        "\\.\\.\\\\",
-        "/etc/passwd",
-        "/windows/system32",
-        "boot\\.ini",
-        "web\\.config",
-        "wp-config\\.php",
-      ],
-    },
-    {
-      category: "Command Injection",
-      patterns: [
-        ";.*cat",
-        "\\|.*ls",
-        "&&.*rm",
-        "\\$\\(.*\\)",
-        "`.*`",
-        "nc.*-e",
-        "/bin/sh",
-        "cmd\\.exe",
-      ],
-    },
-    {
-      category: "File Inclusion",
-      patterns: [
-        "php://input",
-        "php://filter",
-        "data://text",
-        "file://",
-        "expect://",
-        "zip://",
-      ],
-    },
-    {
-      category: "Bot Detection",
-      patterns: [
-        "bot",
-        "crawler",
-        "spider",
-        "scraper",
-        "automated",
-        "python-requests",
-        "curl/",
-        "wget/",
-      ],
-    },
-  ];
-
-  // Filter countries based on search
-  const filteredCountries = countryCodes.filter(
-    (country) =>
-      country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-      country.code.toLowerCase().includes(countrySearch.toLowerCase())
+  // Dashboard settings from localStorage
+  const [dashboardSettings, setDashboardSettings] = useState(() =>
+    FirewallLocalStorage.getDashboardSettings()
   );
+
+  // Auto-refresh functionality
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(null);
+
+  // Save active tab to localStorage when it changes
+  React.useEffect(() => {
+    FirewallLocalStorage.setLastActiveTab(activeTab);
+  }, [activeTab]);
+
+  // Save dashboard settings to localStorage when they change
+  React.useEffect(() => {
+    FirewallLocalStorage.setDashboardSettings(dashboardSettings);
+  }, [dashboardSettings]);
+
+  // Auto-refresh setup
+  React.useEffect(() => {
+    if (
+      dashboardSettings.autoRefresh &&
+      dashboardSettings.autoRefreshInterval > 0
+    ) {
+      const interval = setInterval(async () => {
+        // Silent auto-refresh without alerts
+        await Promise.all([
+          fetchStats(),
+          fetchRules(),
+          fetchLogs(),
+          fetchSettings(),
+        ]);
+      }, dashboardSettings.autoRefreshInterval * 1000);
+
+      setAutoRefreshInterval(interval);
+
+      return () => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      };
+    } else {
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        setAutoRefreshInterval(null);
+      }
+    }
+  }, [dashboardSettings.autoRefresh, dashboardSettings.autoRefreshInterval]);
 
   // Fetch data functions
   const fetchStats = async () => {
@@ -490,31 +294,12 @@ const FirewallAdmin = () => {
 
   const fetchRules = async () => {
     try {
-      const response = await fetch(`${getBackendUrl()}/api/firewall/rules`, {
-        credentials: "include",
-        headers: {
-          "X-Admin-Bypass": "testing",
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRules(data.data);
-      } else {
-        console.error(
-          "Failed to fetch rules:",
-          response.status,
-          response.statusText
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching rules:", error);
-    }
-  };
-
-  const fetchBlockedIPs = async () => {
-    try {
+      console.log(
+        `[fetchRules] Fetching all rules from: ${getBackendUrl()}/api/firewall/rules`
+      );
+      // Fetch all rules by setting a high limit to avoid pagination issues
       const response = await fetch(
-        `${getBackendUrl()}/api/firewall/blocked-ips`,
+        `${getBackendUrl()}/api/firewall/rules?limit=10000`,
         {
           credentials: "include",
           headers: {
@@ -522,25 +307,48 @@ const FirewallAdmin = () => {
           },
         }
       );
+      console.log(`[fetchRules] Response status: ${response.status}`);
       if (response.ok) {
         const data = await response.json();
-        setBlockedIPs(data.data);
+        console.log(`[fetchRules] Received ${data.data?.length || 0} rules`);
+        console.log(
+          `[fetchRules] Total rules from server: ${
+            data.pagination?.total || "unknown"
+          }`
+        );
+        console.log(
+          `[fetchRules] Current rules count before update: ${rules.length}`
+        );
+        // Debug: Log first rule structure
+        if (data.data?.length > 0) {
+          console.log(
+            `[fetchRules] First rule structure:`,
+            Object.keys(data.data[0])
+          );
+          console.log(`[fetchRules] First rule data:`, data.data[0]);
+        }
+        setRules(data.data);
+        setRulesVersion((v) => v + 1); // Force re-render of rules component
+        console.log(`[fetchRules] Rules state updated`);
       } else {
         console.error(
-          "Failed to fetch blocked IPs:",
+          "[fetchRules] Failed to fetch rules:",
           response.status,
           response.statusText
         );
       }
     } catch (error) {
-      console.error("Error fetching blocked IPs:", error);
+      console.error("[fetchRules] Error fetching rules:", error);
     }
   };
+
+  // REMOVED: fetchBlockedIPs - now handled through rules with source filtering
 
   const fetchLogs = async () => {
     try {
+      // Fetch all logs by setting a high limit to avoid pagination issues
       const response = await fetch(
-        `${getBackendUrl()}/api/firewall/logs?limit=100`,
+        `${getBackendUrl()}/api/firewall/logs?limit=10000`,
         {
           credentials: "include",
           headers: {
@@ -550,6 +358,20 @@ const FirewallAdmin = () => {
       );
       if (response.ok) {
         const data = await response.json();
+        console.log(`[fetchLogs] Received ${data.data?.length || 0} logs`);
+        console.log(
+          `[fetchLogs] Total logs from server: ${
+            data.pagination?.total || "unknown"
+          }`
+        );
+        // Debug: Log first log structure
+        if (data.data?.length > 0) {
+          console.log(
+            `[fetchLogs] First log structure:`,
+            Object.keys(data.data[0])
+          );
+          console.log(`[fetchLogs] First log data:`, data.data[0]);
+        }
         setLogs(data.data);
       } else {
         console.error(
@@ -586,8 +408,124 @@ const FirewallAdmin = () => {
     }
   };
 
-  const saveSettings = async () => {
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  // Handle toggle changes with optimistic updates (exact same pattern as AdminPlugins)
+  const handleFeatureToggle = React.useCallback(
+    async (featureName, newValue) => {
+      // Update local state immediately for smooth animation
+      setSettings((prevSettings) => ({
+        ...prevSettings,
+        features: {
+          ...prevSettings.features,
+          [featureName]: newValue,
+        },
+      }));
+
+      try {
+        // Handle special case for IP blocking with confirmation dialog
+        // Note: IP blocking is now handled through firewall rules
+        // No need to check for active blocked IPs since everything is in rules
+
+        const updatedSettings = {
+          ...settings,
+          features: {
+            ...settings.features,
+            [featureName]: newValue,
+          },
+        };
+
+        const response = await fetch(
+          `${getBackendUrl()}/api/firewall/settings`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              "X-Admin-Bypass": "testing",
+            },
+            credentials: "include",
+            body: JSON.stringify(updatedSettings),
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          const featureNames = {
+            ipBlocking: "IP Blocking",
+            countryBlocking: "Country Blocking",
+            rateLimiting: "Rate Limiting",
+            suspiciousPatterns: "Pattern Detection",
+          };
+
+          showAlert(
+            `${featureNames[featureName]} ${
+              newValue ? "enabled" : "disabled"
+            } successfully!`
+          );
+
+          // Refresh other data if needed (but don't refetch settings - optimistic update already worked)
+          if (featureName === "ipBlocking" || featureName === "rateLimiting") {
+            fetchStats();
+          }
+        } else {
+          showAlert(data.message || "Error toggling feature", "error");
+          // Revert the optimistic update on error (same pattern as AdminPlugins)
+          setSettings((prevSettings) => ({
+            ...prevSettings,
+            features: {
+              ...prevSettings.features,
+              [featureName]: !newValue, // Revert back
+            },
+          }));
+        }
+      } catch (error) {
+        showAlert("Error toggling feature", "error");
+        console.error("Error:", error);
+        // Revert the optimistic update on error (same pattern as AdminPlugins)
+        setSettings((prevSettings) => ({
+          ...prevSettings,
+          features: {
+            ...prevSettings.features,
+            [featureName]: !newValue, // Revert back
+          },
+        }));
+      }
+    },
+    [settings]
+  );
+
+  const saveSettings = async (settingsToSave) => {
+    setSavingSettings(true);
+
+    // Combine settings from the form with the existing feature toggles
+    const finalSettings = {
+      ...settings, // Contains the latest feature toggles
+      ...settingsToSave, // Contains settings from the form
+    };
+
     try {
+      // Check if IP blocking is being disabled
+      const currentSettings = await fetch(
+        `${getBackendUrl()}/api/firewall/settings`,
+        {
+          credentials: "include",
+          headers: {
+            "X-Admin-Bypass": "testing",
+          },
+        }
+      );
+
+      let shouldUnblockAllIPs = false;
+      if (currentSettings.ok) {
+        const currentData = await currentSettings.json();
+        const wasIPBlockingEnabled = currentData.data?.features?.ipBlocking;
+        const isIPBlockingBeingDisabled =
+          wasIPBlockingEnabled && !finalSettings.features.ipBlocking;
+        shouldUnblockAllIPs = isIPBlockingBeingDisabled;
+      }
+
       const response = await fetch(`${getBackendUrl()}/api/firewall/settings`, {
         method: "PUT",
         headers: {
@@ -596,54 +534,83 @@ const FirewallAdmin = () => {
           "X-Admin-Bypass": "testing",
         },
         credentials: "include",
-        body: JSON.stringify(settings),
+        body: JSON.stringify(finalSettings),
       });
 
       if (response.ok) {
-        showAlert("Settings saved successfully!", "success");
+        let message = "Settings saved successfully!";
+
+        // If IP blocking was disabled, unblock all IPs
+        if (shouldUnblockAllIPs) {
+          try {
+            const unblockResponse = await fetch(
+              `${getBackendUrl()}/api/firewall/blocked-ips/unblock-all`,
+              {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                  "Content-Type": "application/json",
+                  "X-Admin-Bypass": "testing",
+                },
+              }
+            );
+
+            if (unblockResponse.ok) {
+              const unblockData = await unblockResponse.json();
+              message = `Settings saved successfully! ${
+                unblockData.message || "All blocked IPs have been unblocked."
+              }`;
+              // Note: Blocked IPs are now handled through firewall rules
+              await fetchRules();
+            } else {
+              message =
+                "Settings saved, but failed to unblock all IPs. Please manually review blocked IPs.";
+            }
+          } catch (unblockError) {
+            console.error("Error unblocking all IPs:", unblockError);
+            message =
+              "Settings saved, but failed to unblock all IPs. Please manually review blocked IPs.";
+          }
+        }
+
+        showAlert(message, "success");
+        // Refresh settings from server to ensure consistency
+        await fetchSettings();
       } else {
         const error = await response.json();
         showAlert(error.message || "Error saving settings", "error");
       }
     } catch (error) {
       showAlert("Error saving settings", "error");
+      console.error("Settings save error:", error);
+    } finally {
+      setSavingSettings(false);
     }
   };
 
   // Load all data
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     await Promise.all([
       fetchStats(),
       fetchRules(),
-      fetchBlockedIPs(),
       fetchLogs(),
       fetchSettings(),
     ]);
     setLoading(false);
+  }, []);
+
+  // Handle dashboard settings changes
+  const handleDashboardSettingChange = (setting, value) => {
+    setDashboardSettings((prev) => ({
+      ...prev,
+      [setting]: value,
+    }));
   };
 
-  // Refresh data (for refresh button)
-  const refreshData = async () => {
-    try {
-      setRefreshing(true);
-      setAlert({ show: false, message: "", severity: "success" });
-      await loadData();
-      setAlert({
-        show: true,
-        message: "Data refreshed successfully",
-        severity: "success",
-      });
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      setAlert({
-        show: true,
-        message: "Failed to refresh data",
-        severity: "error",
-      });
-    } finally {
-      setRefreshing(false);
-    }
+  // Handle tab change with persistence
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
   };
 
   useEffect(() => {
@@ -708,7 +675,7 @@ const FirewallAdmin = () => {
       loadData();
     });
     // Auto-refresh removed - data will only load on initial mount
-  }, []);
+  }, [loadData]);
 
   // Alert helper
   const showAlert = (message, severity = "success") => {
@@ -720,12 +687,20 @@ const FirewallAdmin = () => {
   };
 
   // Rule management
-  const handleSaveRule = async () => {
+  const handleSaveRule = async (formData, existingRule) => {
     try {
-      const url = selectedRule
-        ? `${getBackendUrl()}/api/firewall/rules/${selectedRule._id}`
+      console.log("handleSaveRule called with:", { formData, existingRule });
+
+      const url = existingRule
+        ? `${getBackendUrl()}/api/firewall/rules/${existingRule._id}`
         : `${getBackendUrl()}/api/firewall/rules`;
-      const method = selectedRule ? "PUT" : "POST";
+      const method = existingRule ? "PUT" : "POST";
+
+      console.log("API call details:", {
+        url,
+        method,
+        isUpdate: !!existingRule,
+      });
 
       const response = await fetch(url, {
         method,
@@ -735,7 +710,7 @@ const FirewallAdmin = () => {
           "X-Admin-Bypass": "testing",
         },
         credentials: "include",
-        body: JSON.stringify(ruleForm),
+        body: JSON.stringify(formData),
       });
 
       console.log("Rule save request sent:", {
@@ -746,11 +721,11 @@ const FirewallAdmin = () => {
           Accept: "application/json",
           "X-Admin-Bypass": "testing",
         },
-        body: ruleForm,
+        body: formData,
       });
 
       if (response.ok) {
-        showAlert(`Rule ${selectedRule ? "updated" : "created"} successfully!`);
+        showAlert(`Rule ${existingRule ? "updated" : "created"} successfully!`);
         setShowRuleModal(false);
         setSelectedRule(null);
         setRuleForm({
@@ -762,19 +737,23 @@ const FirewallAdmin = () => {
           priority: 100,
           description: "",
         });
-        fetchRules();
+        await fetchRules();
+        // Refresh dashboard stats to show updated counts
+        await fetchStats();
+        setRulesVersion((v) => v + 1); // Force re-render
+        return true; // Indicate success to dialog
       } else {
         const error = await response.json();
         showAlert(error.message || "Error saving rule", "error");
+        return false; // Indicate failure to dialog
       }
     } catch (error) {
       showAlert("Error saving rule", "error");
+      return false; // Indicate failure to dialog
     }
   };
 
   const handleDeleteRule = async (ruleId) => {
-    if (!window.confirm("Are you sure you want to delete this rule?")) return;
-
     try {
       const response = await fetch(
         `${getBackendUrl()}/api/firewall/rules/${ruleId}`,
@@ -789,13 +768,56 @@ const FirewallAdmin = () => {
 
       if (response.ok) {
         showAlert("Rule deleted successfully!");
-        fetchRules();
+        await fetchRules();
+        // Refresh dashboard stats to show updated counts
+        await fetchStats();
       } else {
         showAlert("Error deleting rule", "error");
       }
     } catch (error) {
       showAlert("Error deleting rule", "error");
     }
+  };
+
+  // Delete rule without refreshing (for bulk operations)
+  const deleteRuleWithoutRefresh = async (ruleId) => {
+    console.log(`[Frontend] Deleting rule ID: ${ruleId}`);
+    console.log(
+      `[Frontend] DELETE URL: ${getBackendUrl()}/api/firewall/rules/${ruleId}`
+    );
+
+    const response = await fetch(
+      `${getBackendUrl()}/api/firewall/rules/${ruleId}`,
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "X-Admin-Bypass": "testing",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log(`[Frontend] DELETE response status: ${response.status}`);
+    console.log(`[Frontend] DELETE response ok: ${response.ok}`);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const error = await response.json();
+        errorMessage =
+          error.message || `HTTP ${response.status}: ${response.statusText}`;
+        console.log(`[Frontend] DELETE error details:`, error);
+      } catch (parseError) {
+        console.log(`[Frontend] Failed to parse error response:`, parseError);
+        errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log(`[Frontend] DELETE success:`, result);
+    return result;
   };
 
   const handleEditRule = (rule) => {
@@ -808,6 +830,20 @@ const FirewallAdmin = () => {
       enabled: rule.enabled,
       priority: rule.priority,
       description: rule.description || "",
+    });
+    setShowRuleModal(true);
+  };
+
+  const handleAddNewRule = () => {
+    setSelectedRule(null);
+    setRuleForm({
+      name: "",
+      type: "ip_block",
+      value: "",
+      action: "block",
+      enabled: true,
+      priority: 100,
+      description: "",
     });
     setShowRuleModal(true);
   };
@@ -838,7 +874,7 @@ const FirewallAdmin = () => {
           permanent: false,
           expiresIn: 3600,
         });
-        fetchBlockedIPs();
+        fetchRules(); // Refresh rules to show new IP block rule
       } else {
         const error = await response.json();
         showAlert(error.message || "Error blocking IP", "error");
@@ -848,29 +884,316 @@ const FirewallAdmin = () => {
     }
   };
 
-  const handleUnblockIP = async (ipId) => {
-    if (!window.confirm("Are you sure you want to unblock this IP?")) return;
-
+  // Add common firewall rules for quick setup
+  const handleAddCommonRules = async () => {
+    console.log(
+      "[FirewallAdmin] handleAddCommonRules triggered. Sending request to backend..."
+    );
+    setAddingCommonRules(true);
     try {
       const response = await fetch(
-        `${getBackendUrl()}/api/firewall/blocked-ips/${ipId}`,
+        `${getBackendUrl()}/api/firewall/rules/add-common`,
         {
-          method: "DELETE",
-          credentials: "include",
+          method: "POST",
           headers: {
+            "Content-Type": "application/json",
             "X-Admin-Bypass": "testing",
           },
+          credentials: "include",
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        showAlert(result.message, "success");
+        // Refresh rules list to show new rules
+        await fetchRules();
+        // Refresh dashboard stats to show updated counts
+        await fetchStats();
+        setRulesVersion((v) => v + 1); // Force re-render
+      } else {
+        showAlert(result.message || "Failed to add common rules.", "error");
+      }
+    } catch (error) {
+      console.error("Error adding common rules:", error);
+      showAlert("A network error occurred while adding common rules.", "error");
+    } finally {
+      setAddingCommonRules(false);
+    }
+  };
+
+  // Confirm and proceed with threat feed import
+  const handleConfirmThreatFeedImport = async () => {
+    setShowThreatFeedDialog(false);
+    setThreatFeedDialogData(null);
+    // Proceed with the import without the check
+    await performThreatFeedImport();
+  };
+
+  // Cancel threat feed import
+  const handleCancelThreatFeedImport = () => {
+    setShowThreatFeedDialog(false);
+    setThreatFeedDialogData(null);
+    showAlert("Threat feed import cancelled by user.", "info");
+  };
+
+  // Actual threat feed import logic (extracted for reuse)
+  const performThreatFeedImport = async () => {
+    setImportingThreats(true);
+
+    try {
+      showAlert(
+        "Importing threat feeds from Spamhaus DROP and Emerging Threats (as documented in README)...",
+        "info"
+      );
+
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/threat-intel/import`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Bypass": "testing",
+          },
+          credentials: "include",
         }
       );
 
       if (response.ok) {
-        showAlert("IP unblocked successfully!");
-        fetchBlockedIPs();
+        const result = await response.json();
+
+        if (result.success) {
+          const { imported, feeds } = result.data;
+
+          // Create detailed success message showing which services were used
+          let message = `Successfully imported ${imported} threat intelligence rules! `;
+
+          if (feeds && feeds.length > 0) {
+            const feedDetails = feeds
+              .map((feed) => `${feed.name}: ${feed.count || 0} IPs`)
+              .join(", ");
+            message += `Sources: ${feedDetails}`;
+          }
+
+          message +=
+            " | Services used: Spamhaus DROP (unlimited), Emerging Threats (unlimited)";
+
+          if (result.data.details) {
+            message += ` | Details: ${result.data.details.join(", ")}`;
+          }
+
+          // Add note about automatic duplicate handling
+          message +=
+            " | Note: Duplicates are automatically skipped to prevent conflicts.";
+
+          const existingThreatRules = rules.filter(
+            (rule) =>
+              rule.source === "threat_intel" ||
+              rule.name?.toLowerCase().includes("threat feed")
+          );
+
+          if (existingThreatRules.length > 0) {
+            message += ` You now have ${
+              existingThreatRules.length + imported
+            } total threat intel rules.`;
+          }
+
+          showAlert(message, "success");
+
+          // Refresh rules list to show new threat intelligence rules
+          await fetchRules();
+          // Refresh dashboard stats to show updated counts
+          await fetchStats();
+        } else {
+          showAlert(
+            `Import completed with warnings: ${result.message}${
+              result.data?.hint ? ` | Hint: ${result.data.hint}` : ""
+            }`,
+            "warning"
+          );
+        }
       } else {
-        showAlert("Error unblocking IP", "error");
+        const error = await response.json();
+        showAlert(
+          `Failed to import threat feeds: ${
+            error.message || "Unknown error"
+          }. Check README.md for supported services (Spamhaus, Emerging Threats, AbuseIPDB, VirusTotal).`,
+          "error"
+        );
       }
     } catch (error) {
-      showAlert("Error unblocking IP", "error");
+      console.error("Error importing threat feeds:", error);
+      showAlert(
+        "Network error while importing threat feeds. Verify internet connection and that the documented services (Spamhaus DROP, Emerging Threats) are accessible.",
+        "error"
+      );
+    } finally {
+      setImportingThreats(false);
+    }
+  };
+
+  // Import threat intelligence feeds as firewall rules
+  const handleImportThreatFeeds = async () => {
+    // Check for existing threat intelligence rules before starting
+    const existingThreatRules = rules.filter(
+      (rule) =>
+        rule.source === "threat_intel" ||
+        rule.name?.toLowerCase().includes("threat feed") ||
+        rule.description?.toLowerCase().includes("spamhaus") ||
+        rule.description?.toLowerCase().includes("emerging threats")
+    );
+
+    if (existingThreatRules.length > 50) {
+      setThreatFeedDialogData({
+        existingCount: existingThreatRules.length,
+      });
+      setShowThreatFeedDialog(true);
+      return;
+    }
+
+    // Proceed directly if not too many existing rules
+    await performThreatFeedImport();
+  };
+
+  const handleTestBypass = async () => {
+    setTesting(true);
+    try {
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/test-bypass`,
+        {
+          credentials: "include",
+          headers: { "X-Admin-Bypass": "testing" },
+        }
+      );
+      const data = await response.json();
+      setTestResult({
+        success: response.ok,
+        title: "Localhost Bypass Test Result",
+        message: data.message,
+        ip: data.ip,
+      });
+    } catch (error) {
+      setTestResult({
+        success: false,
+        title: "Localhost Bypass Test Failed",
+        message:
+          "The test could not be completed due to a network error. Ensure the server is running.",
+      });
+    }
+    setShowTestResultModal(true);
+    setTesting(false);
+  };
+
+  const handleLiveAttackTest = async () => {
+    setTesting(true);
+    const attackPattern = "<script>alert('xss')</script>";
+    try {
+      const response = await fetch(
+        `${getBackendUrl()}/api/firewall/test-rule`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Bypass": "testing",
+          },
+          credentials: "include",
+          body: JSON.stringify({ attackPattern }),
+        }
+      );
+
+      const data = await response.json();
+
+      setTestResult({
+        success: data.success,
+        title: data.success
+          ? "Live Attack Test Successful"
+          : "Live Attack Test Failed",
+        message: data.message,
+      });
+
+      // Refresh all components after the test - this will update logs, stats, and rules
+      console.log(
+        "[Live Attack Test] Refreshing dashboard, logs, and rules..."
+      );
+      await Promise.all([fetchStats(), fetchLogs(), fetchRules()]);
+      console.log("[Live Attack Test] All components refreshed successfully");
+    } catch (error) {
+      setTestResult({
+        success: false,
+        title: "Live Attack Test Failed",
+        message:
+          "A network error occurred. Please check the server connection and try again.",
+      });
+      console.error("Rule test error:", error);
+
+      // Still refresh components even if the test failed, in case logs were generated
+      try {
+        await Promise.all([fetchStats(), fetchLogs(), fetchRules()]);
+      } catch (refreshError) {
+        console.error(
+          "Error refreshing components after failed test:",
+          refreshError
+        );
+      }
+    }
+    setShowTestResultModal(true);
+    setTesting(false);
+  };
+
+  const handleTestRule = async (ruleId) => {
+    const rule = rules.find((r) => r._id === ruleId);
+    if (!rule) {
+      showAlert("Could not find the selected rule.", "error");
+      return;
+    }
+
+    try {
+      const attackUrl = `${getBackendUrl()}/api/firewall/test-rule?attack=${encodeURIComponent(
+        rule.value
+      )}`;
+      const response = await fetch(attackUrl, {
+        credentials: "include",
+        headers: {
+          "User-Agent": rule.value, // Also include in User-Agent for pattern matching
+        },
+      });
+
+      if (response.status === 403) {
+        showAlert(
+          `Rule Test SUCCESS: The firewall correctly blocked the request for rule "${rule.name}".`,
+          "success"
+        );
+      } else {
+        const data = await response.json();
+        showAlert(
+          data.message ||
+            `Rule Test FAILED: The firewall did not block the request for rule "${rule.name}".`,
+          "error"
+        );
+      }
+
+      // Refresh all components after the rule test to show updated logs and stats
+      console.log(
+        `[Rule Test] Refreshing components after testing rule "${rule.name}"...`
+      );
+      await Promise.all([fetchStats(), fetchLogs(), fetchRules()]);
+    } catch (error) {
+      showAlert(
+        `Rule Test FAILED: An unexpected error occurred. It's possible the firewall blocked the request, but the response was not a standard 403. Check the browser console and firewall logs for more details.`,
+        "warning"
+      );
+      console.error("Rule test error:", error);
+
+      // Still refresh components even if the test failed, in case logs were generated
+      try {
+        await Promise.all([fetchStats(), fetchLogs(), fetchRules()]);
+      } catch (refreshError) {
+        console.error(
+          "Error refreshing components after failed rule test:",
+          refreshError
+        );
+      }
     }
   };
 
@@ -895,6 +1218,7 @@ const FirewallAdmin = () => {
     const colors = {
       ip_block: "error",
       country_block: "warning",
+      asn_block: "primary",
       rate_limit: "info",
       suspicious_pattern: "secondary",
     };
@@ -907,17 +1231,72 @@ const FirewallAdmin = () => {
     );
   };
 
-  const TabPanel = ({ children, value, index, ...other }) => (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`tabpanel-${index}`}
-      aria-labelledby={`tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
+  // Helper functions for feature states
+  const isFeatureEnabled = (featureName) => {
+    return (settings.features && settings.features[featureName]) || false;
+  };
+
+  const getDisabledStyle = (enabled) => ({
+    opacity: enabled ? 1 : 0.5,
+    pointerEvents: enabled ? "auto" : "none",
+    filter: enabled ? "none" : "grayscale(50%)",
+  });
+
+  const getDisabledRowStyle = (enabled) => ({
+    opacity: enabled ? 1 : 0.6,
+    backgroundColor: enabled ? "inherit" : "action.hover",
+    "& *": {
+      color: enabled ? "inherit" : "text.disabled",
+    },
+  });
+
+  const getRuleTypeEnabled = (type) => {
+    switch (type) {
+      case "ip_block":
+        return isFeatureEnabled("ipBlocking");
+      case "country_block":
+        return isFeatureEnabled("countryBlocking");
+      case "asn_block":
+        return isFeatureEnabled("ipBlocking"); // ASN blocking follows IP blocking feature
+      case "rate_limit":
+        return isFeatureEnabled("rateLimiting");
+      case "suspicious_pattern":
+        return isFeatureEnabled("suspiciousPatterns");
+      default:
+        return true;
+    }
+  };
+
+  const getFeatureTooltip = (featureName) => {
+    const tooltips = {
+      ipBlocking: "IP blocking is currently disabled in Feature Controls",
+      countryBlocking:
+        "Country blocking is currently disabled in Feature Controls",
+      rateLimiting: "Rate limiting is currently disabled in Feature Controls",
+      suspiciousPatterns:
+        "Pattern detection is currently disabled in Feature Controls",
+    };
+    return tooltips[featureName] || "This feature is disabled";
+  };
+
+  // Memoized expensive computations to prevent animation interruption
+  const hasAnyFeatureEnabled = useMemo(() => {
+    if (!settings.features || typeof settings.features !== "object") {
+      return true; // Default to true if features object doesn't exist
+    }
+    return Object.values(settings.features).some((f) => f);
+  }, [settings.features]);
+
+  const activeBlockedIpsCount = useMemo(() => {
+    // Calculate from rules with source "manual" and type "ip_block" (enabled)
+    if (!Array.isArray(rules)) return 0;
+    return rules.filter(
+      (rule) =>
+        rule.source === "manual" &&
+        rule.type === "ip_block" &&
+        rule.enabled !== false
+    ).length;
+  }, [rules]);
 
   // Show loading screen only during initial load
   if (loading) {
@@ -934,39 +1313,24 @@ const FirewallAdmin = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
+    <Container maxWidth="xxlg" sx={{ my: 4 }}>
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
+          gap: 2,
           mb: 4,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate("/admin")}
-            sx={{ minWidth: "auto" }}
-          >
-            Back to Admin
-          </Button>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <ShieldIcon sx={{ mr: 1, fontSize: 32 }} />
-            <Typography variant="h4">Firewall Administration</Typography>
-          </Box>
-        </Box>
         <Button
           variant="outlined"
-          onClick={refreshData}
-          disabled={refreshing}
-          startIcon={
-            refreshing ? <CircularProgress size={20} /> : <RefreshIcon />
-          }
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate("/admin")}
+          sx={{ minWidth: "auto" }}
         >
-          {refreshing ? "Refreshing..." : "Refresh Data"}
+          Back to Admin
         </Button>
+        <Typography variant="h4">Firewall Administration</Typography>
       </Box>
 
       {alert.show && (
@@ -1010,807 +1374,122 @@ const FirewallAdmin = () => {
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs
           value={activeTab}
-          onChange={(e, newValue) => {
-            setActiveTab(newValue);
-            localStorage.setItem("firewallActiveTab", newValue.toString());
-          }}
+          onChange={handleTabChange}
+          aria-label="Firewall navigation tabs"
         >
-          <Tab icon={<ChartIcon />} label="Dashboard" />
-          <Tab icon={<ShieldIcon />} label={`Rules (${rules.length})`} />
           <Tab
-            icon={<BanIcon />}
-            label={`Blocked IPs (${blockedIPs.length})`}
+            icon={<ChartIcon />}
+            label="Dashboard"
+            id="firewall-tab-0"
+            aria-controls="firewall-tabpanel-0"
           />
-          <Tab icon={<EyeIcon />} label={`Logs (${logs.length})`} />
-          <Tab icon={<SettingsIcon />} label="Settings" />
+          <Tab
+            icon={<ShieldIcon />}
+            label={`Firewall Rules (${
+              Array.isArray(rules) ? rules.length : 0
+            })`}
+            id="firewall-tab-1"
+            aria-controls="firewall-tabpanel-1"
+          />
+          <Tab
+            icon={<EyeIcon />}
+            label={`Logs (${Array.isArray(logs) ? logs.length : 0})`}
+            id="firewall-tab-2"
+            aria-controls="firewall-tabpanel-2"
+          />
+          <Tab
+            icon={<SettingsIcon />}
+            label="Settings"
+            id="firewall-tab-3"
+            aria-controls="firewall-tabpanel-3"
+          />
         </Tabs>
       </Box>
 
       {/* Dashboard Tab */}
       <TabPanel value={activeTab} index={0}>
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: "center" }}>
-                <Typography variant="h3" color="primary">
-                  {stats.rules?.total || 0}
-                </Typography>
-                <Typography variant="body1">Total Rules</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {stats.rules?.active || 0} active
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: "center" }}>
-                <Typography variant="h3" color="primary">
-                  {stats.blockedIPs?.total || 0}
-                </Typography>
-                <Typography variant="body1">Blocked IPs</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {stats.blockedIPs?.permanent || 0} permanent
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: "center" }}>
-                <Typography variant="h3" color="primary">
-                  {stats.requests?.last24h?.allowed || 0}
-                </Typography>
-                <Typography variant="body1">Allowed (24h)</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Total: {stats.requests?.last24h?.total || 0}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent sx={{ textAlign: "center" }}>
-                <Typography variant="h3" color="primary">
-                  {stats.requests?.last24h?.blocked || 0}
-                </Typography>
-                <Typography variant="body1">Blocked (24h)</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Last 7d: {stats.requests?.last7d || 0}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Top Blocked Countries & IPs */}
-        {stats.topBlockedCountries?.length > 0 && (
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardHeader
-                  title={
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <GlobeIcon sx={{ mr: 1 }} />
-                      Top Blocked Countries
-                    </Box>
-                  }
-                />
-                <CardContent>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Country</TableCell>
-                          <TableCell>Blocks</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {stats.topBlockedCountries
-                          .slice(0, 5)
-                          .map((country, index) => (
-                            <TableRow key={index}>
-                              <TableCell>
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1,
-                                  }}
-                                >
-                                  <FlagIcon />
-                                  <Typography variant="body1">
-                                    {country._id || "Unknown"}
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={country.count}
-                                  color="error"
-                                  size="small"
-                                />
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardHeader
-                  title={
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <BanIcon sx={{ mr: 1 }} />
-                      Top Blocked IPs
-                    </Box>
-                  }
-                />
-                <CardContent>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>IP Address</TableCell>
-                          <TableCell>Blocks</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {stats.topBlockedIPs?.slice(0, 5).map((ip, index) => (
-                          <TableRow key={index}>
-                            <TableCell>
-                              <Typography variant="body2" component="code">
-                                {ip._id}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={ip.count}
-                                color="error"
-                                size="small"
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-        )}
+        <FirewallAdminDashboard
+          stats={stats}
+          isFeatureEnabled={isFeatureEnabled}
+          getFeatureTooltip={getFeatureTooltip}
+          getDisabledStyle={getDisabledStyle}
+          dashboardSettings={dashboardSettings}
+          onSettingsChange={handleDashboardSettingChange}
+        />
       </TabPanel>
 
       {/* Rules Tab */}
       <TabPanel value={activeTab} index={1}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-          }}
-        >
-          <Typography variant="h5">Firewall Rules</Typography>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button
-              variant="outlined"
-              startIcon={<HelpIcon />}
-              onClick={() => setShowReferenceModal(true)}
-            >
-              Reference
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<PlusIcon />}
-              onClick={() => setShowRuleModal(true)}
-            >
-              Add Rule
-            </Button>
-          </Box>
-        </Box>
-
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Value</TableCell>
-                <TableCell>Action</TableCell>
-                <TableCell>Priority</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rules.map((rule) => (
-                <TableRow key={rule._id}>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="bold">
-                      {rule.name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{getRuleTypeChip(rule.type)}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" component="code">
-                      {rule.value}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={rule.action}
-                      color={rule.action === "block" ? "error" : "success"}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{rule.priority}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={rule.enabled ? "Enabled" : "Disabled"}
-                      color={rule.enabled ? "success" : "default"}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{formatDate(rule.createdAt)}</TableCell>
-                  <TableCell>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleEditRule(rule)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteRule(rule._id)}
-                      >
-                        <TrashIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </TabPanel>
-
-      {/* Blocked IPs Tab */}
-      <TabPanel value={activeTab} index={2}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 3,
-          }}
-        >
-          <Typography variant="h5">Blocked IP Addresses</Typography>
-          <Button
-            variant="contained"
-            color="error"
-            startIcon={<BanIcon />}
-            onClick={() => setShowBlockModal(true)}
-          >
-            Block IP
-          </Button>
-        </Box>
-
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>IP Address</TableCell>
-                <TableCell>Country</TableCell>
-                <TableCell>Reason</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Blocked At</TableCell>
-                <TableCell>Expires</TableCell>
-                <TableCell>Attempts</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {blockedIPs.map((ip) => (
-                <TableRow key={ip._id}>
-                  <TableCell>
-                    <Typography variant="body2" component="code">
-                      {ip.ip}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1,
-                      }}
-                    >
-                      <FlagIcon />
-                      <Typography variant="body1">
-                        {ip.country || "Unknown"}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>{ip.reason}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={ip.permanent ? "Permanent" : "Temporary"}
-                      color={ip.permanent ? "error" : "warning"}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{formatDate(ip.blockedAt)}</TableCell>
-                  <TableCell>
-                    {ip.expiresAt ? formatDate(ip.expiresAt) : "Never"}
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={ip.attempts} color="info" size="small" />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="success"
-                      onClick={() => handleUnblockIP(ip._id)}
-                    >
-                      Unblock
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <FirewallAdminRules
+          key={rulesVersion}
+          rules={rules}
+          hasAnyFeatureEnabled={hasAnyFeatureEnabled}
+          isFeatureEnabled={isFeatureEnabled}
+          getFeatureTooltip={getFeatureTooltip}
+          getDisabledStyle={getDisabledStyle}
+          getDisabledRowStyle={getDisabledRowStyle}
+          getRuleTypeEnabled={getRuleTypeEnabled}
+          getRuleTypeChip={getRuleTypeChip}
+          formatDate={formatDate}
+          handleEditRule={handleEditRule}
+          handleAddNewRule={handleAddNewRule}
+          handleDeleteRule={handleDeleteRule}
+          deleteRuleWithoutRefresh={deleteRuleWithoutRefresh}
+          fetchRules={fetchRules}
+          fetchStats={fetchStats}
+          setShowRuleModal={setShowRuleModal}
+          setShowReferenceModal={setShowReferenceModal}
+          handleAddCommonRules={handleAddCommonRules}
+          addingCommonRules={addingCommonRules}
+          handleImportThreatFeeds={handleImportThreatFeeds}
+          importingThreats={importingThreats}
+        />
       </TabPanel>
 
       {/* Logs Tab */}
-      <TabPanel value={activeTab} index={3}>
-        <Card>
-          <CardHeader title="Recent Firewall Activity" />
-          <CardContent>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Time</TableCell>
-                    <TableCell>IP</TableCell>
-                    <TableCell>Country</TableCell>
-                    <TableCell>Action</TableCell>
-                    <TableCell>Rule</TableCell>
-                    <TableCell>Method</TableCell>
-                    <TableCell>URL</TableCell>
-                    <TableCell>User Agent</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {logs.map((log) => (
-                    <TableRow key={log._id}>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {formatDate(log.timestamp)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" component="code">
-                          {log.ip}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                          }}
-                        >
-                          <FlagIcon />
-                          <Typography variant="body1">
-                            {log.country || "Unknown"}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>{getActionChip(log.action)}</TableCell>
-                      <TableCell>{log.rule || "-"}</TableCell>
-                      <TableCell>
-                        <Chip label={log.method} color="default" size="small" />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{log.url}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" noWrap>
-                          {log.userAgent
-                            ? log.userAgent.substring(0, 50) + "..."
-                            : "-"}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
+      <TabPanel value={activeTab} index={2}>
+        <FirewallAdminLogs
+          logs={logs}
+          formatDate={formatDate}
+          getActionChip={getActionChip}
+          fetchLogs={fetchLogs}
+        />
       </TabPanel>
 
       {/* Settings Tab */}
-      <TabPanel value={activeTab} index={4}>
-        <Typography variant="h5" sx={{ mb: 3 }}>
-          Firewall Settings
-        </Typography>
-
-        <Grid container spacing={3}>
-          {/* Rate Limiting Settings */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardHeader
-                title={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <ChartIcon />
-                    <Typography variant="h6">Rate Limiting</Typography>
-                  </Box>
-                }
-              />
-              <CardContent>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Requests per Minute"
-                      value={settings.rateLimit.perMinute}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          rateLimit: {
-                            ...settings.rateLimit,
-                            perMinute: parseInt(e.target.value) || 0,
-                          },
-                        })
-                      }
-                      inputProps={{ min: 1, max: 1000 }}
-                      helperText="Maximum requests allowed per minute per IP"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      type="number"
-                      label="Requests per Hour"
-                      value={settings.rateLimit.perHour}
-                      onChange={(e) =>
-                        setSettings({
-                          ...settings,
-                          rateLimit: {
-                            ...settings.rateLimit,
-                            perHour: parseInt(e.target.value) || 0,
-                          },
-                        })
-                      }
-                      inputProps={{ min: 1, max: 10000 }}
-                      helperText="Maximum requests allowed per hour per IP"
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Progressive Delays Settings */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardHeader
-                title={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <SecurityIcon />
-                    <Typography variant="h6">Progressive Delays</Typography>
-                  </Box>
-                }
-              />
-              <CardContent>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Delay durations for successive rate limit violations (in
-                  seconds)
-                </Typography>
-                <Grid container spacing={2}>
-                  {settings.progressiveDelays.map((delay, index) => (
-                    <Grid item xs={6} key={index}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label={`Violation ${index + 1}`}
-                        value={delay}
-                        onChange={(e) => {
-                          const newDelays = [...settings.progressiveDelays];
-                          newDelays[index] = parseInt(e.target.value) || 0;
-                          setSettings({
-                            ...settings,
-                            progressiveDelays: newDelays,
-                          });
-                        }}
-                        inputProps={{ min: 1, max: 3600 }}
-                        InputProps={{
-                          endAdornment: (
-                            <Typography variant="body2">s</Typography>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Feature Toggles */}
-          <Grid item xs={12}>
-            <Card>
-              <CardHeader
-                title={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <SettingsIcon />
-                    <Typography variant="h6">Feature Controls</Typography>
-                  </Box>
-                }
-              />
-              <CardContent>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.features.ipBlocking}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              features: {
-                                ...settings.features,
-                                ipBlocking: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                      }
-                      label="IP Blocking"
-                    />
-                    <Typography variant="body2" color="text.secondary">
-                      Enable/disable IP-based blocking rules
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.features.countryBlocking}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              features: {
-                                ...settings.features,
-                                countryBlocking: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                      }
-                      label="Country Blocking"
-                    />
-                    <Typography variant="body2" color="text.secondary">
-                      Enable/disable geo-blocking by country
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.features.rateLimiting}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              features: {
-                                ...settings.features,
-                                rateLimiting: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                      }
-                      label="Rate Limiting"
-                    />
-                    <Typography variant="body2" color="text.secondary">
-                      Enable/disable rate limiting protection
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.features.suspiciousPatterns}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              features: {
-                                ...settings.features,
-                                suspiciousPatterns: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                      }
-                      label="Pattern Detection"
-                    />
-                    <Typography variant="body2" color="text.secondary">
-                      Enable/disable suspicious pattern detection
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Save Settings */}
-          <Grid item xs={12}>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  // Reset to defaults
-                  setSettings({
-                    rateLimit: {
-                      perMinute: 50,
-                      perHour: 400,
-                    },
-                    progressiveDelays: [10, 60, 90, 120],
-                    features: {
-                      ipBlocking: true,
-                      countryBlocking: true,
-                      rateLimiting: true,
-                      suspiciousPatterns: true,
-                    },
-                  });
-                  showAlert("Settings reset to defaults", "info");
-                }}
-              >
-                Reset to Defaults
-              </Button>
-              <Button variant="contained" onClick={saveSettings}>
-                Save Settings
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
+      <TabPanel value={activeTab} index={3}>
+        <FirewallAdminSettings
+          initialSettings={settings}
+          savingSettings={savingSettings}
+          saveSettings={saveSettings}
+          showAlert={showAlert}
+          defaultSettings={defaultSettings}
+          rules={rules}
+          onTestBypass={handleTestBypass}
+          onTestRule={handleLiveAttackTest}
+          testing={testing}
+          fetchRules={fetchRules}
+        />
       </TabPanel>
 
       {/* Rule Modal */}
-      <Dialog
+      <RuleEditorDialog
         open={showRuleModal}
-        onClose={() => setShowRuleModal(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>{selectedRule ? "Edit Rule" : "Add New Rule"}</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Rule Name"
-                value={ruleForm.name}
-                onChange={(e) =>
-                  setRuleForm({ ...ruleForm, name: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Rule Type</InputLabel>
-                <Select
-                  value={ruleForm.type}
-                  label="Rule Type"
-                  onChange={(e) =>
-                    setRuleForm({ ...ruleForm, type: e.target.value })
-                  }
-                >
-                  <MenuItem value="ip_block">IP Block</MenuItem>
-                  <MenuItem value="country_block">Country Block</MenuItem>
-                  <MenuItem value="rate_limit">Rate Limit</MenuItem>
-                  <MenuItem value="suspicious_pattern">
-                    Suspicious Pattern
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={8}>
-              <TextField
-                fullWidth
-                label="Value"
-                value={ruleForm.value}
-                onChange={(e) =>
-                  setRuleForm({ ...ruleForm, value: e.target.value })
-                }
-                placeholder="IP address, country code, or pattern"
-              />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Priority"
-                value={ruleForm.priority}
-                onChange={(e) =>
-                  setRuleForm({
-                    ...ruleForm,
-                    priority: parseInt(e.target.value),
-                  })
-                }
-                inputProps={{ min: 1, max: 1000 }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Action</InputLabel>
-                <Select
-                  value={ruleForm.action}
-                  label="Action"
-                  onChange={(e) =>
-                    setRuleForm({ ...ruleForm, action: e.target.value })
-                  }
-                >
-                  <MenuItem value="block">Block</MenuItem>
-                  <MenuItem value="allow">Allow</MenuItem>
-                  <MenuItem value="rate_limit">Rate Limit</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={ruleForm.enabled}
-                    onChange={(e) =>
-                      setRuleForm({ ...ruleForm, enabled: e.target.checked })
-                    }
-                  />
-                }
-                label="Enabled"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                label="Description"
-                value={ruleForm.description}
-                onChange={(e) =>
-                  setRuleForm({ ...ruleForm, description: e.target.value })
-                }
-                placeholder="Optional description"
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowRuleModal(false)}>Cancel</Button>
-          <Button onClick={handleSaveRule} variant="contained">
-            {selectedRule ? "Update Rule" : "Create Rule"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        onClose={() => {
+          setShowRuleModal(false);
+          setRuleForm({
+            name: "",
+            type: "ip_block",
+            value: "",
+            action: "block",
+            enabled: true,
+            priority: 100,
+            description: "",
+          });
+        }}
+        onSave={handleSaveRule}
+        rule={selectedRule || ruleForm}
+      />
 
       {/* Block IP Modal */}
       <Dialog
@@ -1826,28 +1505,41 @@ const FirewallAdmin = () => {
               <TextField
                 fullWidth
                 label="IP Address"
+                id="ip-address"
+                name="ip-address"
                 value={blockForm.ip}
                 onChange={(e) =>
                   setBlockForm({ ...blockForm, ip: e.target.value })
                 }
                 placeholder="192.168.1.1"
+                required
+                error={!blockForm.ip}
+                helperText={!blockForm.ip ? "IP address is required" : ""}
+                autoFocus
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Reason"
+                label="Reason for Blocking"
+                id="reason"
+                name="reason"
                 value={blockForm.reason}
                 onChange={(e) =>
                   setBlockForm({ ...blockForm, reason: e.target.value })
                 }
                 placeholder="Reason for blocking"
+                required
+                error={!blockForm.reason}
+                helperText="A brief, clear reason for the block"
               />
             </Grid>
             <Grid item xs={12}>
               <FormControlLabel
                 control={
                   <Switch
+                    id="permanent-block"
+                    name="permanent-block"
                     checked={blockForm.permanent}
                     onChange={(e) =>
                       setBlockForm({
@@ -1866,6 +1558,8 @@ const FirewallAdmin = () => {
                   fullWidth
                   type="number"
                   label="Expires In (seconds)"
+                  id="expires-in"
+                  name="expires-in"
                   value={blockForm.expiresIn}
                   onChange={(e) =>
                     setBlockForm({
@@ -1882,7 +1576,12 @@ const FirewallAdmin = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowBlockModal(false)}>Cancel</Button>
-          <Button onClick={handleBlockIP} variant="contained" color="error">
+          <Button
+            onClick={handleBlockIP}
+            variant="contained"
+            color="error"
+            disabled={!blockForm.ip || !blockForm.reason}
+          >
             Block IP
           </Button>
         </DialogActions>
@@ -1904,7 +1603,25 @@ const FirewallAdmin = () => {
             <Typography variant="h6">Firewall Reference Guide</Typography>
           </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent
+          sx={{
+            // Dark mode friendly scrollbars
+            "&::-webkit-scrollbar": {
+              width: "8px",
+            },
+            "&::-webkit-scrollbar-track": {
+              backgroundColor: "action.hover",
+              borderRadius: "4px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              backgroundColor: "text.secondary",
+              borderRadius: "4px",
+              "&:hover": {
+                backgroundColor: "text.primary",
+              },
+            },
+          }}
+        >
           <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
             <Tabs
               value={referenceTab}
@@ -1914,6 +1631,7 @@ const FirewallAdmin = () => {
                 icon={<FlagIcon />}
                 label={`Country Codes (${countryCodes.length})`}
               />
+              <Tab icon={<ChartIcon />} label="Rate Limiting" />
               <Tab
                 icon={<CodeIcon />}
                 label={`Pattern Examples (${patternExamples.length})`}
@@ -1927,8 +1645,9 @@ const FirewallAdmin = () => {
               <Box sx={{ mb: 2 }}>
                 <TextField
                   fullWidth
-                  size="small"
-                  placeholder="Search countries..."
+                  id="country-search"
+                  name="country-search"
+                  placeholder="Search by country name or code..."
                   value={countrySearch}
                   onChange={(e) => setCountrySearch(e.target.value)}
                   InputProps={{
@@ -1947,9 +1666,32 @@ const FirewallAdmin = () => {
                 type "Country Block" and value "CN".
               </Typography>
 
-              <Paper sx={{ maxHeight: "100%", overflow: "auto" }}>
-                <List dense>
-                  {filteredCountries.map((country, index) => (
+              <Paper
+                sx={{
+                  maxHeight: "100%",
+                  overflow: "auto",
+                  // Dark mode friendly scrollbars
+                  "&::-webkit-scrollbar": {
+                    width: "8px",
+                  },
+                  "&::-webkit-scrollbar-track": {
+                    backgroundColor: "action.hover",
+                    borderRadius: "4px",
+                  },
+                  "&::-webkit-scrollbar-thumb": {
+                    backgroundColor: "text.secondary",
+                    borderRadius: "4px",
+                    "&:hover": {
+                      backgroundColor: "text.primary",
+                    },
+                  },
+                }}
+              >
+                <List
+                  dense
+                  sx={{ maxHeight: "calc(90vh - 200px)", overflow: "auto" }}
+                >
+                  {countryCodes.map((country, index) => (
                     <React.Fragment key={country.code}>
                       <ListItem>
                         <ListItemText
@@ -1969,32 +1711,45 @@ const FirewallAdmin = () => {
                           }
                         />
                         <ListItemSecondaryAction>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => {
-                              setRuleForm({
-                                ...ruleForm,
-                                name: `Block ${country.name}`,
-                                type: "country_block",
-                                value: country.code,
-                                action: "block",
-                              });
-                              setShowReferenceModal(false);
-                              setShowRuleModal(true);
-                            }}
+                          <Tooltip
+                            title={
+                              <Typography variant="body2">
+                                Use this country code
+                              </Typography>
+                            }
+                            arrow
                           >
-                            Use Code
-                          </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => {
+                                setSelectedRule(null);
+                                setRuleForm({
+                                  name: `Block ${country.name}`,
+                                  type: "country_block",
+                                  value: country.code,
+                                  action: "block",
+                                  enabled: true,
+                                  priority: 100,
+                                  description: `Block all traffic from ${country.name}`,
+                                });
+                                setShowReferenceModal(false);
+                                setShowRuleModal(true);
+                              }}
+                              startIcon={<FlagIcon />}
+                            >
+                              Use Code
+                            </Button>
+                          </Tooltip>
                         </ListItemSecondaryAction>
                       </ListItem>
-                      {index < filteredCountries.length - 1 && <Divider />}
+                      {index < countryCodes.length - 1 && <Divider />}
                     </React.Fragment>
                   ))}
                 </List>
               </Paper>
 
-              {filteredCountries.length === 0 && (
+              {countryCodes.length === 0 && (
                 <Typography
                   variant="body2"
                   color="text.secondary"
@@ -2006,8 +1761,226 @@ const FirewallAdmin = () => {
             </Box>
           )}
 
-          {/* Pattern Examples Tab */}
+          {/* Rate Limiting Tab */}
           {referenceTab === 1 && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                These are common rate limiting scenarios to protect your
+                application from abuse. Rate limiting rules control how many
+                requests can be made to specific endpoints within a given time
+                period.{" "}
+                <strong>
+                  Individual rate limit rules OVERRIDE the global rate limiting
+                  settings
+                </strong>{" "}
+                from the Settings tab for their specific URL patterns, allowing
+                you to set custom limits per endpoint.
+              </Typography>
+
+              <Grid container spacing={2} sx={{ alignItems: "stretch" }}>
+                {rateLimitExamples.map((category, categoryIndex) => (
+                  <Grid
+                    item
+                    xs={12}
+                    md={6}
+                    key={categoryIndex}
+                    sx={{ display: "flex" }}
+                  >
+                    <Card
+                      sx={{
+                        width: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <CardHeader
+                        title={
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                            }}
+                          >
+                            <ChartIcon color="primary" />
+                            <Typography variant="h6">
+                              {category.category}
+                            </Typography>
+                            <Chip
+                              label={category.scenarios.length}
+                              size="small"
+                              color="primary"
+                            />
+                          </Box>
+                        }
+                      />
+                      <CardContent sx={{ flexGrow: 1, pt: 1 }}>
+                        <List dense>
+                          {category.scenarios.map((scenario, scenarioIndex) => (
+                            <ListItem
+                              key={scenarioIndex}
+                              divider={
+                                scenarioIndex < category.scenarios.length - 1
+                              }
+                              sx={{
+                                flexDirection: "column",
+                                alignItems: "flex-start",
+                              }}
+                            >
+                              <ListItemText
+                                primary={
+                                  <Typography
+                                    variant="subtitle2"
+                                    sx={{ fontWeight: "bold" }}
+                                  >
+                                    {scenario.name}
+                                  </Typography>
+                                }
+                                secondary={
+                                  <Box sx={{ mt: 1 }}>
+                                    <Typography variant="body2" sx={{ mb: 1 }}>
+                                      {scenario.description}
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      component="code"
+                                      sx={{
+                                        p: 0.5,
+                                        borderRadius: 1,
+                                        fontSize: "0.8rem",
+                                        bgcolor: "action.hover",
+                                        display: "block",
+                                        mb: 1,
+                                      }}
+                                    >
+                                      Path: {scenario.value}
+                                    </Typography>
+                                    <Box
+                                      sx={{
+                                        display: "flex",
+                                        gap: 1,
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <Chip
+                                        label={`${scenario.requestsPerMinute}/min`}
+                                        size="small"
+                                        color="warning"
+                                      />
+                                      <Chip
+                                        label={`${scenario.requestsPerHour}/hour`}
+                                        size="small"
+                                        color="info"
+                                      />
+                                    </Box>
+                                  </Box>
+                                }
+                              />
+                              <Box
+                                sx={{
+                                  alignSelf: "flex-start",
+                                  mt: 1,
+                                  mb: 3,
+                                }}
+                              >
+                                <Tooltip
+                                  title={
+                                    <Typography variant="body2">
+                                      Use this rate limiting rule
+                                    </Typography>
+                                  }
+                                  arrow
+                                >
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    onClick={() => {
+                                      setSelectedRule(null);
+                                      setRuleForm({
+                                        name: scenario.name,
+                                        type: "rate_limit",
+                                        value: scenario.value,
+                                        action: "rate_limit",
+                                        enabled: true,
+                                        priority: 50,
+                                        description: `${scenario.description} - ${scenario.requestsPerMinute} requests/min, ${scenario.requestsPerHour} requests/hour - OVERRIDES global rate limits for this pattern`,
+                                      });
+                                      setShowReferenceModal(false);
+                                      setShowRuleModal(true);
+                                    }}
+                                    startIcon={<ChartIcon />}
+                                  >
+                                    Use Rule
+                                  </Button>
+                                </Tooltip>
+                              </Box>
+                            </ListItem>
+                          ))}
+                        </List>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+
+              <Box
+                sx={{ mt: 3, p: 2, bgcolor: "action.hover", borderRadius: 1 }}
+              >
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    mb: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <HelpIcon />
+                  Rate Limiting Tips
+                </Typography>
+                <Typography variant="body2" component="div">
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    <li>
+                      <strong>Rule Priority:</strong> Individual rate limit
+                      rules override the global settings (50/min, 400/hour) for
+                      their specific patterns
+                    </li>
+                    <li>
+                      Use wildcard patterns like <code>*/api/*</code> to match
+                      multiple endpoints
+                    </li>
+                    <li>
+                      Set stricter limits for sensitive endpoints (auth, admin,
+                      etc.) - they'll override the global defaults
+                    </li>
+                    <li>
+                      Consider different limits for authenticated vs anonymous
+                      users
+                    </li>
+                    <li>
+                      Monitor your application's normal traffic patterns before
+                      setting limits
+                    </li>
+                    <li>Rate limits are applied per IP address</li>
+                    <li>
+                      Higher priority rules (lower number) are processed first
+                    </li>
+                    <li>
+                      Lower values provide stronger protection but may affect
+                      legitimate users
+                    </li>
+                    <li>
+                      Test your rate limits thoroughly before enabling in
+                      production
+                    </li>
+                  </ul>
+                </Typography>
+              </Box>
+            </Box>
+          )}
+
+          {/* Pattern Examples Tab */}
+          {referenceTab === 2 && (
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 These are common patterns used to detect suspicious requests.
@@ -2040,7 +2013,7 @@ const FirewallAdmin = () => {
                               gap: 1,
                             }}
                           >
-                            <SecurityIcon color="error" />
+                            <SecurityIcon color="primary" />
                             <Typography variant="h6">
                               {category.category}
                             </Typography>
@@ -2067,7 +2040,7 @@ const FirewallAdmin = () => {
                                     variant="body2"
                                     component="code"
                                     sx={{
-                                      bgcolor: "grey.100",
+                                      bgcolor: "action.hover",
                                       p: 0.5,
                                       borderRadius: 1,
                                       fontSize: "0.8rem",
@@ -2078,18 +2051,27 @@ const FirewallAdmin = () => {
                                 }
                               />
                               <ListItemSecondaryAction>
-                                <Tooltip title="Use this pattern">
+                                <Tooltip
+                                  title={
+                                    <Typography variant="body2">
+                                      Use this pattern
+                                    </Typography>
+                                  }
+                                  arrow
+                                >
                                   <IconButton
                                     size="small"
                                     onClick={() => {
+                                      setSelectedRule(null);
                                       setRuleForm({
-                                        ...ruleForm,
                                         name: `Block ${
                                           category.category
                                         } - ${pattern.substring(0, 20)}...`,
                                         type: "suspicious_pattern",
                                         value: pattern,
                                         action: "block",
+                                        enabled: true,
+                                        priority: 75,
                                         description: `Blocks requests matching ${category.category.toLowerCase()} pattern`,
                                       });
                                       setShowReferenceModal(false);
@@ -2109,10 +2091,17 @@ const FirewallAdmin = () => {
                 ))}
               </Grid>
 
-              <Box sx={{ mt: 3, p: 2, bgcolor: "lightgray", borderRadius: 1 }}>
+              <Box
+                sx={{ mt: 3, p: 2, bgcolor: "action.hover", borderRadius: 1 }}
+              >
                 <Typography
                   variant="subtitle2"
-                  sx={{ mb: 1, display: "flex", alignItems: "center", gap: 1 }}
+                  sx={{
+                    mb: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
                 >
                   <HelpIcon />
                   Pattern Tips
@@ -2141,6 +2130,202 @@ const FirewallAdmin = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowReferenceModal(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IP Blocking Disable Confirmation Dialog */}
+      <Dialog
+        open={showIPBlockingDisableDialog}
+        onClose={() => {
+          setShowIPBlockingDisableDialog(false);
+          setPendingSettings(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <NotInterestedIcon color="warning" />
+            <Typography variant="h6">Disable IP Blocking</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              You are about to disable IP blocking. This will automatically
+              unblock all currently blocked IP addresses.
+            </Typography>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                <strong>
+                  {activeBlockedIpsCount} IP address
+                  {activeBlockedIpsCount !== 1 ? "es" : ""}
+                  will be deactivated
+                </strong>{" "}
+                when you proceed. The IPs will remain visible in the table but
+                marked as inactive.
+              </Typography>
+            </Alert>
+            <Typography variant="body2" color="text.secondary">
+              This ensures that when IP blocking is re-enabled, no legitimate
+              traffic is inadvertently blocked by outdated rules.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowIPBlockingDisableDialog(false);
+              setPendingSettings(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if (pendingSettings) {
+                setSettings(pendingSettings);
+              }
+              setShowIPBlockingDisableDialog(false);
+              setPendingSettings(null);
+            }}
+            variant="contained"
+            color="warning"
+            startIcon={<NotInterestedIcon />}
+          >
+            Disable & Unblock All
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Threat Feed Import Confirmation Dialog */}
+      <Dialog
+        open={showThreatFeedDialog}
+        onClose={handleCancelThreatFeedImport}
+        maxWidth="sm"
+        fullWidth
+        aria-labelledby="threat-feed-dialog-title"
+        aria-describedby="threat-feed-dialog-description"
+      >
+        <DialogTitle
+          id="threat-feed-dialog-title"
+          sx={{
+            backgroundColor: "warning.main",
+            color: "warning.contrastText",
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <WarningIcon />
+          High Volume Import Warning
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <DialogContentText
+            id="threat-feed-dialog-description"
+            component="div"
+            sx={{ mt: 2 }}
+          >
+            <Typography
+              variant="body1"
+              gutterBottom
+              sx={{ fontWeight: "bold", color: "warning.main" }}
+            >
+              You already have {threatFeedDialogData?.existingCount || 0} threat
+              intelligence rules installed!
+            </Typography>
+            <Typography variant="body2" paragraph>
+              Importing additional threat feeds may:
+            </Typography>
+            <Box component="ul" sx={{ pl: 2, m: 0 }}>
+              <Typography component="li" variant="body2">
+                Add duplicate entries to your database
+              </Typography>
+              <Typography component="li" variant="body2">
+                Exceed database storage limits
+              </Typography>
+              <Typography component="li" variant="body2">
+                Slow down rule processing performance
+              </Typography>
+              <Typography component="li" variant="body2">
+                Create maintenance overhead
+              </Typography>
+            </Box>
+            <Typography
+              variant="body2"
+              sx={{
+                mt: 2,
+                p: 2,
+                backgroundColor: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? theme.palette.grey[800]
+                    : theme.palette.info.light,
+                color: (theme) =>
+                  theme.palette.mode === "dark"
+                    ? theme.palette.info.light
+                    : theme.palette.info.dark,
+                borderRadius: 1,
+                border: (theme) =>
+                  `1px solid ${
+                    theme.palette.mode === "dark"
+                      ? theme.palette.grey[700]
+                      : theme.palette.info.main
+                  }`,
+              }}
+            >
+              <strong>Recommendation:</strong> Consider reviewing and cleaning
+              up existing threat intelligence rules before importing more feeds.
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button
+            onClick={handleCancelThreatFeedImport}
+            variant="outlined"
+            color="primary"
+            size="large"
+          >
+            Cancel Import
+          </Button>
+          <Button
+            onClick={handleConfirmThreatFeedImport}
+            variant="contained"
+            color="warning"
+            size="large"
+            startIcon={<WarningIcon />}
+            autoFocus
+          >
+            Proceed Anyway
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showTestResultModal}
+        onClose={() => setShowTestResultModal(false)}
+      >
+        <DialogTitle
+          sx={{
+            backgroundColor: testResult.success ? "success.main" : "error.main",
+            color: "common.white",
+          }}
+        >
+          {testResult.title}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <DialogContentText sx={{ mt: 2 }}>
+            {testResult.message}
+          </DialogContentText>
+          {testResult.ip && (
+            <DialogContentText sx={{ mt: 2 }}>
+              <strong>Detected IP:</strong> {testResult.ip}
+            </DialogContentText>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowTestResultModal(false)} autoFocus>
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>

@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "dependsOn": ["licensing"],
+  "type": "Security"
+}

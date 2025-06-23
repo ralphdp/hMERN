@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   TextField,
   InputAdornment,
@@ -6,42 +6,42 @@ import {
   Box,
   LinearProgress,
   Typography,
-  Tooltip
-} from '@mui/material';
+  Tooltip,
+} from "@mui/material";
 import {
   Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon
-} from '@mui/icons-material';
+  VisibilityOff as VisibilityOffIcon,
+} from "@mui/icons-material";
 
 const PasswordInput = ({
   value,
   onChange,
   error,
   helperText,
-  label = 'Password',
+  label = "Password",
   required = true,
   fullWidth = true,
-  margin = 'none',
-  id = 'password',
-  name = 'password',
-  autoComplete = 'new-password'
+  margin = "none",
+  id = "password",
+  name = "password",
+  autoComplete = "new-password",
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [strength, setStrength] = useState(0);
 
   const calculateStrength = (password) => {
     let score = 0;
-    
+
     // Length check
     if (password.length >= 8) score += 1;
     if (password.length >= 12) score += 1;
-    
+
     // Character type checks
     if (/[A-Z]/.test(password)) score += 1; // Uppercase
     if (/[a-z]/.test(password)) score += 1; // Lowercase
     if (/[0-9]/.test(password)) score += 1; // Numbers
     if (/[^A-Za-z0-9]/.test(password)) score += 1; // Special characters
-    
+
     return Math.min(score, 5); // Max score of 5
   };
 
@@ -49,34 +49,34 @@ const PasswordInput = ({
     switch (strength) {
       case 0:
       case 1:
-        return 'error';
+        return "error";
       case 2:
       case 3:
-        return 'warning';
+        return "warning";
       case 4:
       case 5:
-        return 'success';
+        return "success";
       default:
-        return 'error';
+        return "error";
     }
   };
 
   const getStrengthText = (strength) => {
     switch (strength) {
       case 0:
-        return 'Very Weak';
+        return "Very Weak";
       case 1:
-        return 'Weak';
+        return "Weak";
       case 2:
-        return 'Fair';
+        return "Fair";
       case 3:
-        return 'Good';
+        return "Good";
       case 4:
-        return 'Strong';
+        return "Strong";
       case 5:
-        return 'Very Strong';
+        return "Very Strong";
       default:
-        return 'Very Weak';
+        return "Very Weak";
     }
   };
 
@@ -87,7 +87,7 @@ const PasswordInput = ({
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: "100%" }}>
       <TextField
         margin={margin}
         required={required}
@@ -95,26 +95,33 @@ const PasswordInput = ({
         id={id}
         name={name}
         label={label}
-        type={showPassword ? 'text' : 'password'}
+        type={showPassword ? "text" : "password"}
         value={value}
         onChange={handlePasswordChange}
         error={error}
         helperText={helperText}
         autoComplete={autoComplete}
         sx={{
-          '& .MuiOutlinedInput-root': {
-            '& fieldset': {
-              borderColor: 'divider',
+          "& .MuiOutlinedInput-root": {
+            "& fieldset": {
+              borderColor: "divider",
             },
-            '&:hover fieldset': {
-              borderColor: 'primary.main',
+            "&:hover fieldset": {
+              borderColor: "primary.main",
             },
           },
         }}
         InputProps={{
           endAdornment: (
             <InputAdornment position="end">
-              <Tooltip title={showPassword ? 'Hide password' : 'Show password'}>
+              <Tooltip
+                title={
+                  <Typography variant="body2">
+                    {showPassword ? "Hide password" : "Show password"}
+                  </Typography>
+                }
+                arrow
+              >
                 <IconButton
                   aria-label="toggle password visibility"
                   onClick={() => setShowPassword(!showPassword)}
@@ -138,7 +145,7 @@ const PasswordInput = ({
           <Typography
             variant="caption"
             color={getStrengthColor(strength)}
-            sx={{ mt: 0.5, display: 'block' }}
+            sx={{ mt: 0.5, display: "block" }}
           >
             Password Strength: {getStrengthText(strength)}
           </Typography>
@@ -148,4 +155,4 @@ const PasswordInput = ({
   );
 };
 
-export default PasswordInput; 
+export default PasswordInput;

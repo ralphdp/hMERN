@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "core": true,
+  "type": "Essential",
+  "dependsOn": ["core"]
+}

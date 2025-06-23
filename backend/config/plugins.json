@@ -1,0 +1,18 @@
+{
+  "licensing": {
+    "enabled": true,
+    "core": true,
+    "dependsOn": ["core"],
+    "type": "Essential"
+  },
+  "firewall": {
+    "enabled": true,
+    "dependsOn": ["licensing"],
+    "type": "Security"
+  },
+  "web-performance-optimization": {
+    "enabled": true,
+    "dependsOn": ["core"],
+    "type": "Performance"
+  }
+}
