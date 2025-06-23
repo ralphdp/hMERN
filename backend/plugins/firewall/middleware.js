@@ -755,11 +755,6 @@ const requireAdmin = async (req, res, next) => {
     req.isAuthenticated ? req.isAuthenticated() : "No isAuthenticated method"
   );
   console.log("Session ID:", req.sessionID);
-  console.log("User role:", req.user?.role);
-  console.log(
-    "User isAdmin method:",
-    req.user?.isAdmin ? req.user.isAdmin() : "no method"
-  );
 
   if (!req.isAuthenticated || !req.isAuthenticated()) {
     console.log("User not authenticated - returning 401");
@@ -793,7 +788,7 @@ const requireAdmin = async (req, res, next) => {
     });
   }
 
-  console.log("Admin access granted");
+  console.log("Admin access granted for firewall");
   next();
 };
 
