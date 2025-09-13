@@ -118,4 +118,4 @@ userSchema.statics.upgradeAdminUsers = async function () {
 // Create compound index for provider IDs
 userSchema.index({ googleId: 1, githubId: 1, facebookId: 1 }, { sparse: true });
 
-module.exports = mongoose.model("User", userSchema);
+module.exports = mongoose.model("User", userSchema, "core_users");

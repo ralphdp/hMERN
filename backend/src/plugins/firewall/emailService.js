@@ -1,4 +1,7 @@
 const nodemailer = require("nodemailer");
+const { createPluginLogger } = require("../../utils/logger");
+
+const logger = createPluginLogger("firewall-email");
 
 // Create reusable transporter object using SMTP transport
 const createTransporter = () => {
@@ -456,13 +459,18 @@ const sendFirewallReportEmail = async (recipientEmail, reportData) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(
-      `Firewall report email sent to ${recipientEmail}:`,
-      info.messageId
-    );
+    logger.email.info("Firewall report email sent", {
+      recipient: recipientEmail,
+      messageId: info.messageId,
+      reportType,
+    });
     return info;
   } catch (error) {
-    console.error("Error sending firewall report email:", error);
+    logger.email.error("Error sending firewall report email", {
+      recipient: recipientEmail,
+      error: error.message,
+      errorStack: error.stack,
+    });
     throw new Error(`Failed to send firewall report email: ${error.message}`);
   }
 };

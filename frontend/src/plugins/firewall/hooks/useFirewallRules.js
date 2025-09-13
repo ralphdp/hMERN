@@ -9,7 +9,7 @@ export const useFirewallRules = (showAlert) => {
   const fetchRules = useCallback(async () => {
     try {
       const response = await fetch(
-        `${getBackendUrl()}/api/firewall/rules?limit=10000`,
+        `${getBackendUrl()}/api/firewall/rules?limit=2500`,
         { credentials: "include" }
       );
       if (response.ok) {

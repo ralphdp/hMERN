@@ -1,455 +1,675 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { getBackendUrl } from "../../utils/config";
+import { STATIC_CONFIG, getApiUrl } from "./config";
+import createLogger from "../../utils/logger";
+import ErrorBoundary from "../../components/ErrorBoundary";
 import {
   Container,
+  Grid,
+  Card,
+  CardContent,
+  CardHeader,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  TextField,
   Alert,
+  Chip,
   CircularProgress,
   Tabs,
   Tab,
   Box,
   Typography,
+  Paper,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Switch,
+  FormControlLabel,
+  IconButton,
+  Tooltip,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Divider,
+  InputAdornment,
+  Badge,
+  Snackbar,
+  Slide,
 } from "@mui/material";
 import {
+  Speed as SpeedIcon,
+  Visibility as EyeIcon,
+  Tune as TuneIcon,
+  Public as GlobeIcon,
+  BarChart as ChartIcon,
+  Add as PlusIcon,
+  Edit as EditIcon,
+  Delete as TrashIcon,
+  Refresh as RefreshIcon,
+  Help as HelpIcon,
+  Search as SearchIcon,
+  Code as CodeIcon,
+  Flag as FlagIcon,
+  Security as SecurityIcon,
   ArrowBack as ArrowBackIcon,
   Settings as SettingsIcon,
-  BarChart as ChartIcon,
+  Warning as WarningIcon,
+  Restore as RestoreIcon,
+  AdminPanelSettings as AdminIcon,
+  Timer as TimerIcon,
+  Memory as MemoryIcon,
+  BugReport as BugReportIcon,
+  Close as CloseIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  ClearAll as ClearIcon,
+  Analytics as AnalyticsIcon,
+  Assessment as AssessmentIcon,
+  AutoFixHigh as OptimizeIcon,
+  Cached as CacheIcon,
+  Cloud as CloudIcon,
+  Image as ImageIcon,
+  Archive as CompressIcon,
 } from "@mui/icons-material";
-import WebPerformanceSettings from "./components/WebPerformanceSettings";
+
+// Enhanced components
 import WebPerformanceDashboard from "./components/WebPerformanceDashboard";
+import WebPerformanceSettings from "./components/WebPerformanceSettings";
+import WebPerformanceOptimizations from "./components/WebPerformanceOptimizations";
+import WebPerformanceIntelligence from "./components/WebPerformanceIntelligence";
+import WebPerformanceConfigurations from "./components/WebPerformanceConfigurations";
+
+// Enhanced dialogs
+import ClearCacheDialog from "./dialogs/ClearCacheDialog";
+import OptimizationPreviewDialog from "./dialogs/OptimizationPreviewDialog";
+import BulkOptimizationDialog from "./dialogs/BulkOptimizationDialog";
+import PerformanceAnalysisDialog from "./dialogs/PerformanceAnalysisDialog";
+import TestResultDialog from "./dialogs/TestResultDialog";
+import ResetSettingsDialog from "./dialogs/ResetSettingsDialog";
+
+// Enhanced hooks
 import { useWebPerformanceConfig } from "./hooks/useWebPerformanceConfig";
+import { useWebPerformanceMetrics } from "./hooks/useWebPerformanceMetrics";
+import { useWebPerformanceSettings } from "./hooks/useWebPerformanceSettings";
+import useWebPerformanceData from "./hooks/useWebPerformanceData";
 
-// Local storage utilities
-const getLastActiveTab = () => {
-  try {
-    const tab = localStorage.getItem("webPerformanceLastActiveTab");
-    return tab ? parseInt(tab, 10) : 0;
-  } catch (error) {
-    console.error("Error reading from localStorage:", error);
-    return 0;
-  }
-};
+// Enhanced utilities
+import WebPerformanceLocalStorage from "./utils/WebPerformanceLocalStorage";
+import { defaultSettings } from "./constants/webPerformanceConstants";
 
-const setLastActiveTab = (tabIndex) => {
-  try {
-    localStorage.setItem("webPerformanceLastActiveTab", tabIndex);
-  } catch (error) {
-    console.error("Error writing to localStorage:", error);
-  }
-};
+// Initialize logger for web performance admin
+const logger = createLogger("WebPerformanceAdmin");
 
-const defaultSettings = {
-  general: {
-    enabled: false,
-  },
-  fileOptimization: {
-    minification: {
-      enableCSSMinification: false,
-      enableJSMinification: false,
-      enableConcatenation: false,
-      preserveComments: false,
-      removeUnusedCSS: false,
-    },
-    images: {
-      enableOptimization: false,
-      enableWebPConversion: false,
-      jpegQuality: 80,
-      pngQuality: 80,
-      webpQuality: 80,
-      maxWidth: 1920,
-      maxHeight: 1080,
-    },
-    compression: {
-      enableGzip: true,
-      enableBrotli: false,
-      compressionLevel: 6,
-      threshold: 1024,
-    },
-  },
-  cachingLayers: {
-    databaseCache: {
-      enabled: false,
-      redisPassword: "",
-      defaultTTL: 300,
-      maxMemory: "100mb",
-    },
-    fragmentCache: {
-      enabled: false,
-      defaultTTL: 600,
-      enableFragmentCaching: false,
-      enableObjectCaching: false,
-    },
-    staticFileCache: {
-      enabled: false,
-      cloudflareR2: {
-        token: "",
-        accessKeyId: "",
-        secretAccessKey: "",
-        endpointS3: "",
-        bucketName: "", // Will be set from backend config
-      },
-      cacheTTL: 86400,
-      enableVersioning: true,
-    },
-    browserCache: {
-      enabled: true,
-      staticFilesTTL: 31536000,
-      dynamicContentTTL: 0,
-      enableETag: true,
-      enableLastModified: true,
-    },
-  },
-  performanceFeatures: {
-    lazyLoading: {
-      enabled: false,
-      enableImageLazyLoading: false,
-      enableIframeLazyLoading: false,
-      threshold: 100,
-    },
-    criticalCSS: {
-      enabled: false,
-      inlineThreshold: 14000,
-      enableAutomaticExtraction: false,
-    },
-    preloading: {
-      enabled: false,
-      enableDNSPrefetch: false,
-      enablePreconnect: false,
-      enableResourceHints: false,
-      preloadFonts: false,
-      preloadCriticalImages: false,
-    },
-  },
-};
-
-const WebPerformanceAdmin = () => {
-  const navigate = useNavigate();
-  const { config } = useWebPerformanceConfig();
-  const [activeTab, setActiveTab] = useState(() => getLastActiveTab());
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [authError, setAuthError] = useState(false);
-  const [stats, setStats] = useState({});
-  const [settings, setSettings] = useState(defaultSettings);
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [alert, setAlert] = useState({
-    show: false,
-    message: "",
-    severity: "success",
-  });
-
-  // Fetch functions
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(
-        `${getBackendUrl()}/api/web-performance/stats`,
-        {
-          credentials: "include",
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.data);
-        setAuthError(false);
-      } else if (response.status === 403) {
-        setAuthError(true);
-        console.error("Admin access required - please log in as an admin user");
-      } else {
-        console.error(
-          "Failed to fetch stats:",
-          response.status,
-          response.statusText
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
-  };
-
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch(
-        `${getBackendUrl()}/api/web-performance/settings`,
-        {
-          credentials: "include",
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setSettings((prev) => ({ ...prev, ...data.data }));
-      } else {
-        console.error(
-          "Failed to fetch settings:",
-          response.status,
-          response.statusText
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-    }
-  };
-
-  // Update settings when config changes
-  useEffect(() => {
-    if (config.defaultBucketName) {
-      setSettings((prev) => ({
-        ...prev,
-        cachingLayers: {
-          ...prev.cachingLayers,
-          staticFileCache: {
-            ...prev.cachingLayers.staticFileCache,
-            cloudflareR2: {
-              ...prev.cachingLayers.staticFileCache.cloudflareR2,
-              bucketName: config.defaultBucketName,
-            },
-          },
-        },
-      }));
-    }
-  }, [config.defaultBucketName]);
-
-  // Settings management (following firewall pattern)
-  const handleFeatureToggle = useCallback(
-    async (section, subsection, field, newValue) => {
-      const newSettings = { ...settings };
-
-      // Handle master switch
-      if (section === "general" && field === "enabled") {
-        newSettings.general.enabled = newValue;
-
-        // Enable/disable all features
-        Object.keys(newSettings).forEach((key) => {
-          if (
-            typeof newSettings[key] === "object" &&
-            newSettings[key] !== null
-          ) {
-            Object.keys(newSettings[key]).forEach((subKey) => {
-              if (
-                typeof newSettings[key][subKey] === "object" &&
-                newSettings[key][subKey] !== null
-              ) {
-                if ("enabled" in newSettings[key][subKey]) {
-                  newSettings[key][subKey].enabled = newValue;
-                }
-              }
-            });
-          }
-        });
-
-        newSettings.fileOptimization.minification.enableCSSMinification =
-          newValue;
-        newSettings.fileOptimization.minification.enableJSMinification =
-          newValue;
-        newSettings.fileOptimization.minification.enableConcatenation =
-          newValue;
-        newSettings.fileOptimization.images.enableOptimization = newValue;
-        newSettings.performanceFeatures.lazyLoading.enabled = newValue;
-        newSettings.performanceFeatures.criticalCSS.enabled = newValue;
-        newSettings.performanceFeatures.preloading.enabled = newValue;
-        newSettings.cachingLayers.databaseCache.enabled = newValue;
-        newSettings.cachingLayers.browserCache.enabled = newValue;
-      } else {
-        // Handle individual feature toggle
-        if (subsection) {
-          if (!newSettings[section]) newSettings[section] = {};
-          if (!newSettings[section][subsection])
-            newSettings[section][subsection] = {};
-          newSettings[section][subsection][field] = newValue;
-        } else {
-          if (!newSettings[section]) newSettings[section] = {};
-          newSettings[section][field] = newValue;
-        }
-      }
-
-      // Optimistic update
-      setSettings(newSettings);
-
-      try {
-        const response = await fetch(
-          `${getBackendUrl()}/api/web-performance/settings`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify(newSettings),
-          }
-        );
-
-        const data = await response.json();
-
-        if (response.ok) {
-          const featureName =
-            section === "general" && field === "enabled"
-              ? "Master switch"
-              : subsection
-              ? `${section}.${subsection}.${field}`
-              : `${section}.${field}`;
-
-          showAlert(
-            `${featureName} ${newValue ? "enabled" : "disabled"} successfully!`
-          );
-
-          if (section === "general" && field === "enabled") {
-            fetchStats();
-          }
-        } else {
-          showAlert(data.message || "Error updating setting", "error");
-          // Revert on error - fetch latest from server
-          fetchSettings();
-        }
-      } catch (error) {
-        showAlert("Error updating setting", "error");
-        console.error("Error:", error);
-        // Revert on error
-        fetchSettings();
-      }
-    },
-    [settings, fetchSettings]
-  );
-
-  const saveSettings = async (settingsToSave) => {
-    setSavingSettings(true);
-
-    // Combine settings from the form with the existing state
-    const finalSettings = {
-      ...settings,
-      ...settingsToSave,
-    };
-
-    try {
-      const response = await fetch(
-        `${getBackendUrl()}/api/web-performance/settings`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(finalSettings),
-        }
-      );
-
-      if (response.ok) {
-        showAlert("Settings saved successfully!", "success");
-        // Update local settings to ensure consistency
-        setSettings(finalSettings);
-      } else {
-        const error = await response.json();
-        showAlert(error.message || "Error saving settings", "error");
-      }
-    } catch (error) {
-      showAlert("Error saving settings", "error");
-      console.error("Settings save error:", error);
-    } finally {
-      setSavingSettings(false);
-    }
-  };
-
-  const handleSettingChange = (section, subsection, field, value) => {
-    const newSettings = { ...settings };
-    if (subsection) {
-      if (!newSettings[section]) newSettings[section] = {};
-      if (!newSettings[section][subsection])
-        newSettings[section][subsection] = {};
-      newSettings[section][subsection][field] = value;
-    } else {
-      if (!newSettings[section]) newSettings[section] = {};
-      newSettings[section][field] = value;
-    }
-    setSettings(newSettings);
-  };
-
-  // Load all data
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    await Promise.all([fetchStats(), fetchSettings()]);
-    setLoading(false);
-  }, []);
-
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-    setLastActiveTab(newValue);
-  };
-
-  const refreshData = async () => {
-    if (refreshing) return;
-
-    setRefreshing(true);
-    try {
-      await Promise.all([fetchStats(), fetchSettings()]);
-      // Silent refresh - no alert for success
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      showAlert("Failed to refresh data", "error");
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch(
-          `${getBackendUrl()}/api/web-performance/health`,
-          {
-            credentials: "include",
-          }
-        );
-        if (response.ok) {
-          await loadData();
-        } else if (response.status === 401 || response.status === 403) {
-          setAuthError(true);
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-        setAuthError(true);
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [loadData]);
-
-  const showAlert = (message, severity = "success") => {
-    setAlert({ show: true, message, severity });
-    setTimeout(() => {
-      setAlert({ show: false, message: "", severity: "success" });
-    }, 5000);
-  };
-
-  const TabPanel = ({ children, value, index, ...other }) => (
+const TabPanel = (props) => {
+  const { children, value, index, ...other } = props;
+  return (
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`web-performance-tabpanel-${index}`}
-      aria-labelledby={`web-performance-tab-${index}`}
+      id={`webperf-tabpanel-${index}`}
+      aria-labelledby={`webperf-tab-${index}`}
       {...other}
     >
       {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
+};
 
+// Context for snackbar
+const WebPerformanceSnackbarContext = React.createContext();
+
+const SlideTransition = (props) => <Slide {...props} direction="left" />;
+
+// Enhanced Snackbar Provider Component
+const WebPerformanceSnackbarProvider = ({ children }) => {
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success",
+    autoHideDuration: 6000,
+  });
+
+  const showSnackbar = useCallback(
+    (message, severity = "success", autoHideDuration = null) => {
+      // Set default durations based on severity
+      let duration = autoHideDuration;
+      if (duration === null) {
+        switch (severity) {
+          case "success":
+            duration = 4000;
+            break;
+          case "info":
+            duration = 6000;
+            break;
+          case "warning":
+            duration = 8000;
+            break;
+          case "error":
+            duration = 10000;
+            break;
+          default:
+            duration = 6000;
+        }
+      }
+
+      setSnackbar({
+        open: true,
+        message,
+        severity,
+        autoHideDuration: duration,
+      });
+    },
+    []
+  );
+
+  const hideSnackbar = useCallback(() => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      showSnackbar,
+      hideSnackbar,
+    }),
+    [showSnackbar, hideSnackbar]
+  );
+
+  return (
+    <WebPerformanceSnackbarContext.Provider value={contextValue}>
+      {children}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={snackbar.autoHideDuration}
+        onClose={hideSnackbar}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        TransitionComponent={SlideTransition}
+        sx={{ mt: 8 }} // Offset from top to avoid header
+      >
+        <Alert
+          onClose={hideSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{
+            width: "100%",
+            minWidth: 300,
+            maxWidth: 500,
+            wordBreak: "break-word",
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </WebPerformanceSnackbarContext.Provider>
+  );
+};
+
+const useWebPerformanceSnackbar = () => {
+  const context = React.useContext(WebPerformanceSnackbarContext);
+  if (!context) {
+    throw new Error(
+      "useWebPerformanceSnackbar must be used within WebPerformanceSnackbarProvider"
+    );
+  }
+  return context;
+};
+
+const WebPerformanceAdminContent = () => {
+  const navigate = useNavigate();
+
+  // Use the centralized data management hook
+  const {
+    loading,
+    error,
+    authError,
+    stats,
+    settings,
+    config,
+    configFeatures,
+    uiMessages,
+    uiTheme,
+    dashboardSettings,
+    metrics,
+    alerts,
+    jobs,
+    intelligence,
+    apiCall,
+    rawApiCall,
+    fetchStats,
+    fetchSettings,
+    fetchMetrics,
+    fetchAlerts,
+    fetchJobs,
+    loadInitialData,
+    saveSettings,
+    handleDashboardSettingChange,
+    setSettings,
+    setStats,
+  } = useWebPerformanceData();
+
+  // Initialize states from localStorage
+  const [activeTab, setActiveTab] = useState(() =>
+    WebPerformanceLocalStorage.getLastActiveTab()
+  );
+
+  // Dialog states
+  const [showClearCacheDialog, setShowClearCacheDialog] = useState(false);
+  const [showOptimizationPreviewDialog, setShowOptimizationPreviewDialog] =
+    useState(false);
+  const [showBulkOptimizationDialog, setShowBulkOptimizationDialog] =
+    useState(false);
+  const [showPerformanceAnalysisDialog, setShowPerformanceAnalysisDialog] =
+    useState(false);
+  const [showTestResultDialog, setShowTestResultDialog] = useState(false);
+  const [showResetSettingsDialog, setShowResetSettingsDialog] = useState(false);
+
+  // Dialog data states
+  const [optimizationPreviewData, setOptimizationPreviewData] = useState(null);
+  const [bulkOptimizationData, setBulkOptimizationData] = useState(null);
+  const [performanceAnalysisData, setPerformanceAnalysisData] = useState(null);
+  const [testResultData, setTestResultData] = useState(null);
+
+  // Operation states
+  const [optimizing, setOptimizing] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Save active tab to localStorage when it changes
+  React.useEffect(() => {
+    WebPerformanceLocalStorage.setLastActiveTab(activeTab);
+  }, [activeTab]);
+
+  // Save dashboard settings to localStorage when they change
+  React.useEffect(() => {
+    WebPerformanceLocalStorage.setDashboardSettings(dashboardSettings);
+  }, [dashboardSettings]);
+
+  // Load initial data on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        logger.debug("Checking authentication status");
+
+        // Test web performance ping (no auth required)
+        const pingResponse = await fetch(
+          `${getBackendUrl()}/api/web-performance/ping`,
+          {
+            credentials: "include",
+          }
+        );
+        const pingData = await pingResponse.json();
+        logger.debug("Web Performance ping successful", {
+          status: pingData.status,
+        });
+
+        logger.debug("Authentication check completed");
+      } catch (error) {
+        logger.error("Auth check failed", { error: error.message });
+      }
+    };
+
+    checkAuth().then(() => {
+      loadInitialData();
+    });
+  }, [loadInitialData]);
+
+  // Snackbar helper
+  const { showSnackbar } = useWebPerformanceSnackbar();
+
+  // Temporary alias for compatibility
+  const showAlert = showSnackbar;
+
+  // Function to reload configuration
+  const reloadConfiguration = async () => {
+    try {
+      logger.debug("Reloading configuration...");
+      const configData = await apiCall("config");
+
+      const features =
+        configData.data.dynamic?.features || configData.data?.features;
+      if (features) {
+        logger.debug("Reloaded features from config", { features });
+      }
+    } catch (error) {
+      logger.error("Error reloading configuration", { error: error.message });
+    }
+  };
+
+  // Handle tab change with persistence and configuration reload
+  const handleTabChange = async (event, newValue) => {
+    const previousTab = activeTab;
+    setActiveTab(newValue);
+
+    // If switching away from Configuration tab (index 5), reload configuration
+    if (previousTab === 5 && newValue !== 5) {
+      logger.debug(
+        "Switching away from Configuration tab, reloading config..."
+      );
+      await reloadConfiguration();
+    }
+  };
+
+  // Enhanced feature toggle with optimistic updates
+  const handleFeatureToggle = React.useCallback(
+    async (featureName, newValue) => {
+      // Update local state immediately for smooth animation
+      setSettings((prevSettings) => ({
+        ...prevSettings,
+        features: {
+          ...prevSettings.features,
+          [featureName]: newValue,
+        },
+      }));
+
+      try {
+        const updatedSettings = {
+          ...settings,
+          features: {
+            ...settings.features,
+            [featureName]: newValue,
+          },
+        };
+
+        const response = await rawApiCall("/settings", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(updatedSettings),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          const featureNames = {
+            optimization: "Optimization",
+            caching: "Caching",
+            compression: "Compression",
+            monitoring: "Monitoring",
+            intelligence: "Performance Intelligence",
+            backgroundJobs: "Background Jobs",
+            analytics: "Analytics",
+          };
+
+          showSnackbar(
+            `${featureNames[featureName]} ${
+              newValue ? "enabled" : "disabled"
+            } successfully!`
+          );
+
+          // Refresh other data if needed
+          if (featureName === "optimization" || featureName === "caching") {
+            fetchStats();
+          }
+        } else {
+          showSnackbar(data.message || "Error toggling feature", "error");
+          // Revert the optimistic update on error
+          setSettings((prevSettings) => ({
+            ...prevSettings,
+            features: {
+              ...prevSettings.features,
+              [featureName]: !newValue,
+            },
+          }));
+        }
+      } catch (error) {
+        showSnackbar("Error toggling feature", "error");
+        logger.error("Error toggling feature", {
+          error: error.message,
+          featureName,
+        });
+        // Revert the optimistic update on error
+        setSettings((prevSettings) => ({
+          ...prevSettings,
+          features: {
+            ...prevSettings.features,
+            [featureName]: !newValue,
+          },
+        }));
+      }
+    },
+    [settings, rawApiCall, fetchStats, showSnackbar, setSettings]
+  );
+
+  // Enhanced optimization handling
+  const handleOptimizeFile = async (filePath, taskType) => {
+    try {
+      setOptimizing(true);
+
+      const response = await apiCall("optimize", {
+        method: "POST",
+        body: JSON.stringify({ filePath, taskType }),
+      });
+
+      if (response.success) {
+        showSnackbar("File added to optimization queue successfully!");
+        await fetchStats(); // Refresh stats
+      } else {
+        showSnackbar(response.message || "Error optimizing file", "error");
+      }
+    } catch (error) {
+      showSnackbar("Error optimizing file", "error");
+      logger.error("Error optimizing file", { error: error.message });
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
+  // Enhanced bulk operations
+  const handleBulkOperation = async (action, targets, options = {}) => {
+    try {
+      const response = await apiCall("bulk-actions", {
+        method: "POST",
+        body: JSON.stringify({ action, targets, options }),
+      });
+
+      if (response.success) {
+        showSnackbar(`Bulk ${action} operation started successfully!`);
+        await fetchStats(); // Refresh stats
+        await fetchJobs(); // Refresh background jobs
+      } else {
+        showSnackbar(
+          response.message || "Error starting bulk operation",
+          "error"
+        );
+      }
+    } catch (error) {
+      showSnackbar("Error starting bulk operation", "error");
+      logger.error("Error starting bulk operation", { error: error.message });
+    }
+  };
+
+  // Enhanced performance analysis
+  const handlePerformanceAnalysis = async (metrics) => {
+    try {
+      setAnalyzing(true);
+
+      const response = await apiCall("analysis", {
+        method: "POST",
+        body: JSON.stringify({ metrics }),
+      });
+
+      if (response.success) {
+        setPerformanceAnalysisData(response.data);
+        setShowPerformanceAnalysisDialog(true);
+        showSnackbar("Performance analysis completed!");
+      } else {
+        showSnackbar(response.message || "Error performing analysis", "error");
+      }
+    } catch (error) {
+      showSnackbar("Error performing analysis", "error");
+      logger.error("Error performing analysis", { error: error.message });
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // Enhanced cache management
+  const handleClearCache = async (type = "all") => {
+    try {
+      setClearingCache(true);
+
+      const response = await apiCall("cache/clear", {
+        method: "POST",
+        body: JSON.stringify({ type }),
+      });
+
+      if (response.success) {
+        showSnackbar(
+          `Cache ${type === "all" ? "completely" : type} cleared successfully!`
+        );
+        await fetchStats(); // Refresh stats
+      } else {
+        showSnackbar(response.message || "Error clearing cache", "error");
+      }
+    } catch (error) {
+      showSnackbar("Error clearing cache", "error");
+      logger.error("Error clearing cache", { error: error.message });
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
+  // Enhanced refresh data
+  const refreshData = async () => {
+    if (refreshing) return;
+
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        fetchStats(),
+        fetchSettings(),
+        fetchMetrics(),
+        fetchAlerts(),
+        fetchJobs(),
+      ]);
+      showSnackbar("Data refreshed successfully!");
+    } catch (error) {
+      logger.error("Error refreshing data", { error: error.message });
+      showSnackbar("Failed to refresh data", "error");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Enhanced benchmark handling
+  const handleBenchmark = async (url, options = {}) => {
+    try {
+      const response = await apiCall("benchmark", {
+        method: "POST",
+        body: JSON.stringify({ url, options }),
+      });
+
+      if (response.success) {
+        setTestResultData({
+          title: "Performance Benchmark",
+          data: response.data,
+          type: "benchmark",
+        });
+        setShowTestResultDialog(true);
+        showSnackbar("Benchmark completed successfully!");
+      } else {
+        showSnackbar(response.message || "Error running benchmark", "error");
+      }
+    } catch (error) {
+      showSnackbar("Error running benchmark", "error");
+      logger.error("Error running benchmark", { error: error.message });
+    }
+  };
+
+  // Enhanced settings reset
+  const handleResetSettings = async () => {
+    try {
+      const response = await apiCall("reset", {
+        method: "POST",
+        body: JSON.stringify({ confirm: true }),
+      });
+
+      if (response.success) {
+        showSnackbar("Settings reset to defaults successfully!");
+        await fetchSettings(); // Refresh settings
+        setShowResetSettingsDialog(false);
+      } else {
+        showSnackbar(response.message || "Error resetting settings", "error");
+      }
+    } catch (error) {
+      showSnackbar("Error resetting settings", "error");
+      logger.error("Error resetting settings", { error: error.message });
+    }
+  };
+
+  // Tab configuration (Analytics merged into Dashboard)
+  const tabs = [
+    {
+      label: "Dashboard",
+      icon: <ChartIcon />,
+      component: WebPerformanceDashboard,
+    },
+    {
+      label: "Optimizations",
+      icon: <OptimizeIcon />,
+      component: WebPerformanceOptimizations,
+    },
+    {
+      label: "Intelligence",
+      icon: <AssessmentIcon />,
+      component: WebPerformanceIntelligence,
+    },
+    {
+      label: "Settings",
+      icon: <SettingsIcon />,
+      component: WebPerformanceSettings,
+    },
+    {
+      label: "Configuration",
+      icon: <TuneIcon />,
+      component: WebPerformanceConfigurations,
+    },
+  ];
+
+  // Early returns for loading and error states (following FirewallAdmin pattern)
   if (loading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="400px"
-      >
+      <Container sx={{ mt: 4, textAlign: "center" }}>
         <CircularProgress />
-      </Box>
+        <Typography sx={{ mt: 2 }}>Loading Web Performance...</Typography>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container sx={{ mt: 4 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="h6">Connection Error</Typography>
+          <Typography>{error}</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Make sure the web-performance plugin is enabled and the backend is
+            running.
+          </Typography>
+        </Alert>
+      </Container>
     );
   }
 
   return (
-    <Container maxWidth="xxl" sx={{ my: 4 }}>
+    <Container maxWidth="xl" sx={{ my: 4 }}>
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
@@ -466,20 +686,30 @@ const WebPerformanceAdmin = () => {
         >
           Back to Admin
         </Button>
-        <Typography variant="h4">Web Performance Administration</Typography>
+        <Box>
+          <Typography variant="h4">
+            {uiMessages?.title || "Web Performance Optimization"}
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+            {uiMessages?.subtitle ||
+              "Advanced performance optimization with intelligent recommendations and monitoring"}
+          </Typography>
+        </Box>
+        <Box sx={{ flexGrow: 1 }} />
+        <Tooltip title="Refresh Data">
+          <IconButton onClick={refreshData} disabled={refreshing}>
+            <RefreshIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Clear Cache">
+          <IconButton
+            onClick={() => setShowClearCacheDialog(true)}
+            disabled={clearingCache}
+          >
+            <ClearIcon />
+          </IconButton>
+        </Tooltip>
       </Box>
-
-      {alert.show && (
-        <Alert
-          severity={alert.severity}
-          sx={{ mb: 3 }}
-          onClose={() =>
-            setAlert({ show: false, message: "", severity: "success" })
-          }
-        >
-          {alert.message}
-        </Alert>
-      )}
 
       {authError && (
         <Alert
@@ -501,40 +731,221 @@ const WebPerformanceAdmin = () => {
           <Typography variant="body2">
             You need to be logged in as an admin user to access the web
             performance administration panel. Please log in with an admin
-            account (ralphdp21@gmail.com) using regular login, Google, or GitHub
-            authentication.
+            account.
           </Typography>
         </Alert>
       )}
 
+      {/* Status Banner */}
+      {settings?.general?.enabled === false && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Web Performance optimization is currently disabled. Enable it in the
+          Settings tab to start optimizing your application's performance.
+        </Alert>
+      )}
+
+      {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab icon={<ChartIcon />} label="Dashboard" />
-          <Tab icon={<SettingsIcon />} label="Settings" />
+        <Tabs
+          value={activeTab}
+          onChange={handleTabChange}
+          aria-label="Web Performance navigation tabs"
+        >
+          <Tab
+            icon={<ChartIcon />}
+            label="Dashboard"
+            id="webperf-tab-0"
+            aria-controls="webperf-tabpanel-0"
+          />
+          <Tab
+            icon={<OptimizeIcon />}
+            label="Optimizations"
+            id="webperf-tab-1"
+            aria-controls="webperf-tabpanel-1"
+          />
+          <Tab
+            icon={<AssessmentIcon />}
+            label="Intelligence"
+            id="webperf-tab-2"
+            aria-controls="webperf-tabpanel-2"
+          />
+          <Tab
+            icon={<SettingsIcon />}
+            label="Settings"
+            id="webperf-tab-3"
+            aria-controls="webperf-tabpanel-3"
+          />
+          <Tab
+            icon={<TuneIcon />}
+            label="Configuration"
+            id="webperf-tab-4"
+            aria-controls="webperf-tabpanel-4"
+          />
         </Tabs>
       </Box>
 
+      {/* Dashboard Tab */}
       <TabPanel value={activeTab} index={0}>
-        <WebPerformanceDashboard
-          settings={settings}
-          stats={stats}
-          refreshData={refreshData}
-          showAlert={showAlert}
-        />
+        <ErrorBoundary
+          componentName="WebPerformanceDashboard"
+          showDetails={process.env.NODE_ENV === "development"}
+        >
+          <WebPerformanceDashboard
+            stats={stats}
+            settings={settings}
+            config={config}
+            metrics={metrics}
+            alerts={alerts}
+            jobs={jobs}
+            intelligence={intelligence}
+            onFeatureToggle={handleFeatureToggle}
+            onOptimizeFile={handleOptimizeFile}
+            onBulkOperation={handleBulkOperation}
+            onPerformanceAnalysis={handlePerformanceAnalysis}
+            onClearCache={handleClearCache}
+            onBenchmark={handleBenchmark}
+            refreshData={refreshData}
+            showAlert={showSnackbar}
+            showSnackbar={showSnackbar}
+            apiCall={apiCall}
+            optimizing={optimizing}
+            analyzing={analyzing}
+            clearingCache={clearingCache}
+            refreshing={refreshing}
+          />
+        </ErrorBoundary>
       </TabPanel>
 
+      {/* Optimizations Tab */}
       <TabPanel value={activeTab} index={1}>
-        <WebPerformanceSettings
-          initialSettings={settings}
-          saveSettings={saveSettings}
-          savingSettings={savingSettings}
-          showAlert={showAlert}
-          defaultSettings={defaultSettings}
-          handleFeatureToggle={handleFeatureToggle}
-          refreshData={refreshData}
-        />
+        <ErrorBoundary
+          componentName="WebPerformanceOptimizations"
+          showDetails={process.env.NODE_ENV === "development"}
+        >
+          <WebPerformanceOptimizations
+            stats={stats}
+            settings={settings}
+            config={config}
+            metrics={metrics}
+            onFeatureToggle={handleFeatureToggle}
+            onOptimizeFile={handleOptimizeFile}
+            onBulkOperation={handleBulkOperation}
+            refreshData={refreshData}
+            showSnackbar={showSnackbar}
+            optimizing={optimizing}
+            refreshing={refreshing}
+          />
+        </ErrorBoundary>
       </TabPanel>
+
+      {/* Intelligence Tab */}
+      <TabPanel value={activeTab} index={2}>
+        <ErrorBoundary
+          componentName="WebPerformanceIntelligence"
+          showDetails={process.env.NODE_ENV === "development"}
+        >
+          <WebPerformanceIntelligence
+            stats={stats}
+            settings={settings}
+            config={config}
+            intelligence={intelligence}
+            onPerformanceAnalysis={handlePerformanceAnalysis}
+            onBenchmark={handleBenchmark}
+            refreshData={refreshData}
+            showSnackbar={showSnackbar}
+            analyzing={analyzing}
+            refreshing={refreshing}
+          />
+        </ErrorBoundary>
+      </TabPanel>
+
+      {/* Settings Tab */}
+      <TabPanel value={activeTab} index={3}>
+        {activeTab === 3 && (
+          <ErrorBoundary
+            componentName="WebPerformanceSettings"
+            showDetails={process.env.NODE_ENV === "development"}
+          >
+            <WebPerformanceSettings
+              initialSettings={settings}
+              handleFeatureToggle={handleFeatureToggle}
+              saveSettings={saveSettings}
+              savingSettings={savingSettings}
+              showAlert={showSnackbar}
+              defaultSettings={defaultSettings}
+              refreshData={refreshData}
+            />
+          </ErrorBoundary>
+        )}
+      </TabPanel>
+
+      {/* Configuration Tab */}
+      <TabPanel value={activeTab} index={4}>
+        {activeTab === 4 && (
+          <ErrorBoundary
+            componentName="WebPerformanceConfigurations"
+            showDetails={process.env.NODE_ENV === "development"}
+          >
+            <WebPerformanceConfigurations
+              config={config}
+              showSnackbar={showSnackbar}
+              refreshData={refreshData}
+              apiCall={apiCall}
+              rawApiCall={rawApiCall}
+            />
+          </ErrorBoundary>
+        )}
+      </TabPanel>
+
+      {/* Enhanced Dialogs */}
+      <ClearCacheDialog
+        open={showClearCacheDialog}
+        onClose={() => setShowClearCacheDialog(false)}
+        onConfirm={handleClearCache}
+        clearing={clearingCache}
+      />
+
+      <OptimizationPreviewDialog
+        open={showOptimizationPreviewDialog}
+        onClose={() => setShowOptimizationPreviewDialog(false)}
+        data={optimizationPreviewData}
+        onConfirm={handleOptimizeFile}
+      />
+
+      <BulkOptimizationDialog
+        open={showBulkOptimizationDialog}
+        onClose={() => setShowBulkOptimizationDialog(false)}
+        data={bulkOptimizationData}
+        onConfirm={handleBulkOperation}
+      />
+
+      <PerformanceAnalysisDialog
+        open={showPerformanceAnalysisDialog}
+        onClose={() => setShowPerformanceAnalysisDialog(false)}
+        data={performanceAnalysisData}
+      />
+
+      <TestResultDialog
+        open={showTestResultDialog}
+        onClose={() => setShowTestResultDialog(false)}
+        data={testResultData}
+      />
+
+      <ResetSettingsDialog
+        open={showResetSettingsDialog}
+        onClose={() => setShowResetSettingsDialog(false)}
+        onConfirm={handleResetSettings}
+      />
     </Container>
+  );
+};
+
+// Wrapper component that provides the snackbar context
+const WebPerformanceAdmin = () => {
+  return (
+    <WebPerformanceSnackbarProvider>
+      <WebPerformanceAdminContent />
+    </WebPerformanceSnackbarProvider>
   );
 };
 

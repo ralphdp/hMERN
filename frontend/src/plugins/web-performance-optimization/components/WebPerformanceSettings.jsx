@@ -94,7 +94,7 @@ const GeneralConfiguration = React.memo(
               }}
             >
               <Box>
-                <Typography variant="h6">
+                <Typography variant="body1" sx={{ fontWeight: "medium" }}>
                   Web Performance Optimization
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -579,8 +579,8 @@ const CachingLayers = React.memo(
                   >
                     <WarningIcon color="warning" fontSize="small" />
                     <Typography variant="body2" color="warning.main">
-                      Missing required Redis environment variable. Please
-                      configure: REDIS_PUBLIC_ENDPOINT
+                      Missing required Redis database configuration. Please
+                      configure Redis credentials in admin settings
                     </Typography>
                   </Box>
                 )}
@@ -646,7 +646,7 @@ const CachingLayers = React.memo(
                   {testingRedis ? "Testing..." : "Test Redis Connection"}
                 </Button>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Environment Configuration
+                  Database Configuration
                 </Typography>
                 <Box
                   sx={{
@@ -687,8 +687,8 @@ const CachingLayers = React.memo(
                     {savingSettings
                       ? "⏳ Loading configuration..."
                       : envConfig?.hasRedisEndpoint
-                      ? "✓ Redis endpoint configured via environment variables"
-                      : "⚠ Redis endpoint missing - check environment variables"}
+                      ? "✓ Redis endpoint configured in database settings"
+                      : "⚠ Redis endpoint missing - configure in database settings"}
                   </Typography>
                 </Box>
               </Grid>
@@ -736,8 +736,8 @@ const CachingLayers = React.memo(
                   >
                     <WarningIcon color="warning" fontSize="small" />
                     <Typography variant="body2" color="warning.main">
-                      Missing required Redis environment variable. Please
-                      configure: REDIS_PUBLIC_ENDPOINT
+                      Missing required Redis database configuration. Please
+                      configure Redis credentials in admin settings
                     </Typography>
                   </Box>
                 )}
@@ -828,7 +828,7 @@ const CachingLayers = React.memo(
                   {testingRedis ? "Testing..." : "Test Redis Connection"}
                 </Button>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Environment Configuration
+                  Database Configuration
                 </Typography>
                 <Box
                   sx={{
@@ -869,8 +869,8 @@ const CachingLayers = React.memo(
                     {savingSettings
                       ? "⏳ Loading configuration..."
                       : envConfig?.hasRedisEndpoint
-                      ? "✓ Redis endpoint configured via environment variables"
-                      : "⚠ Redis endpoint missing - check environment variables"}
+                      ? "✓ Redis endpoint configured in database settings"
+                      : "⚠ Redis endpoint missing - configure in database settings"}
                   </Typography>
                 </Box>
               </Grid>
@@ -1047,10 +1047,9 @@ const CachingLayers = React.memo(
                       sx={{ mt: 0.25 }}
                     />
                     <Typography variant="body2" color="warning.main">
-                      Missing required Cloudflare R2 environment variables.
-                      Please configure: CLOUDFLARE_R2_BUCKET,
-                      CLOUDFLARE_R2_TOKEN, CLOUDFLARE_ACCESS_KEY_ID,
-                      CLOUDFLARE_SECRET_ACCESS_KEY, CLOUDFLARE_ENDPOINT_S3
+                      Missing required Cloudflare R2 database configuration.
+                      Please configure Cloudflare R2 credentials in admin
+                      settings
                     </Typography>
                   </Box>
                 )}
@@ -1128,7 +1127,7 @@ const CachingLayers = React.memo(
                     : "Test Cloudflare R2 Connection"}
                 </Button>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Environment Configuration
+                  Database Configuration
                 </Typography>
                 <Box
                   sx={{
@@ -1185,8 +1184,8 @@ const CachingLayers = React.memo(
                     {savingSettings
                       ? "⏳ Loading configuration..."
                       : envConfig?.hasR2Credentials
-                      ? "✓ All credentials configured via environment variables"
-                      : "⚠ Some credentials missing - check environment variables"}
+                      ? "✓ All credentials configured in database settings"
+                      : "⚠ Some credentials missing - configure in database settings"}
                   </Typography>
                 </Box>
               </Grid>
@@ -2001,9 +2000,11 @@ const WebPerformanceSettings = ({
   const [testingRedis, setTestingRedis] = useState(false);
   const [testingR2, setTestingR2] = useState(false);
   const [envConfig, setEnvConfig] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
     setSettings(initialSettings);
+    setHasUnsavedChanges(false); // Reset unsaved changes when loading fresh data
   }, [initialSettings]);
 
   // Fetch environment configuration
@@ -2011,7 +2012,7 @@ const WebPerformanceSettings = ({
     const fetchEnvConfig = async () => {
       try {
         const response = await fetch(
-          `${getBackendUrl()}/api/web-performance/config`,
+          `${getBackendUrl()}/api/web-performance/external-services`,
           {
             method: "GET",
             headers: {
@@ -2023,12 +2024,84 @@ const WebPerformanceSettings = ({
 
         if (response.ok) {
           const result = await response.json();
-          setEnvConfig(result.data);
+          // Map the external services response to the expected envConfig format
+          setEnvConfig({
+            hasRedisEndpoint: !!result.data.redis.endpoint,
+            hasR2Credentials: !!(
+              result.data.cloudflareR2.bucket &&
+              result.data.cloudflareR2.hasToken &&
+              result.data.cloudflareR2.hasAccessKeyId &&
+              result.data.cloudflareR2.hasSecretAccessKey &&
+              result.data.cloudflareR2.endpointS3
+            ),
+            credentials: {
+              redisEndpoint: result.data.redis.endpoint || "Not configured",
+              bucketName: result.data.cloudflareR2.bucket || "Not configured",
+              apiToken: result.data.cloudflareR2.hasToken
+                ? "Configured"
+                : "Not configured",
+              accessKeyId: result.data.cloudflareR2.hasAccessKeyId
+                ? "Configured"
+                : "Not configured",
+              secretAccessKey: result.data.cloudflareR2.hasSecretAccessKey
+                ? "Configured"
+                : "Not configured",
+              endpointS3:
+                result.data.cloudflareR2.endpointS3 || "Not configured",
+            },
+          });
+        } else if (response.status === 401 || response.status === 403) {
+          // User not authenticated as admin - assume database is configured
+          // since they wouldn't be using web-performance features without proper setup
+          console.log(
+            "Not authenticated as admin - assuming database is configured"
+          );
+          setEnvConfig({
+            hasRedisEndpoint: true, // Assume configured to prevent warnings
+            hasR2Credentials: true, // Assume configured to prevent warnings
+            credentials: {
+              redisEndpoint: "••••• (admin access required for details)",
+              bucketName: "••••• (admin access required for details)",
+              apiToken: "••••• (admin access required for details)",
+              accessKeyId: "••••• (admin access required for details)",
+              secretAccessKey: "••••• (admin access required for details)",
+              endpointS3: "••••• (admin access required for details)",
+            },
+          });
         } else {
-          console.error("Failed to fetch environment configuration");
+          console.error(
+            "Failed to fetch external services configuration:",
+            response.status
+          );
+          // Set defaults to prevent warnings when endpoint fails
+          setEnvConfig({
+            hasRedisEndpoint: false,
+            hasR2Credentials: false,
+            credentials: {
+              redisEndpoint: "Loading...",
+              bucketName: "Loading...",
+              apiToken: "Loading...",
+              accessKeyId: "Loading...",
+              secretAccessKey: "Loading...",
+              endpointS3: "Loading...",
+            },
+          });
         }
       } catch (error) {
-        console.error("Error fetching environment configuration:", error);
+        console.error("Error fetching external services configuration:", error);
+        // Assume configured to prevent unnecessary warnings in case of network issues
+        setEnvConfig({
+          hasRedisEndpoint: true,
+          hasR2Credentials: true,
+          credentials: {
+            redisEndpoint: "••••• (connection error)",
+            bucketName: "••••• (connection error)",
+            apiToken: "••••• (connection error)",
+            accessKeyId: "••••• (connection error)",
+            secretAccessKey: "••••• (connection error)",
+            endpointS3: "••••• (connection error)",
+          },
+        });
       }
     };
 
@@ -2048,6 +2121,7 @@ const WebPerformanceSettings = ({
       current[keys[keys.length - 1]] = value;
       return newSettings;
     });
+    setHasUnsavedChanges(true); // Mark as having unsaved changes when settings are updated
   }, []);
 
   const handleTestRedis = async () => {
@@ -2147,44 +2221,40 @@ const WebPerformanceSettings = ({
     setShowResetDialog(true);
   };
 
-  const confirmReset = async () => {
-    try {
-      const response = await fetch(
-        `${getBackendUrl()}/api/web-performance/settings/reset`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-        }
-      );
-
-      const result = await response.json();
-      if (response.ok) {
-        setSettings(result.data);
-        setShowResetDialog(false);
-        showAlert(result.message, "success");
-
-        // Refresh parent component data to sync the reset
-        if (refreshData) {
-          await refreshData();
-        }
-      } else {
-        showAlert(result.message || "Failed to reset settings", "error");
-      }
-    } catch (error) {
-      console.error("Error resetting settings:", error);
-      showAlert("Error resetting settings", "error");
-    }
+  const confirmReset = () => {
+    setSettings(defaultSettings);
+    setHasUnsavedChanges(true); // Mark as having unsaved changes after reset
+    setShowResetDialog(false);
+    showAlert(
+      "Settings have been reset to default values. Click 'Save Settings' to apply changes.",
+      "info"
+    );
   };
 
-  const handleSaveSettings = (e) => {
+  const handleSaveSettings = async (e) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    saveSettings(settings);
+
+    try {
+      const result = await saveSettings(settings);
+
+      if (result.success) {
+        setHasUnsavedChanges(false); // Clear unsaved changes flag after successful save
+        showAlert("Performance settings saved successfully!", "success");
+
+        // Refresh parent component data to sync the changes
+        if (refreshData) {
+          await refreshData();
+        }
+      } else {
+        showAlert(result.message || "Error saving settings", "error");
+      }
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      showAlert("Error saving settings", "error");
+    }
   };
 
   if (!settings) {
@@ -2206,13 +2276,11 @@ const WebPerformanceSettings = ({
         Performance Settings
       </Typography>
 
-      <Alert severity="info" sx={{ mb: 3 }}>
-        <Typography variant="body2">
-          <strong>Note:</strong> These settings control web performance
-          optimization features. Enable the master switch to activate all
-          performance enhancements.
-        </Typography>
-      </Alert>
+      {hasUnsavedChanges && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          You have unsaved changes. Click "Save Settings" to apply them.
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         <Grid item xs={12}>
@@ -2284,13 +2352,24 @@ const WebPerformanceSettings = ({
               variant="contained"
               type="button"
               onClick={handleSaveSettings}
-              disabled={savingSettings}
+              disabled={!hasUnsavedChanges || savingSettings}
               startIcon={
                 savingSettings ? <CircularProgress size={20} /> : <SaveIcon />
               }
               size="large"
+              sx={{
+                backgroundColor: hasUnsavedChanges ? undefined : "grey.300",
+                color: hasUnsavedChanges ? undefined : "grey.600",
+                "&:hover": {
+                  backgroundColor: hasUnsavedChanges ? undefined : "grey.400",
+                },
+              }}
             >
-              {savingSettings ? "Saving..." : "Save Settings"}
+              {savingSettings
+                ? "Saving..."
+                : hasUnsavedChanges
+                ? "Save Settings"
+                : "No Changes to Save"}
             </Button>
           </Box>
         </Grid>

@@ -1,0 +1,16 @@
+{
+  "enabled": false,
+  "core": false,
+  "type": "Template",
+  "dependsOn": ["core"],
+  "description": "A template plugin for creating new plugins in the hMERN stack",
+  "version": "1.0.0",
+  "author": "hMERN Team",
+  "features": [
+    "Template structure for new plugins",
+    "Basic admin interface",
+    "Database models example",
+    "API routes example",
+    "Middleware example"
+  ]
+}

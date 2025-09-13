@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
+import PowerIcon from "@mui/icons-material/Power";
 import {
   BrowserRouter as Router,
   Routes,
@@ -42,6 +43,9 @@ import Admin from "./pages/Admin";
 import AdminFirewall from "./pages/AdminFirewall";
 import AdminPlugins from "./pages/AdminPlugins";
 import AdminWebPerformance from "./pages/AdminWebPerformance";
+import AdminPluginTemplate from "./pages/AdminPluginTemplate";
+import AdminSettings from "./pages/AdminSettings";
+import AdminActivity from "./pages/AdminActivity";
 import SwitchTest from "./pages/SwitchTest";
 
 function AppContent() {
@@ -153,10 +157,34 @@ function AppContent() {
               }
             />
             <Route
+              path="/admin/settings"
+              element={
+                <PrivateRoute>
+                  <AdminSettings />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/activity"
+              element={
+                <PrivateRoute>
+                  <AdminActivity />
+                </PrivateRoute>
+              }
+            />
+            <Route
               path="/admin/web-performance-optimization"
               element={
                 <PrivateRoute>
                   <AdminWebPerformance />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/admin/plugin-template"
+              element={
+                <PrivateRoute>
+                  <AdminPluginTemplate />
                 </PrivateRoute>
               }
             />
@@ -181,6 +209,64 @@ function AppContent() {
 }
 
 function App() {
+  const [pluginsLoaded, setPluginsLoaded] = useState(false);
+  const [pluginLoadError, setPluginLoadError] = useState(null);
+
+  useEffect(() => {
+    const loadPlugins = async () => {
+      try {
+        console.log("🚀 Starting plugin system initialization...");
+
+        // Try to dynamically import and initialize the plugin registry
+        try {
+          const registryModule = await import("./plugins/registry");
+          const { initializePlugins } = registryModule;
+
+          await initializePlugins();
+          console.log("✅ Plugin system initialized successfully");
+        } catch (registryError) {
+          console.log("📭 Plugin system not available:", registryError.message);
+          console.log("🎯 Running in plugin-free mode");
+        }
+
+        setPluginsLoaded(true);
+      } catch (error) {
+        console.error("❌ App initialization failed:", error);
+        setPluginLoadError(error.message);
+        // Continue loading the app even if plugins fail
+        setPluginsLoaded(true);
+      }
+    };
+
+    loadPlugins();
+  }, []);
+
+  // Show loading screen while plugins initialize
+  if (!pluginsLoaded) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          gap: "16px",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <PowerIcon sx={{ fontSize: 24, color: "primary.main" }} />
+          <Typography variant="body1">Initializing system...</Typography>
+        </Box>
+        {pluginLoadError && (
+          <div style={{ color: "red", fontSize: "14px" }}>
+            Warning: {pluginLoadError}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <AuthProvider>
       <PluginProvider>

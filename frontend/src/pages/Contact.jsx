@@ -16,6 +16,8 @@ import {
 } from "@mui/material";
 import { getBackendUrl } from "../utils/config";
 
+// FirewallStatusPanel is now automatically loaded via plugin overlay system
+
 const Contact = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -82,177 +84,181 @@ const Contact = () => {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h3" component="h1" gutterBottom align="center">
-        Contact Us
-      </Typography>
-      <Box sx={{ mt: 4 }}>
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h5" gutterBottom>
-              Get in Touch
-            </Typography>
-            <Typography variant="body1" paragraph>
-              Have questions or feedback? We'd love to hear from you. Fill out
-              the form below and we'll get back to you as soon as possible.
-            </Typography>
-            <Typography variant="h6" gutterBottom>
-              Contact Information
-            </Typography>
-            <Typography variant="body1" paragraph>
-              Email: contact@example.com
-            </Typography>
-            <Typography variant="body1" paragraph>
-              We typically respond within 24-48 hours.
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Paper
-              elevation={3}
-              sx={{
-                p: 4,
-                display: "flex",
-                flexDirection: "column",
-                bgcolor: "background.paper",
-              }}
-            >
-              <Box
-                component="form"
-                onSubmit={handleSubmit}
-                sx={{ display: "flex", flexDirection: "column", gap: 2 }}
+    <>
+      {/* Firewall Status Panel - Available based on visibility settings */}
+
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography variant="h3" component="h1" gutterBottom align="center">
+          Contact Us
+        </Typography>
+        <Box sx={{ mt: 4 }}>
+          <Grid container spacing={4}>
+            <Grid item xs={12} md={6}>
+              <Typography variant="h5" gutterBottom>
+                Get in Touch
+              </Typography>
+              <Typography variant="body1" paragraph>
+                Have questions or feedback? We'd love to hear from you. Fill out
+                the form below and we'll get back to you as soon as possible.
+              </Typography>
+              <Typography variant="h6" gutterBottom>
+                Contact Information
+              </Typography>
+              <Typography variant="body1" paragraph>
+                Email: contact@example.com
+              </Typography>
+              <Typography variant="body1" paragraph>
+                We typically respond within 24-48 hours.
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Paper
+                elevation={3}
+                sx={{
+                  p: 4,
+                  display: "flex",
+                  flexDirection: "column",
+                  bgcolor: "background.paper",
+                }}
               >
-                {error && (
-                  <Alert severity="error" sx={{ width: "100%" }}>
-                    {error}
-                  </Alert>
-                )}
-
-                {success && (
-                  <Alert severity="success" sx={{ width: "100%" }}>
-                    Thank you for your message! We'll get back to you soon.
-                  </Alert>
-                )}
-
-                <TextField
-                  required
-                  fullWidth
-                  id="name"
-                  label="Full Name"
-                  name="name"
-                  autoComplete="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  disabled={loading}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "divider",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "primary.main",
-                      },
-                    },
-                  }}
-                />
-
-                <TextField
-                  required
-                  fullWidth
-                  id="email"
-                  label="Email Address"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  disabled={loading}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "divider",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "primary.main",
-                      },
-                    },
-                  }}
-                />
-
-                <FormControl
-                  fullWidth
-                  required
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "divider",
-                      },
-                      "&:hover fieldset": {
-                        borderColor: "primary.main",
-                      },
-                    },
-                  }}
+                <Box
+                  component="form"
+                  onSubmit={handleSubmit}
+                  sx={{ display: "flex", flexDirection: "column", gap: 2 }}
                 >
-                  <InputLabel id="subject-label">Subject</InputLabel>
-                  <Select
-                    labelId="subject-label"
-                    id="subject"
-                    name="subject"
-                    value={formData.subject}
+                  {error && (
+                    <Alert severity="error" sx={{ width: "100%" }}>
+                      {error}
+                    </Alert>
+                  )}
+
+                  {success && (
+                    <Alert severity="success" sx={{ width: "100%" }}>
+                      Thank you for your message! We'll get back to you soon.
+                    </Alert>
+                  )}
+
+                  <TextField
+                    required
+                    fullWidth
+                    id="name"
+                    label="Full Name"
+                    name="name"
+                    autoComplete="name"
+                    value={formData.name}
                     onChange={handleChange}
-                    label="Subject"
                     disabled={loading}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": {
+                          borderColor: "divider",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "primary.main",
+                        },
+                      },
+                    }}
+                  />
+
+                  <TextField
+                    required
+                    fullWidth
+                    id="email"
+                    label="Email Address"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    disabled={loading}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": {
+                          borderColor: "divider",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "primary.main",
+                        },
+                      },
+                    }}
+                  />
+
+                  <FormControl
+                    fullWidth
+                    required
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": {
+                          borderColor: "divider",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "primary.main",
+                        },
+                      },
+                    }}
                   >
-                    <MenuItem value="General">General</MenuItem>
-                    <MenuItem value="Sales">Sales</MenuItem>
-                    <MenuItem value="Support">Support</MenuItem>
-                  </Select>
-                </FormControl>
+                    <InputLabel id="subject-label">Subject</InputLabel>
+                    <Select
+                      labelId="subject-label"
+                      id="subject"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      label="Subject"
+                      disabled={loading}
+                    >
+                      <MenuItem value="General">General</MenuItem>
+                      <MenuItem value="Sales">Sales</MenuItem>
+                      <MenuItem value="Support">Support</MenuItem>
+                    </Select>
+                  </FormControl>
 
-                <TextField
-                  required
-                  fullWidth
-                  id="message"
-                  label="Message"
-                  name="message"
-                  autoComplete="off"
-                  multiline
-                  rows={4}
-                  value={formData.message}
-                  onChange={handleChange}
-                  disabled={loading}
-                  sx={{
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "divider",
+                  <TextField
+                    required
+                    fullWidth
+                    id="message"
+                    label="Message"
+                    name="message"
+                    autoComplete="off"
+                    multiline
+                    rows={4}
+                    value={formData.message}
+                    onChange={handleChange}
+                    disabled={loading}
+                    sx={{
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": {
+                          borderColor: "divider",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "primary.main",
+                        },
                       },
-                      "&:hover fieldset": {
-                        borderColor: "primary.main",
-                      },
-                    },
-                  }}
-                />
+                    }}
+                  />
 
-                <Button
-                  type="submit"
-                  variant="contained"
-                  size="large"
-                  disabled={loading}
-                  sx={{
-                    mt: 2,
-                    py: 1.5,
-                    borderRadius: 2,
-                    textTransform: "none",
-                    fontSize: "1.1rem",
-                  }}
-                >
-                  {loading ? <CircularProgress size={24} /> : "Send Message"}
-                </Button>
-              </Box>
-            </Paper>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    size="large"
+                    disabled={loading}
+                    sx={{
+                      mt: 2,
+                      py: 1.5,
+                      borderRadius: 2,
+                      textTransform: "none",
+                      fontSize: "1.1rem",
+                    }}
+                  >
+                    {loading ? <CircularProgress size={24} /> : "Send Message"}
+                  </Button>
+                </Box>
+              </Paper>
+            </Grid>
           </Grid>
-        </Grid>
-      </Box>
-    </Container>
+        </Box>
+      </Container>
+    </>
   );
 };
 

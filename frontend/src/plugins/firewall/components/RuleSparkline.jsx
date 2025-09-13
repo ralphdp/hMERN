@@ -152,19 +152,24 @@ const RuleSparkline = ({
           {ruleName}
         </Typography>
         <Typography variant="body2">
-          <strong>Total Blocked:</strong> {summary.totalBlocked}
+          <strong>Total Blocked:</strong> {summary?.totalHits || 0}
         </Typography>
         <Typography variant="body2">
-          <strong>Avg/Day:</strong> {summary.avgRequestsPerDay.toFixed(1)}
+          <strong>Blocked:</strong> {summary?.blockedHits || 0}
         </Typography>
         <Typography variant="body2">
-          <strong>Peak Day:</strong> {summary.peakDay.totalRequests}
-          {summary.peakDay.date &&
-            ` (${new Date(summary.peakDay.date).toLocaleDateString()})`}
+          <strong>Rate Limited:</strong> {summary?.rateLimitedHits || 0}
+        </Typography>
+        <Typography variant="body2">
+          <strong>Efficiency:</strong> {summary?.efficiency || 0}%
         </Typography>
         <Typography variant="body2" sx={{ mt: 1 }}>
-          <strong>Trend:</strong> {trendInfo.change > 0 ? "+" : ""}
-          {trendInfo.change.toFixed(1)}%
+          <strong>Trend:</strong>{" "}
+          {trendInfo?.change
+            ? `${trendInfo.change > 0 ? "+" : ""}${trendInfo.change.toFixed(
+                1
+              )}%`
+            : "No data"}
         </Typography>
       </Box>
     );

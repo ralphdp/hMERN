@@ -48,8 +48,19 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import FirewallLocalStorage from "../../../utils/localStorage";
+import createLogger from "../../../utils/logger";
 
-const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
+// Initialize logger for firewall logs component
+const logger = createLogger("FirewallAdminLogs");
+
+const FirewallAdminLogs = ({
+  logs,
+  formatDate,
+  getActionChip,
+  fetchLogs,
+  isFeatureEnabled,
+  getDisabledStyle,
+}) => {
   // Initialize state from localStorage
   const [searchTerm, setSearchTerm] = React.useState(() =>
     FirewallLocalStorage.getSearchTerm("logs")
@@ -305,11 +316,12 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      console.log(
-        `[LogsExport] Successfully exported ${logsToExport.length} ${exportType} logs to CSV`
-      );
+      logger.debug("CSV export completed", {
+        count: logsToExport.length,
+        type: exportType,
+      });
     } catch (error) {
-      console.error("[LogsExport] Failed to export CSV:", error);
+      logger.error("CSV export failed", { error: error.message });
     } finally {
       setExportingCsv(false);
     }
@@ -319,9 +331,11 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
   const handleSort = (column) => {
     const isAsc = sortBy === column && sortDirection === "asc";
     const newDirection = isAsc ? "desc" : "asc";
-    console.log(
-      `[Logs Sort] Clicked column: ${column}, current: ${sortBy}/${sortDirection}, new: ${column}/${newDirection}`
-    );
+    logger.debug("Log column sort changed", {
+      column,
+      currentSort: `${sortBy}/${sortDirection}`,
+      newSort: `${column}/${newDirection}`,
+    });
     setSortDirection(newDirection);
     setSortBy(column);
   };
@@ -337,10 +351,10 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
     let aVal = a[orderBy];
     let bVal = b[orderBy];
 
-    // Debug first few comparisons
-    if (Math.random() < 0.1) {
-      // Only log 10% of comparisons to avoid spam
-      console.log(`[Logs Sort] Comparing ${orderBy}: "${aVal}" vs "${bVal}"`);
+    // Debug first few comparisons (reduced logging for performance)
+    if (Math.random() < 0.01) {
+      // Only log 1% of comparisons to avoid spam
+      logger.debug("Log sort comparison", { orderBy, aVal, bVal });
     }
 
     // Handle different data types
@@ -445,11 +459,13 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
 
     // Apply sorting - create new array to ensure React detects the change
     const sorted = [...filtered].sort(getComparator(sortDirection, sortBy));
-    console.log(
-      `[Logs Sort] Applied sort by ${sortBy} ${sortDirection}, first item:`,
-      sorted[0]?.ip,
-      sorted[0]?.[sortBy]
-    );
+    logger.debug("Log sort applied", {
+      sortBy,
+      sortDirection,
+      filteredCount: filtered.length,
+      firstItemIp: sorted[0]?.ip,
+      firstItemValue: sorted[0]?.[sortBy],
+    });
     return sorted;
   }, [
     logs,
@@ -472,13 +488,16 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
     const result = filteredAndSortedLogs.slice(startIndex, endIndex);
 
     // Debug logging for pagination verification
-    console.log(
-      `[Logs Pagination] Total logs: ${logs.length}, Filtered: ${
+    logger.debug("Log pagination applied", {
+      totalLogs: logs.length,
+      filteredCount: filteredAndSortedLogs.length,
+      currentPage: page + 1,
+      showingCount: result.length,
+      range: `${startIndex + 1}-${Math.min(
+        endIndex,
         filteredAndSortedLogs.length
-      }, Page: ${page + 1}, Showing: ${result.length} (${
-        startIndex + 1
-      }-${Math.min(endIndex, filteredAndSortedLogs.length)})`
-    );
+      )}`,
+    });
 
     return result;
   }, [filteredAndSortedLogs, page, rowsPerPage, logs.length]);
@@ -580,9 +599,11 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
     if (filteredAndSortedLogs.length > 0) {
       const maxPage = Math.ceil(filteredAndSortedLogs.length / rowsPerPage) - 1;
       if (page > maxPage) {
-        console.log(
-          `[Logs] Page ${page} is out of bounds, resetting to ${maxPage}`
-        );
+        logger.debug("Page out of bounds, resetting", {
+          currentPage: page,
+          maxPage,
+          resetTo: maxPage >= 0 ? maxPage : 0,
+        });
         setPage(maxPage >= 0 ? maxPage : 0);
       }
     }
@@ -668,15 +689,18 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
           >
             {isRefreshing ? "Refreshing..." : "Refresh"}
           </Button>
-          <Button
-            variant="contained"
-            endIcon={<ArrowDropDownIcon />}
-            onClick={handleClick}
-            disabled={isLoading}
-            aria-label="Open logs actions menu"
-          >
-            Actions
-          </Button>
+          {/* Only show Actions button if logExport feature is enabled */}
+          {isFeatureEnabled && isFeatureEnabled("logExport") && (
+            <Button
+              variant="contained"
+              endIcon={<ArrowDropDownIcon />}
+              onClick={handleClick}
+              disabled={isLoading}
+              aria-label="Open logs actions menu"
+            >
+              Actions
+            </Button>
+          )}
           <Button
             variant="contained"
             color="secondary"
@@ -705,36 +729,22 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
               />
             )}
           </Button>
-          <Menu
-            id="logs-actions-menu"
-            anchorEl={anchorEl}
-            open={open}
-            onClose={handleClose}
-            MenuListProps={{
-              "aria-labelledby": "logs-actions-button",
-            }}
-          >
-            <MenuItem
-              onClick={() => handleExportCsv("all")}
-              disabled={exportingCsv || filteredAndSortedLogs.length === 0}
-              aria-label="Export all currently displayed logs to a CSV file"
+          {/* Only show Actions menu if logExport feature is enabled */}
+          {isFeatureEnabled && isFeatureEnabled("logExport") && (
+            <Menu
+              id="logs-actions-menu"
+              anchorEl={anchorEl}
+              open={open}
+              onClose={handleClose}
+              MenuListProps={{
+                "aria-labelledby": "logs-actions-button",
+              }}
             >
-              <ListItemIcon>
-                {exportingCsv ? (
-                  <CircularProgress size={20} />
-                ) : (
-                  <FileDownloadIcon fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText>
-                {exportingCsv ? "Exporting CSV..." : "Export All Logs to CSV"}
-              </ListItemText>
-            </MenuItem>
-            {selectedLogs.length > 0 && (
+              {/* CSV Export */}
               <MenuItem
-                onClick={() => handleExportCsv("selected")}
-                disabled={exportingCsv}
-                aria-label="Export selected logs to a CSV file"
+                onClick={() => handleExportCsv("all")}
+                disabled={exportingCsv || filteredAndSortedLogs.length === 0}
+                aria-label="Export all currently displayed logs to a CSV file"
               >
                 <ListItemIcon>
                   {exportingCsv ? (
@@ -744,13 +754,31 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
                   )}
                 </ListItemIcon>
                 <ListItemText>
-                  {exportingCsv
-                    ? "Exporting CSV..."
-                    : `Export Selected (${selectedLogs.length}) to CSV`}
+                  {exportingCsv ? "Exporting CSV..." : "Export All Logs to CSV"}
                 </ListItemText>
               </MenuItem>
-            )}
-          </Menu>
+              {selectedLogs.length > 0 && (
+                <MenuItem
+                  onClick={() => handleExportCsv("selected")}
+                  disabled={exportingCsv}
+                  aria-label="Export selected logs to a CSV file"
+                >
+                  <ListItemIcon>
+                    {exportingCsv ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      <FileDownloadIcon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText>
+                    {exportingCsv
+                      ? "Exporting CSV..."
+                      : `Export Selected (${selectedLogs.length}) to CSV`}
+                  </ListItemText>
+                </MenuItem>
+              )}
+            </Menu>
+          )}
           <Menu
             id="logs-filters-menu"
             anchorEl={filtersAnchorEl}
@@ -1017,19 +1045,45 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
         )}
       </Box>
 
-      <TableContainer component={Paper}>
+      <TableContainer
+        component={Paper}
+        sx={{
+          // Theme-aware scrollbar styling
+          "&::-webkit-scrollbar": {
+            width: "8px",
+            height: "8px",
+          },
+          "&::-webkit-scrollbar-track": {
+            backgroundColor: "action.hover",
+            borderRadius: "4px",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            backgroundColor: "text.secondary",
+            borderRadius: "4px",
+            "&:hover": {
+              backgroundColor: "text.primary",
+            },
+          },
+          "&::-webkit-scrollbar-corner": {
+            backgroundColor: "action.hover",
+          },
+        }}
+      >
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  id="select-all-logs"
-                  name="select-all-logs"
-                  indeterminate={isIndeterminate}
-                  checked={isAllSelected}
-                  onChange={handleSelectAll}
-                />
-              </TableCell>
+              {/* Checkbox column - Only show if bulk actions are enabled */}
+              {isFeatureEnabled && isFeatureEnabled("bulkActions") && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    id="select-all-logs"
+                    name="select-all-logs"
+                    indeterminate={isIndeterminate}
+                    checked={isAllSelected}
+                    onChange={handleSelectAll}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <TableSortLabel
                   active={sortBy === "timestamp"}
@@ -1128,14 +1182,17 @@ const FirewallAdminLogs = ({ logs, formatDate, getActionChip, fetchLogs }) => {
             ) : (
               paginatedLogs.map((log) => (
                 <TableRow key={log._id}>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      id={`select-log-${log._id}`}
-                      name={`select-log-${log._id}`}
-                      checked={selectedLogs.includes(log._id)}
-                      onChange={() => handleSelectLog(log._id)}
-                    />
-                  </TableCell>
+                  {/* Checkbox column - Only show if bulk actions are enabled */}
+                  {isFeatureEnabled && isFeatureEnabled("bulkActions") && (
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        id={`select-log-${log._id}`}
+                        name={`select-log-${log._id}`}
+                        checked={selectedLogs.includes(log._id)}
+                        onChange={() => handleSelectLog(log._id)}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell sx={{ maxWidth: 120 }}>
                     <Tooltip
                       title={

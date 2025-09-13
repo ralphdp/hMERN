@@ -2,11 +2,26 @@ const express = require("express");
 const router = express.Router();
 const path = require("path");
 const fs = require("fs").promises;
+const fsSync = require("fs"); // Add regular fs for createReadStream
 const multer = require("multer");
 const archiver = require("archiver");
 const unzipper = require("unzipper");
-const { requireAdmin } = require("../plugins/firewall/middleware");
-const { addCommonFirewallRules } = require("../plugins/firewall/routes");
+
+// Generic admin middleware for plugins route
+const createAdminMiddleware = () => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.isAdmin || !req.user.isAdmin()) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
+      });
+    }
+    next();
+  };
+};
+
+// Use admin middleware
+const requireAdmin = createAdminMiddleware();
 
 // Plugin configuration storage
 const PLUGINS_CONFIG_PATH = path.join(__dirname, "../config/plugins.json");
@@ -184,7 +199,38 @@ const upload = multer({
   },
 });
 
-// Get all plugins
+// Get basic plugin status (public endpoint for system configuration)
+router.get("/status", async (req, res) => {
+  try {
+    const config = await loadPluginsConfig();
+
+    // Return only basic status information without requiring authentication
+    const basicStatus = {};
+
+    for (const [pluginName, pluginConfig] of Object.entries(config)) {
+      basicStatus[pluginName] = {
+        enabled: pluginConfig.enabled || false,
+        type: pluginConfig.type || "General",
+      };
+    }
+
+    // Enhanced plugin status - let plugins provide their own detailed status
+    // This replaces hardcoded firewall status loading and makes it generic for all plugins
+
+    res.json({
+      success: true,
+      data: basicStatus,
+    });
+  } catch (error) {
+    console.error("Error getting plugin status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving plugin status",
+    });
+  }
+});
+
+// Get all plugins (admin only - detailed information)
 router.get("/", requireAdmin, async (req, res) => {
   try {
     const config = await loadPluginsConfig();
@@ -196,14 +242,46 @@ router.get("/", requireAdmin, async (req, res) => {
 
     // Try to scan backend plugins
     try {
-      backendPlugins = await fs.readdir(BACKEND_PLUGINS_PATH);
+      const backendItems = await fs.readdir(BACKEND_PLUGINS_PATH);
+      // Filter to only include directories
+      for (const item of backendItems) {
+        if (item.startsWith(".")) continue; // Skip hidden files
+        const itemPath = path.join(BACKEND_PLUGINS_PATH, item);
+        const stat = await fs.stat(itemPath);
+        if (stat.isDirectory()) {
+          backendPlugins.push(item);
+        }
+      }
     } catch (backendError) {
       console.log("Backend plugins directory not found:", backendError.message);
     }
 
     // Try to scan frontend plugins (may not exist in production)
     try {
-      frontendPlugins = await fs.readdir(FRONTEND_PLUGINS_PATH);
+      const frontendItems = await fs.readdir(FRONTEND_PLUGINS_PATH);
+      // Filter to only include directories and exclude system files
+      const excludedFiles = [
+        "registry.js",
+        "index.js",
+        ".DS_Store",
+        "README.md",
+      ];
+
+      for (const item of frontendItems) {
+        if (item.startsWith(".")) continue; // Skip hidden files
+        if (excludedFiles.includes(item)) continue; // Skip system files
+
+        const itemPath = path.join(FRONTEND_PLUGINS_PATH, item);
+        try {
+          const stat = await fs.stat(itemPath);
+          if (stat.isDirectory()) {
+            frontendPlugins.push(item);
+          }
+        } catch (statError) {
+          // Item might be a file or inaccessible, skip it
+          continue;
+        }
+      }
     } catch (frontendError) {
       console.log(
         "Frontend plugins directory not found (this is normal in production):",
@@ -214,7 +292,8 @@ router.get("/", requireAdmin, async (req, res) => {
     const allPluginNames = new Set([...backendPlugins, ...frontendPlugins]);
 
     for (const pluginName of allPluginNames) {
-      if (pluginName.startsWith(".")) continue; // Skip hidden files
+      // Additional safety check - ensure it's a valid plugin name
+      if (!isValidPluginName(pluginName)) continue;
 
       const pluginInfo = await getPluginInfo(pluginName);
       const pluginConfig = config[pluginName] || { enabled: false };
@@ -242,6 +321,31 @@ router.get("/", requireAdmin, async (req, res) => {
     });
   }
 });
+
+// Helper function to validate plugin names
+const isValidPluginName = (name) => {
+  // Must be a valid directory name and not a system file
+  const invalidNames = [
+    "registry.js",
+    "index.js",
+    ".DS_Store",
+    "README.md",
+    "package.json",
+  ];
+  const systemFileExtensions = [".js", ".json", ".md", ".txt", ".yml", ".yaml"];
+
+  // Check if it's in the exclusion list
+  if (invalidNames.includes(name)) return false;
+
+  // Check if it has a file extension (files should be excluded)
+  if (systemFileExtensions.some((ext) => name.endsWith(ext))) return false;
+
+  // Must not start with dot or contain invalid characters
+  if (name.startsWith(".") || name.includes(" ") || name.includes(".."))
+    return false;
+
+  return true;
+};
 
 // Get plugin description from README
 const getPluginDescription = async (pluginName) => {
@@ -351,7 +455,8 @@ router.post(
 
       // Extract zip file
       await new Promise((resolve, reject) => {
-        fs.createReadStream(zipPath)
+        fsSync
+          .createReadStream(zipPath)
           .pipe(unzipper.Extract({ path: extractPath }))
           .on("close", resolve)
           .on("error", reject);
@@ -363,6 +468,11 @@ router.post(
       let backendPath = null;
       let frontendPath = null;
 
+      // First, determine the plugin name from the uploaded filename
+      pluginName = req.file.originalname
+        .replace(/[-_]plugin\.zip$/, "")
+        .replace(/\.zip$/, "");
+
       // Look for backend and frontend folders
       for (const item of extractedItems) {
         const itemPath = path.join(extractPath, item);
@@ -373,22 +483,15 @@ router.post(
             backendPath = itemPath;
           } else if (item === "frontend" || item === "client") {
             frontendPath = itemPath;
-          } else {
-            // Assume it's a plugin directory
+          } else if (!pluginName) {
+            // If no plugin name determined from filename, use directory name
             pluginName = item;
           }
         }
       }
 
-      if (!pluginName) {
-        // Try to determine plugin name from package.json or directory structure
-        if (backendPath) {
-          const backendContents = await fs.readdir(backendPath);
-          if (backendContents.length > 0) {
-            pluginName = req.file.originalname.replace(/\.zip$/, "");
-          }
-        }
-      }
+      // If we have backend/frontend folders, the content inside should be copied directly
+      // If we don't have backend/frontend folders, treat the content as either backend or frontend
 
       if (!pluginName) {
         return res.status(400).json({
@@ -409,35 +512,76 @@ router.post(
         await copyDirectory(frontendPath, targetFrontendPath);
       }
 
-      // If no backend/frontend folders, treat the whole thing as a plugin
+      // If no backend/frontend folders, determine what type of files we have
       if (!backendPath && !frontendPath) {
-        const pluginDir = path.join(extractPath, extractedItems[0]);
-        const stat = await fs.stat(pluginDir);
+        // Check if we have a single directory containing the plugin
+        if (extractedItems.length === 1) {
+          const singleItem = extractedItems[0];
+          const singleItemPath = path.join(extractPath, singleItem);
+          const stat = await fs.stat(singleItemPath);
 
-        if (stat.isDirectory()) {
-          // Check if it contains typical backend files
-          const contents = await fs.readdir(pluginDir);
-          const hasBackendFiles = contents.some(
-            (file) =>
-              file.endsWith(".js") &&
-              (file.includes("route") ||
-                file.includes("index") ||
-                file.includes("middleware"))
-          );
+          if (stat.isDirectory()) {
+            // Check the contents to determine if it's backend or frontend
+            const contents = await fs.readdir(singleItemPath);
+            const hasBackendFiles = contents.some(
+              (file) =>
+                file.endsWith(".js") &&
+                (file.includes("route") ||
+                  file.includes("index") ||
+                  file.includes("middleware") ||
+                  file.includes("model"))
+            );
 
-          if (hasBackendFiles) {
-            const targetBackendPath = path.join(
-              BACKEND_PLUGINS_PATH,
-              pluginName
+            const hasFrontendFiles = contents.some(
+              (file) =>
+                file.endsWith(".jsx") ||
+                file.endsWith(".js") ||
+                file.includes("component") ||
+                file.includes("hook")
             );
-            await copyDirectory(pluginDir, targetBackendPath);
-          } else {
-            const targetFrontendPath = path.join(
-              FRONTEND_PLUGINS_PATH,
-              pluginName
-            );
-            await copyDirectory(pluginDir, targetFrontendPath);
+
+            if (hasBackendFiles) {
+              const targetBackendPath = path.join(
+                BACKEND_PLUGINS_PATH,
+                pluginName
+              );
+              await copyDirectory(singleItemPath, targetBackendPath);
+            }
+
+            if (hasFrontendFiles) {
+              const targetFrontendPath = path.join(
+                FRONTEND_PLUGINS_PATH,
+                pluginName
+              );
+              await copyDirectory(singleItemPath, targetFrontendPath);
+            }
+
+            // If it has both or neither, copy to both locations
+            if (
+              (!hasBackendFiles && !hasFrontendFiles) ||
+              (hasBackendFiles && hasFrontendFiles)
+            ) {
+              const targetBackendPath = path.join(
+                BACKEND_PLUGINS_PATH,
+                pluginName
+              );
+              const targetFrontendPath = path.join(
+                FRONTEND_PLUGINS_PATH,
+                pluginName
+              );
+              await copyDirectory(singleItemPath, targetBackendPath);
+              await copyDirectory(singleItemPath, targetFrontendPath);
+            }
           }
+        } else {
+          // Multiple items at root level, treat as mixed content
+          const targetBackendPath = path.join(BACKEND_PLUGINS_PATH, pluginName);
+          const targetFrontendPath = path.join(
+            FRONTEND_PLUGINS_PATH,
+            pluginName
+          );
+          await copyDirectory(extractPath, targetBackendPath);
+          await copyDirectory(extractPath, targetFrontendPath);
         }
       }
 
@@ -516,16 +660,16 @@ router.get("/:pluginName/download", requireAdmin, async (req, res) => {
 
     archive.pipe(res);
 
-    // Add backend files if they exist
+    // Add backend files if they exist - directly as pluginName folder
     if (pluginInfo.backendExists) {
       const backendPath = path.join(BACKEND_PLUGINS_PATH, pluginName);
-      archive.directory(backendPath, `backend/${pluginName}`);
+      archive.directory(backendPath, `backend`);
     }
 
-    // Add frontend files if they exist
+    // Add frontend files if they exist - directly as pluginName folder
     if (pluginInfo.frontendExists) {
       const frontendPath = path.join(FRONTEND_PLUGINS_PATH, pluginName);
-      archive.directory(frontendPath, `frontend/${pluginName}`);
+      archive.directory(frontendPath, `frontend`);
     }
 
     await archive.finalize();
@@ -684,9 +828,13 @@ const findPluginRelatedCollections = (pluginName, allCollections) => {
     // Skip system collections
     if (
       collectionName.startsWith("system.") ||
-      collectionName === "sessions" ||
-      collectionName === "users" ||
-      collectionName === "tokens"
+      collectionName === "core_sessions" ||
+      collectionName === "core_users" ||
+      collectionName === "core_tokens" ||
+      collectionName === "core_settings" ||
+      collectionName === "core_settings_config" ||
+      collectionName === "core_plugin_activities" ||
+      collectionName === "core_plugin_registries"
     ) {
       continue;
     }

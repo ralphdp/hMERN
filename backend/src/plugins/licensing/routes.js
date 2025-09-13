@@ -1,6 +1,16 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const { STATIC_CONFIG } = require("./config");
+const { LicensingConfig, LicensingLog } = require("./models");
+const {
+  requestLogger,
+  validateFeature,
+  getCachedConfig,
+} = require("./middleware");
+
+// Apply request logging to all routes (following plugin-template pattern)
+router.use(requestLogger);
 
 // Add CORS headers specifically for license routes in development
 if (process.env.NODE_ENV === "development") {
@@ -62,9 +72,78 @@ router.get("/health", (req, res) => {
 });
 
 /**
- * Fetches public information about the currently configured license key.
+ * Get plugin info (public endpoint) - following architectural pattern
  */
 router.get("/info", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        name: STATIC_CONFIG.name,
+        version: STATIC_CONFIG.version,
+        description:
+          "Core licensing system that enables and validates other plugins in the hMERN stack",
+        enabled: true, // Always enabled for core functionality
+        isCore: STATIC_CONFIG.metadata.isCore,
+        requiredFor: STATIC_CONFIG.metadata.requiredFor,
+        features: [
+          "License validation and caching",
+          "Development mode bypass",
+          "Offline mode support",
+          "License analytics and monitoring",
+        ],
+        licenseServerConfigured: !!LICENSE_KEY,
+        developmentMode: process.env.NODE_ENV === "development",
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting plugin info:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving plugin information",
+    });
+  }
+});
+
+/**
+ * Get dynamic configuration (admin only) - following architectural pattern
+ */
+router.get("/config", async (req, res) => {
+  try {
+    let config = await LicensingConfig.findOne({
+      pluginId: STATIC_CONFIG.pluginId,
+    });
+
+    // If no config exists, create default one
+    if (!config) {
+      config = new LicensingConfig({
+        pluginId: STATIC_CONFIG.pluginId,
+      });
+      await config.save();
+    }
+
+    res.json({
+      success: true,
+      data: {
+        static: STATIC_CONFIG,
+        dynamic: config,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting config:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving configuration",
+    });
+  }
+});
+
+/**
+ * Fetches detailed license information from license server (legacy endpoint preserved)
+ */
+router.get("/license-info", async (req, res) => {
   if (!LICENSE_KEY) {
     return res.status(500).json({
       success: false,

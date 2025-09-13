@@ -7,7 +7,7 @@ export const useFirewallLogs = () => {
   const fetchLogs = useCallback(async () => {
     try {
       const response = await fetch(
-        `${getBackendUrl()}/api/firewall/logs?limit=1000`,
+        `${getBackendUrl()}/api/firewall/logs?limit=2500`,
         { credentials: "include" }
       );
       if (response.ok) {

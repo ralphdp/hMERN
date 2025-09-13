@@ -16,16 +16,33 @@ export const PluginProvider = ({ children }) => {
 
   const fetchPlugins = async () => {
     try {
+      console.log("🔌 Fetching plugins...");
+      console.log("🔌 Document cookies:", document.cookie);
+
       const response = await fetch("/api/plugins", {
+        method: "GET",
         credentials: "include",
         headers: {
-          "X-Admin-Bypass": "testing",
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
       });
+
+      console.log("🔌 Plugins response status:", response.status);
+      console.log("🔌 Plugins response URL:", response.url);
 
       if (response.ok) {
         const data = await response.json();
         setPlugins(data.data);
+        console.log("🔌 Plugins loaded successfully:", data);
+      } else {
+        console.warn(
+          "Failed to fetch plugins:",
+          response.status,
+          response.statusText
+        );
+        const errorText = await response.text();
+        console.warn("Error response:", errorText);
       }
     } catch (error) {
       console.error("Error fetching plugins:", error);

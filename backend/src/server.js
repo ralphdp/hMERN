@@ -5,6 +5,13 @@ const passport = require("passport");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
 const path = require("path");
+require("dotenv").config({
+  path: path.resolve(__dirname, "../.env"),
+});
+
+// External services configuration will be loaded from database
+// Environment variables are only used as fallback during initial setup
+
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const authConfig = require("./config/auth.config");
@@ -13,9 +20,8 @@ const hpp = require("hpp");
 const compression = require("compression");
 const { errorHandler } = require("./middleware/errorMiddleware");
 const { connectDB } = require("./config/db");
-const { initializePassport } = require("./config/passport");
+// Passport configuration is loaded automatically by requiring it
 const fs = require("fs"); // Added for plugin system
-require("dotenv").config();
 
 // Ensure required environment variables are setup
 const requiredEnvVars = ["MONGODB_URI", "SESSION_SECRET", "FRONTEND_URL"];
@@ -29,9 +35,26 @@ if (missingEnvVars.length > 0) {
 
 const app = express();
 
-// --- hMERN Plugin System ---
+// --- hMERN Hot-Loading Plugin System ---
 app.plugins = {};
 const pluginsDir = path.join(__dirname, "plugins");
+
+// Initialize Hot Load Manager
+let hotLoadManager;
+const initializeHotLoadManager = async () => {
+  try {
+    const HotLoadManager = require("./utils/hotLoadManager");
+    hotLoadManager = new HotLoadManager(app);
+    app.hotLoadManager = hotLoadManager;
+
+    // Initialize the system after database connection
+    await hotLoadManager.initialize();
+    console.log("✅ Hot Load Manager initialized successfully");
+  } catch (error) {
+    console.error("❌ Hot Load Manager initialization failed:", error);
+    // Continue without hot-loading in case of failure
+  }
+};
 
 // Helper function to load plugins configuration
 const loadPluginsConfig = async () => {
@@ -77,9 +100,10 @@ if (fs.existsSync(pluginsDir)) {
           if (plugin && typeof plugin.register === "function") {
             // Check if plugin has dependencies
             if (!plugin.dependencies || plugin.dependencies.length === 0) {
-              const success = plugin.register(app);
-              if (success !== false) {
-                app.plugins[pluginName] = plugin;
+              const pluginInstance = plugin.register(app);
+              if (pluginInstance !== false) {
+                // FIXED: Store plugin instance, not module exports
+                app.plugins[pluginName] = pluginInstance || plugin;
                 loadedPlugins.add(pluginName);
                 console.log(
                   `Successfully loaded plugin: ${plugin.name} v${plugin.version}`
@@ -129,7 +153,7 @@ if (fs.existsSync(pluginsDir)) {
         try {
           const success = plugin.register(app);
           if (success !== false) {
-            app.plugins[pluginName] = plugin;
+            app.plugins[pluginName] = success || plugin;
             loadedPlugins.add(pluginName);
             console.log(
               `Successfully loaded plugin: ${plugin.name} v${plugin.version}`
@@ -236,6 +260,9 @@ const corsOptions = {
     "Set-Cookie",
     "X-Admin-Bypass",
     "X-Firewall-Test",
+    "Cache-Control",
+    "Pragma",
+    "Expires",
   ],
 };
 
@@ -244,6 +271,8 @@ app.use((req, res, next) => {
   if (req.originalUrl.includes("/api/")) {
     console.error(`🚨 ALL API REQUESTS: ${req.method} ${req.originalUrl}`);
     console.error(`🚨 Headers:`, req.headers);
+    console.error(`🚨 Session ID:`, req.sessionID);
+    console.error(`🚨 Session:`, req.session);
     console.error(`🚨 User:`, req.user ? req.user.email : "No user");
     console.error(
       `🚨 Authenticated:`,
@@ -259,25 +288,12 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(cors(corsOptions));
 
-// Apply firewall middleware AFTER CORS
-if (app.plugins.firewall && app.getFirewallMiddleware) {
-  console.log(
-    "=== SERVER: Firewall plugin detected. Applying middleware... ==="
-  );
-  const middleware = app.getFirewallMiddleware();
-  if (typeof middleware === "function") {
-    app.use(middleware);
-    console.log("=== SERVER: Firewall middleware applied successfully. ===");
-  } else {
-    console.error(
-      "=== SERVER ERROR: getFirewallMiddleware() did not return a function! ==="
-    );
-  }
-} else {
-  console.log(
-    "=== SERVER: Firewall plugin not loaded or middleware not available. Skipping middleware application. ==="
-  );
-}
+// Generic plugin middleware application system
+console.log(
+  "=== SERVER: Applying plugin middleware (plugins handle their own registration) ==="
+);
+// Note: Plugins now self-register their middleware during loadPlugin()
+// This removes hardcoded firewall dependencies from the core
 
 // Handle preflight requests explicitly
 app.options("*", cors(corsOptions));
@@ -341,51 +357,142 @@ app.use(mongoSanitize());
 app.use(hpp());
 app.use(compression());
 
-// Rate limiter configuration - DISABLE in production when firewall is active
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  trustProxy: true,
-  skip: (req) => {
-    // Skip rate limiting for admin routes and plugin APIs
-    const isAdminRoute =
-      req.originalUrl &&
-      (req.originalUrl.startsWith("/api/admin") ||
-        req.originalUrl.startsWith("/api/firewall") ||
-        req.originalUrl.startsWith("/api/web-performance") ||
-        req.originalUrl.includes("/admin"));
+// License-aware dynamic rate limiter configuration
+const { getCoreSettings } = require("./utils/coreSettings");
+const { getLicenseAwareRateConfig } = require("./utils/rateLimit");
 
-    // Also skip if admin bypass header is present
-    const hasAdminBypass = req.headers["x-admin-bypass"];
+// Create license-aware rate limiter middleware
+const createDynamicRateLimiter = async () => {
+  try {
+    const coreSettings = await getCoreSettings();
+    const licenseRateConfig = await getLicenseAwareRateConfig(coreSettings);
 
-    // IMPORTANT: Skip global rate limiter if firewall plugin is active
-    const firewallActive =
-      app.plugins.firewall && process.env.NODE_ENV === "production";
+    console.log("Loading license-aware rate limiting configuration:", {
+      licensePlan: licenseRateConfig.licenseInfo.plan,
+      tier: licenseRateConfig.licenseTiers.tier,
+      windowMs: licenseRateConfig.core.windowMs,
+      maxRequests: licenseRateConfig.core.max,
+      enabled: licenseRateConfig.settings.enabled,
+      skipAdminRoutes: licenseRateConfig.settings.skipAdminRoutes,
+      skipPluginRoutes: licenseRateConfig.settings.skipPluginRoutes,
+      development: licenseRateConfig.licenseInfo.development_mode,
+    });
 
-    if (isAdminRoute || hasAdminBypass || firewallActive) {
-      console.log(
-        `[Global Rate Limiter] Skipping rate limit for: ${req.originalUrl} (firewall active: ${firewallActive})`
-      );
-      return true;
+    return rateLimit({
+      windowMs: licenseRateConfig.core.windowMs,
+      max: licenseRateConfig.core.max,
+      trustProxy: licenseRateConfig.settings.trustProxy,
+      skip: (req) => {
+        // Skip if rate limiting is disabled
+        if (!licenseRateConfig.settings.enabled) {
+          return true;
+        }
+
+        // Skip rate limiting for admin routes if enabled
+        // IMPORTANT: Changed logic - now admin routes get their own specific rate limiting
+        // instead of being completely skipped by core rate limiting
+        const isAdminRoute =
+          req.originalUrl &&
+          (req.originalUrl.startsWith("/api/admin") ||
+            req.originalUrl.includes("/admin"));
+
+        // Skip rate limiting for plugin APIs if enabled
+        const isPluginRoute =
+          licenseRateConfig.settings.skipPluginRoutes &&
+          req.originalUrl &&
+          (req.originalUrl.startsWith("/api/firewall") ||
+            req.originalUrl.startsWith("/api/web-performance") ||
+            req.originalUrl.startsWith("/api/plugin-template"));
+
+        // Also skip if admin bypass header is present
+        const hasAdminBypass = req.headers["x-admin-bypass"];
+
+        // Check if any plugin wants to handle rate limiting
+        const shouldPluginHandleRateLimit = app.shouldBypassGlobalRateLimit
+          ? app.shouldBypassGlobalRateLimit(req)
+          : false;
+
+        // Admin routes are no longer automatically skipped - they get their own rate limiting
+        if (isPluginRoute || hasAdminBypass || shouldPluginHandleRateLimit) {
+          console.log(
+            `[License-Aware Rate Limiter] Skipping core rate limit for: ${
+              req.originalUrl
+            } (plugin: ${isPluginRoute}, bypass: ${!!hasAdminBypass}, pluginHandling: ${shouldPluginHandleRateLimit})`
+          );
+          return true;
+        }
+
+        // Log when admin routes hit core rate limiting (this is the new behavior)
+        if (isAdminRoute && !licenseRateConfig.settings.skipAdminRoutes) {
+          console.log(
+            `[License-Aware Rate Limiter] Admin route will be rate limited by core limiter: ${req.originalUrl} (plan: ${licenseRateConfig.licenseInfo.plan}, max: ${licenseRateConfig.core.max})`
+          );
+        }
+
+        return false;
+      },
+      message: {
+        error: licenseRateConfig.settings.message,
+        retryAfter: `${Math.round(
+          licenseRateConfig.core.windowMs / 60000
+        )} minutes`,
+        licensePlan: licenseRateConfig.licenseInfo.plan,
+        rateLimitTier: licenseRateConfig.licenseTiers.tier,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Error loading license-aware rate limiting, using emergency fallback:",
+      error
+    );
+
+    // Emergency fallback to very restrictive settings
+    return rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 50, // More restrictive than normal
+      trustProxy: true,
+      skip: (req) => {
+        // In emergency fallback, only skip plugin routes and firewall
+        const isPluginRoute =
+          req.originalUrl &&
+          (req.originalUrl.startsWith("/api/firewall") ||
+            req.originalUrl.startsWith("/api/web-performance") ||
+            req.originalUrl.startsWith("/api/plugin-template"));
+
+        const hasAdminBypass = req.headers["x-admin-bypass"];
+        const shouldPluginHandleRateLimit = app.shouldBypassGlobalRateLimit
+          ? app.shouldBypassGlobalRateLimit(req)
+          : false;
+
+        return isPluginRoute || hasAdminBypass || shouldPluginHandleRateLimit;
+      },
+      message: {
+        error: "Rate limit exceeded (emergency fallback mode)",
+        retryAfter: "15 minutes",
+        mode: "emergency_fallback",
+      },
+    });
+  }
+};
+
+// Apply dynamic rate limiter
+createDynamicRateLimiter()
+  .then((limiter) => {
+    // Apply global rate limiter unless a plugin overrides it
+    const shouldSkipGlobalLimiter = app.shouldBypassGlobalRateLimit
+      ? app.shouldBypassGlobalRateLimit({ originalUrl: "/global-check" })
+      : false;
+
+    if (!shouldSkipGlobalLimiter) {
+      app.use(limiter);
+      console.log("Dynamic global rate limiter applied");
+    } else {
+      console.log("Global rate limiter skipped - plugin handles rate limiting");
     }
-
-    return false;
-  },
-  message: {
-    error: "Too many requests from this IP, please try again later.",
-    retryAfter: "15 minutes",
-  },
-});
-
-// Only apply global rate limiter if firewall plugin is not active
-if (!app.plugins.firewall || process.env.NODE_ENV !== "production") {
-  app.use(limiter);
-  console.log("Global rate limiter applied");
-} else {
-  console.log(
-    "Global rate limiter skipped - firewall plugin handles rate limiting"
-  );
-}
+  })
+  .catch((error) => {
+    console.error("Failed to create dynamic rate limiter:", error);
+  });
 
 // Additional body parsing middleware for debugging
 app.use((req, res, next) => {
@@ -415,13 +522,15 @@ app.use(
     store: MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
       ttl: 24 * 60 * 60, // 1 day
+      collectionName: "core_sessions", // Updated collection name
     }),
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Always false for localhost development
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 1 day
-      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      sameSite: "lax", // Always lax for cross-origin requests
     },
+    name: "connect.sid", // Explicit session name
   })
 );
 
@@ -429,11 +538,36 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Apply firewall middleware AFTER session setup
+if (app.firewallMiddleware) {
+  app.use(app.firewallMiddleware);
+  console.log("🔥 Firewall middleware applied AFTER session setup");
+} else if (app.plugins.firewall && app.plugins.firewall.middleware) {
+  const { firewallMiddleware } = app.plugins.firewall.middleware;
+  app.use(firewallMiddleware);
+  console.log("🔥 Firewall middleware applied AFTER session setup (fallback)");
+} else if (app.getFirewallMiddleware) {
+  // Legacy fallback
+  app.use(app.getFirewallMiddleware());
+  console.log("🔥 Firewall middleware applied AFTER session setup (legacy)");
+} else {
+  console.error(
+    "🚨 ERROR: Firewall middleware not found! HTML pages will load even when rate limited!"
+  );
+}
+
 // Debug middleware for session and authentication
 app.use((req, res, next) => {
-  console.log("Session ID:", req.sessionID);
-  console.log("Is authenticated:", req.isAuthenticated());
-  console.log("User:", req.user);
+  if (req.originalUrl.includes("/api/")) {
+    console.log("🔍 Session Debug:", {
+      sessionID: req.sessionID,
+      isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+      hasUser: !!req.user,
+      userEmail: req.user?.email,
+      sessionData: req.session,
+      cookies: req.headers.cookie,
+    });
+  }
   next();
 });
 
@@ -441,25 +575,25 @@ app.use((req, res, next) => {
 require("./config/passport");
 
 // Register firewall routes AFTER session and passport setup
-console.error("🚨 HEROKU DEBUG: Starting firewall routes registration check");
+console.log(
+  "🔥 FIREWALL DEBUG: Registering firewall routes AFTER session setup"
+);
 if (app.plugins.firewall && app.registerFirewallRoutes) {
-  console.error(
-    "🚨 HEROKU DEBUG: Registering firewall routes IMMEDIATELY (single time)"
-  );
+  console.log("🔥 FIREWALL DEBUG: Registering firewall routes IMMEDIATELY");
   try {
     app.registerFirewallRoutes();
-    console.error(
-      "🚨 HEROKU DEBUG: ✅ Firewall routes registered SYNCHRONOUSLY"
+    console.log(
+      "🔥 FIREWALL DEBUG: ✅ Firewall routes registered SYNCHRONOUSLY"
     );
   } catch (error) {
     console.error(
-      "🚨 HEROKU DEBUG: ❌ Error registering firewall routes:",
+      "🔥 FIREWALL DEBUG: ❌ Error registering firewall routes:",
       error
     );
   }
 } else {
-  console.error(
-    "🚨 HEROKU DEBUG: Firewall plugin or register function not available"
+  console.log(
+    "🔥 FIREWALL DEBUG: Firewall plugin or register function not available"
   );
 }
 
@@ -491,18 +625,189 @@ if (
   );
 }
 
+// Register plugin template routes AFTER session and passport setup
+console.log(
+  "🔧 PLUGIN TEMPLATE DEBUG: Starting plugin template routes registration check"
+);
+if (app.plugins["plugin-template"] && app.registerPluginTemplateRoutes) {
+  console.log(
+    "🔧 PLUGIN TEMPLATE DEBUG: Registering plugin template routes IMMEDIATELY"
+  );
+  try {
+    app.registerPluginTemplateRoutes();
+    console.log(
+      "🔧 PLUGIN TEMPLATE DEBUG: ✅ Plugin Template routes registered SYNCHRONOUSLY"
+    );
+  } catch (error) {
+    console.error(
+      "🔧 PLUGIN TEMPLATE DEBUG: ❌ Error registering plugin template routes:",
+      error
+    );
+  }
+} else {
+  console.log(
+    "🔧 PLUGIN TEMPLATE DEBUG: Plugin Template plugin or register function not available"
+  );
+}
+
+// CRITICAL: API Route Protection - MUST come before static file serving
+app.use("/api/*", (req, res, next) => {
+  // Log all API requests for debugging
+  console.error(`🚨 API REQUEST: ${req.method} ${req.originalUrl}`);
+
+  // Check if this is a known API route
+  const knownRoutes = [
+    "/api/auth",
+    "/api/contact",
+    "/api/plugins",
+    "/api/admin",
+    "/api/firewall", // Plugin routes
+    "/api/web-performance",
+    "/api/plugin-template",
+    "/api/debug",
+    "/api/emergency",
+    "/api/system", // Add system routes
+  ];
+  const isKnownRoute = knownRoutes.some((route) =>
+    req.originalUrl.startsWith(route)
+  );
+
+  if (!isKnownRoute) {
+    console.error(`🚨 UNKNOWN API ROUTE: ${req.originalUrl}`);
+    return res.status(404).json({
+      error: "API endpoint not found",
+      path: req.originalUrl,
+      method: req.method,
+      timestamp: new Date().toISOString(),
+      availableRoutes: knownRoutes,
+    });
+  }
+
+  // Log plugin route attempts for debugging
+  const pluginRoutes = [
+    "/api/firewall",
+    "/api/web-performance",
+    "/api/plugin-template",
+  ];
+  const isPluginRoute = pluginRoutes.some((route) =>
+    req.originalUrl.startsWith(route)
+  );
+
+  if (isPluginRoute) {
+    console.error(`🔧 PLUGIN ROUTE ATTEMPT: ${req.method} ${req.originalUrl}`);
+    console.error(
+      `🔧 User:`,
+      req.user ? { id: req.user._id, email: req.user.email } : "No user"
+    );
+    console.error(`🔧 Session:`, req.sessionID);
+    console.error(
+      `🔧 Authenticated:`,
+      req.isAuthenticated ? req.isAuthenticated() : false
+    );
+  }
+
+  // If we get here, it should be handled by a registered route
+  // If not, Express will handle the 404
+  next();
+});
+
 // Import routes
 const authRoutes = require("./routes/auth");
 const contactRoutes = require("./routes/contact");
 const pluginsRoutes = require("./routes/plugins");
+
+// Add a simple system status endpoint that bypasses all middleware
+app.get("/api/system/status", async (req, res) => {
+  try {
+    // Load plugins config directly
+    const path = require("path");
+    const fs = require("fs").promises;
+    const PLUGINS_CONFIG_PATH = path.join(__dirname, "config/plugins.json");
+
+    let config = {};
+    try {
+      const configContent = await fs.readFile(PLUGINS_CONFIG_PATH, "utf8");
+      config = JSON.parse(configContent);
+    } catch (error) {
+      console.log("Could not load plugins config:", error.message);
+    }
+
+    const basicStatus = {};
+    for (const [pluginName, pluginConfig] of Object.entries(config)) {
+      basicStatus[pluginName] = {
+        enabled: pluginConfig.enabled || false,
+        type: pluginConfig.type || "General",
+      };
+    }
+
+    // Enhanced plugin status - let plugins provide their own detailed status
+    for (const [pluginName, pluginInfo] of Object.entries(basicStatus)) {
+      if (
+        pluginInfo.enabled &&
+        app.plugins[pluginName] &&
+        app.plugins[pluginName].getPluginStatus
+      ) {
+        try {
+          const detailedStatus = await app.plugins[
+            pluginName
+          ].getPluginStatus();
+          basicStatus[pluginName] = { ...pluginInfo, ...detailedStatus };
+        } catch (error) {
+          console.log(
+            `Could not load ${pluginName} detailed status:`,
+            error.message
+          );
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      data: basicStatus,
+    });
+  } catch (error) {
+    console.error("Error getting system status:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving system status",
+    });
+  }
+});
+
+// Register admin routes
+const adminRoutes = require("./routes/admin");
+app.use("/api/admin", adminRoutes);
 
 // Use routes
 app.use("/api/auth", authRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/plugins", pluginsRoutes);
 
+// REMOVED: Manual firewall route mounting - plugin now registers itself properly
+console.log("🔥 Firewall routes are now self-registered by the plugin");
+
+// TEST: Direct firewall session test (bypassing router module)
+app.get("/api/firewall-session-test", (req, res) => {
+  console.log("🔥 DIRECT SESSION TEST:", {
+    hasUser: !!req.user,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+    sessionId: req.sessionID,
+    userEmail: req.user?.email,
+  });
+
+  res.json({
+    success: true,
+    message: "Direct session test route",
+    hasUser: !!req.user,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+    sessionId: req.sessionID,
+    userEmail: req.user?.email,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // --- Example of using the loaded licensing plugin ---
-if (app.plugins.licensing) {
+if (app.plugins.licensing && app.plugins.licensing.middleware) {
   const { validateLicense } = app.plugins.licensing.middleware;
 
   // Example of a new route that requires a valid license
@@ -517,88 +822,132 @@ if (app.plugins.licensing) {
 
   app.use("/api/premium-feature", validateLicense, premiumRouter);
   console.log("Protected route /api/premium-feature is active.");
+} else {
+  console.log(
+    "🔧 Licensing plugin middleware not available - skipping premium routes"
+  );
 }
 // --- End Example ---
 
-// --- FIXED: Admin Routes (NO license validation) ---
+// --- ENHANCED: License-Aware Admin Routes ---
 console.error(
-  "🚨 HEROKU DEBUG: Starting SYNCHRONOUS admin routes registration"
+  "🚨 HEROKU DEBUG: Starting SYNCHRONOUS license-aware admin routes registration"
 );
 
-if (app.plugins.firewall) {
-  console.error(
-    "🚨 HEROKU DEBUG: Firewall plugin found - registering admin routes IMMEDIATELY"
-  );
+// Import the new license-aware admin rate limiting
+const { getAdminRateLimiters } = require("./utils/rateLimit");
 
-  try {
-    const { requireAdmin } = app.plugins.firewall.middleware;
-
-    // Admin routes - only accessible to admin users
-    const adminRouter = express.Router();
-
-    // CRITICAL: Add admin route logging
-    adminRouter.use((req, res, next) => {
-      console.error(`🚨 ADMIN ROUTE HIT: ${req.method} ${req.originalUrl}`);
-      console.error(`🚨 IP: ${req.ip}`);
-      console.error(
-        `🚨 User:`,
-        req.user
-          ? {
-              id: req.user._id,
-              email: req.user.email,
-              role: req.user.role,
-            }
-          : "No user"
-      );
-      console.error(
-        `🚨 Authenticated:`,
-        req.isAuthenticated ? req.isAuthenticated() : false
-      );
-      next();
-    });
-
-    // Admin dashboard
-    adminRouter.get("/", requireAdmin, (req, res) => {
-      console.error("🚨 ADMIN DASHBOARD: Successful access");
-      res.json({
-        success: true,
-        message: "Admin dashboard access granted",
-        user: {
-          email: req.user.email,
-          role: req.user.role,
-          name: req.user.name,
-        },
-        availablePlugins: Object.keys(app.plugins),
-        timestamp: new Date().toISOString(),
+// Generic admin middleware - check if any plugin provides enhanced admin middleware
+const createFallbackAdminMiddleware = () => {
+  return (req, res, next) => {
+    if (!req.user || !req.user.isAdmin || !req.user.isAdmin()) {
+      return res.status(403).json({
+        success: false,
+        message: "Admin access required",
       });
+    }
+    next();
+  };
+};
+
+// Use plugin-provided admin middleware if available, otherwise fallback
+let requireAdmin = app.firewallRequireAdmin || createFallbackAdminMiddleware();
+console.log(
+  "Admin middleware configured:",
+  app.firewallRequireAdmin ? "Plugin-provided" : "Fallback"
+);
+
+// Setup license-aware admin rate limiting
+const setupAdminRateLimiting = async () => {
+  try {
+    const adminLimiters = await getAdminRateLimiters();
+
+    console.error("🚨 ADMIN RATE LIMITING: License-aware limiters configured", {
+      licensePlan: adminLimiters.config?.licenseInfo?.plan || "unknown",
+      tier: adminLimiters.config?.licenseTiers?.tier || "unknown",
+      adminMax: adminLimiters.config?.admin?.max || "fallback",
+      criticalMax: adminLimiters.config?.critical?.max || "fallback",
+      firewallMax: adminLimiters.config?.firewall?.max || "fallback",
     });
 
-    // Admin user info
-    adminRouter.get("/user", requireAdmin, (req, res) => {
-      res.json({
-        success: true,
-        user: {
+    return adminLimiters;
+  } catch (error) {
+    console.error("🚨 Error setting up admin rate limiting:", error);
+    return null;
+  }
+};
+
+// Admin routes - only accessible to admin users with license-aware rate limiting
+const adminRouter = express.Router();
+
+// Apply license-aware rate limiting to admin routes
+setupAdminRateLimiting()
+  .then((adminLimiters) => {
+    if (adminLimiters) {
+      // Apply general admin rate limiting to all admin routes
+      adminRouter.use(adminLimiters.admin);
+      console.error("🚨 ADMIN RATE LIMITING: Applied to all admin routes");
+    } else {
+      console.error(
+        "🚨 ADMIN RATE LIMITING: Using fallback (no license-aware limiting)"
+      );
+    }
+  })
+  .catch((error) => {
+    console.error("🚨 Error applying admin rate limiting:", error);
+  });
+
+// CRITICAL: Add admin route logging
+adminRouter.use((req, res, next) => {
+  console.error(`🚨 ADMIN ROUTE HIT: ${req.method} ${req.originalUrl}`);
+  console.error(`🚨 IP: ${req.ip}`);
+  console.error(
+    `🚨 User:`,
+    req.user
+      ? {
           id: req.user._id,
           email: req.user.email,
-          name: req.user.name,
           role: req.user.role,
-          isAdmin: req.user.isAdmin(),
-          createdAt: req.user.createdAt,
-        },
-      });
-    });
+        }
+      : "No user"
+  );
+  console.error(
+    `🚨 Authenticated:`,
+    req.isAuthenticated ? req.isAuthenticated() : false
+  );
+  next();
+});
 
-    // Register admin routes WITHOUT license validation
-    app.use("/api/admin", adminRouter);
-    console.error(
-      "🚨 HEROKU DEBUG: ✅ Admin routes registered at /api/admin (NO LICENSE VALIDATION)"
-    );
-  } catch (error) {
-    console.error("🚨 HEROKU DEBUG: ❌ Error registering admin routes:", error);
-  }
-} else {
-  console.error("🚨 HEROKU DEBUG: ❌ Firewall plugin not loaded");
-}
+// Admin dashboard (general admin operation)
+adminRouter.get("/", requireAdmin, (req, res) => {
+  console.error("🚨 ADMIN DASHBOARD: Successful access");
+  res.json({
+    success: true,
+    message: "Admin dashboard access granted",
+    user: {
+      email: req.user.email,
+      role: req.user.role,
+      name: req.user.name,
+    },
+    availablePlugins: Object.keys(app.plugins),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Admin user info (general admin operation)
+adminRouter.get("/user", requireAdmin, (req, res) => {
+  res.json({
+    success: true,
+    user: {
+      id: req.user._id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role,
+      isAdmin: req.user.isAdmin(),
+      createdAt: req.user.createdAt,
+    },
+  });
+});
 
 // Debug endpoint for Heroku troubleshooting
 app.get("/api/debug/heroku", (req, res) => {
@@ -631,6 +980,30 @@ app.get("/api/debug/admin-test", (req, res) => {
   });
 });
 
+// EMERGENCY: Test user session
+app.get("/api/debug/session", (req, res) => {
+  console.error("🚨 SESSION DEBUG:", {
+    sessionID: req.sessionID,
+    hasUser: !!req.user,
+    userEmail: req.user?.email,
+    userRole: req.user?.role,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+    sessionData: req.session,
+    cookies: req.headers.cookie,
+  });
+
+  res.json({
+    success: true,
+    message: "Session debug info",
+    sessionID: req.sessionID,
+    hasUser: !!req.user,
+    userEmail: req.user?.email,
+    userRole: req.user?.role,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // EMERGENCY: Direct admin route test
 app.get("/api/admin-direct", (req, res) => {
   console.error("🚨 EMERGENCY ADMIN DIRECT: Route hit");
@@ -654,46 +1027,55 @@ app.get("/api/admin-direct", (req, res) => {
   });
 });
 
-// CRITICAL: API Route Protection - MUST come before static file serving
-app.use("/api/*", (req, res, next) => {
-  // Log all API requests for debugging
-  console.error(`🚨 API REQUEST: ${req.method} ${req.originalUrl}`);
+// EMERGENCY: Direct plugin test route (bypasses all middleware)
+app.get("/api/plugin-direct", (req, res) => {
+  console.error("🔥 EMERGENCY PLUGIN DIRECT: Route hit");
+  console.error("🔥 This bypasses all plugin middleware");
 
-  // Check if this is a known API route
-  const knownRoutes = [
-    "/api/auth",
-    "/api/contact",
-    "/api/plugins",
-    "/api/admin",
-    "/api/firewall",
-    "/api/web-performance",
-    "/api/debug",
-    "/api/emergency",
-  ];
-  const isKnownRoute = knownRoutes.some((route) =>
-    req.originalUrl.startsWith(route)
-  );
-
-  if (!isKnownRoute) {
-    console.error(`🚨 UNKNOWN API ROUTE: ${req.originalUrl}`);
-    return res.status(404).json({
-      error: "API endpoint not found",
-      path: req.originalUrl,
-      method: req.method,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  // If we get here, it should be handled by a registered route
-  // If not, Express will handle the 404
-  next();
+  res.json({
+    success: true,
+    message: "🔥 EMERGENCY: Direct plugin route working (bypasses middleware)",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    plugins: Object.keys(app.plugins),
+    pluginFunctions: Object.keys(app.plugins).map((name) => ({
+      name,
+      hasGetStatus: !!app.plugins[name]?.getPluginStatus,
+      hasRegisterWithCore: !!app.plugins[name]?.registerWithCore,
+    })),
+  });
 });
 
-// Serve static files in production
+// Serve static files in production - with rate limiting applied FIRST
 if (process.env.NODE_ENV === "production") {
+  // Custom static file serving with rate limit check BEFORE serving any files
+  app.use(async (req, res, next) => {
+    // Skip API routes - they have their own middleware
+    if (req.originalUrl.startsWith("/api/")) {
+      return next();
+    }
+
+    // Check firewall rate limiting BEFORE serving ANY static files
+    if (app.firewallMiddleware) {
+      console.log(
+        `🔥 Checking rate limits for static file: ${req.originalUrl}`
+      );
+
+      // Apply firewall middleware directly - it will handle the response if rate limited
+      return app.firewallMiddleware(req, res, () => {
+        // If not rate limited, continue to static file serving
+        next();
+      });
+    } else {
+      // Fallback if middleware not available
+      next();
+    }
+  });
+
+  // Now serve static files (only reached if not rate limited)
   app.use(express.static(path.join(__dirname, "../../frontend/build")));
 
-  // Catch-all for non-API routes only
+  // Catch-all for HTML routes (also only reached if not rate limited)
   app.get("*", (req, res) => {
     // Double-check this isn't an API route that fell through
     if (req.originalUrl.startsWith("/api/")) {
@@ -707,7 +1089,41 @@ if (process.env.NODE_ENV === "production") {
       });
     }
 
+    // Serve the React app (rate limiting already checked above)
     res.sendFile(path.join(__dirname, "../../frontend/build", "index.html"));
+  });
+} else {
+  // Development mode - also apply rate limiting to all routes
+  app.use(async (req, res, next) => {
+    // Skip API routes - they have their own middleware
+    if (req.originalUrl.startsWith("/api/")) {
+      return next();
+    }
+
+    // Check firewall rate limiting BEFORE serving anything in development too
+    if (app.firewallMiddleware) {
+      console.log(`🔥 DEV: Checking rate limits for: ${req.originalUrl}`);
+
+      // Apply firewall middleware directly - it will handle the response if rate limited
+      return app.firewallMiddleware(req, res, () => {
+        // If not rate limited, continue
+        next();
+      });
+    } else {
+      // Fallback if middleware not available
+      next();
+    }
+  });
+
+  // Catch-all for development (only reached if not rate limited)
+  app.get("*", (req, res, next) => {
+    // Skip API routes
+    if (req.originalUrl.startsWith("/api/")) {
+      return next();
+    }
+
+    // In development, let the React dev server handle it (rate limiting already checked above)
+    next();
   });
 }
 
@@ -739,8 +1155,6 @@ app.use((err, req, res, next) => {
 const connectWithRetry = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
@@ -752,6 +1166,14 @@ const connectWithRetry = async () => {
       await User.upgradeAdminUsers();
     } catch (error) {
       console.error("Error upgrading admin users:", error);
+    }
+
+    // Initialize Hot Load Manager after database connection
+    try {
+      await initializeHotLoadManager();
+    } catch (error) {
+      console.error("Hot Load Manager initialization failed:", error);
+      // Continue without hot-loading if it fails
     }
   } catch (err) {
     console.error("MongoDB connection error:", err);
@@ -772,8 +1194,8 @@ server.on("error", (error) => {
   if (error.code === "EADDRINUSE") {
     console.log("Port is already in use, trying another port...");
     server.close();
-    app.listen(0, () => {
-      console.log(`Server running on port ${server.address().port}`);
+    const newServer = app.listen(0, () => {
+      console.log(`Server running on port ${newServer.address().port}`);
     });
   }
 });
@@ -792,7 +1214,9 @@ app.post("/api/emergency/reset-rate-limits", async (req, res) => {
 
     // Clear rate limit collection
     const mongoose = require("mongoose");
-    await mongoose.connection.db.collection("ratelimits").deleteMany({});
+    await mongoose.connection.db
+      .collection("plugin_firewall_rate_limits")
+      .deleteMany({});
 
     console.log("🚨 EMERGENCY: All rate limits cleared");
 

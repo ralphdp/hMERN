@@ -1,7 +1,4 @@
-import React, { useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { usePlugins } from "../contexts/PluginContext";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import {
   Container,
   Alert,
@@ -9,66 +6,76 @@ import {
   Button,
   CircularProgress,
 } from "@mui/material";
-import { FirewallAdmin } from "../plugins/firewall";
+import { useNavigate } from "react-router-dom";
 
 const AdminFirewall = () => {
-  const { user } = useAuth();
-  const { isPluginEnabled, loading: pluginsLoading } = usePlugins();
   const navigate = useNavigate();
+  const [FirewallComponent, setFirewallComponent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check if user is admin
-    if (!user || user.role !== "admin") {
-      navigate("/dashboard");
-      return;
-    }
+    const loadFirewallComponent = async () => {
+      try {
+        const firewallModule = await import("../plugins/firewall");
+        const { FirewallAdmin } = firewallModule;
 
-    // Check if firewall plugin is enabled (only after plugins are loaded)
-    if (!pluginsLoading && !isPluginEnabled("firewall")) {
-      navigate("/admin");
-      return;
-    }
-  }, [user, navigate, isPluginEnabled, pluginsLoading]);
+        if (FirewallAdmin) {
+          setFirewallComponent(() => FirewallAdmin);
+          console.log("🛡️ Firewall admin component loaded");
+        } else {
+          setError("Firewall admin component not found in plugin module.");
+        }
+      } catch (error) {
+        console.log("📭 Firewall plugin not available:", error.message);
+        setError("Firewall plugin is not installed or not available.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Show loading while plugins are being fetched
-  if (pluginsLoading) {
+    loadFirewallComponent();
+  }, []);
+
+  if (loading) {
     return (
       <Container sx={{ mt: 4, textAlign: "center" }}>
         <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Loading...</Typography>
+        <Typography sx={{ mt: 2 }}>Loading Firewall...</Typography>
       </Container>
     );
   }
 
-  // If user is not admin, don't render anything (redirect will happen)
-  if (!user || user.role !== "admin") {
-    return null;
-  }
-
-  // If firewall plugin is disabled, show error message
-  if (!isPluginEnabled("firewall")) {
+  if (error) {
     return (
       <Container sx={{ mt: 4 }}>
-        <Alert severity="error">
-          <Typography variant="h6">Firewall Plugin Disabled</Typography>
-          <Typography>
-            The firewall plugin is currently disabled. Please enable it in the
-            plugin management section to access this feature.
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="h6">Firewall Plugin Not Available</Typography>
+          <Typography>{error}</Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            To use the Firewall feature, please install the Firewall plugin
+            through the Plugin Management system.
           </Typography>
           <Button
             variant="outlined"
-            color="error"
             onClick={() => navigate("/admin/plugins")}
-            sx={{ mt: 2 }}
+            sx={{ mt: 2, mr: 1 }}
           >
             Go to Plugin Management
+          </Button>
+          <Button
+            variant="text"
+            onClick={() => navigate("/admin")}
+            sx={{ mt: 2 }}
+          >
+            Back to Admin Dashboard
           </Button>
         </Alert>
       </Container>
     );
   }
 
-  return <FirewallAdmin />;
+  return FirewallComponent ? <FirewallComponent /> : null;
 };
 
 export default AdminFirewall;

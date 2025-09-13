@@ -1,49 +1,62 @@
-import { Box, Container, Typography, Button, Grid, Paper, Card, CardContent } from '@mui/material';
-import { Link } from 'react-router-dom';
-import SecurityIcon from '@mui/icons-material/Security';
-import CodeIcon from '@mui/icons-material/Code';
-import SpeedIcon from '@mui/icons-material/Speed';
-import CloudIcon from '@mui/icons-material/Cloud';
+import {
+  Box,
+  Container,
+  Typography,
+  Button,
+  Grid,
+  Paper,
+  Card,
+  CardContent,
+} from "@mui/material";
+import { Link } from "react-router-dom";
+import SecurityIcon from "@mui/icons-material/Security";
+import CodeIcon from "@mui/icons-material/Code";
+import SpeedIcon from "@mui/icons-material/Speed";
+import CloudIcon from "@mui/icons-material/Cloud";
+
+// FirewallStatusPanel is now automatically loaded via plugin overlay system
 
 const FeatureCard = ({ icon, title, description }) => (
-  <Card 
-    sx={{ 
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      transition: 'transform 0.2s, box-shadow 0.2s',
-      '&:hover': {
-        transform: 'translateY(-4px)',
-        boxShadow: 6
+  <Card
+    sx={{
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      transition: "transform 0.2s, box-shadow 0.2s",
+      "&:hover": {
+        transform: "translateY(-4px)",
+        boxShadow: 6,
       },
-      bgcolor: 'background.paper',
-      color: 'text.primary'
+      bgcolor: "background.paper",
+      color: "text.primary",
     }}
   >
-    <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
-      <Box sx={{ 
-        fontSize: '2.5rem', 
-        mb: 2,
-        color: 'primary.main'
-      }}>
+    <CardContent sx={{ flexGrow: 1, textAlign: "center" }}>
+      <Box
+        sx={{
+          fontSize: "2.5rem",
+          mb: 2,
+          color: "primary.main",
+        }}
+      >
         {icon}
       </Box>
-      <Typography 
-        variant="h6" 
-        component="h3" 
+      <Typography
+        variant="h6"
+        component="h3"
         gutterBottom
-        sx={{ 
-          fontWeight: 'bold',
-          color: 'text.primary'
+        sx={{
+          fontWeight: "bold",
+          color: "text.primary",
         }}
       >
         {title}
       </Typography>
-      <Typography 
-        variant="body2" 
+      <Typography
+        variant="body2"
         color="text.secondary"
-        sx={{ 
-          color: 'text.secondary'
+        sx={{
+          color: "text.secondary",
         }}
       >
         {description}
@@ -60,24 +73,24 @@ const Home = () => {
       }}
     >
       {/* Hero Section */}
-      <Box 
-        sx={{ 
-          width: '100%',
-          background: 'linear-gradient(135deg, #1976d2 0%, #2196f3 100%)',
-          color: 'white',
+      <Box
+        sx={{
+          width: "100%",
+          background: "linear-gradient(135deg, #1976d2 0%, #2196f3 100%)",
+          color: "white",
           py: { xs: 8, md: 12 },
-          mb: 8
+          mb: 8,
         }}
       >
         <Container maxWidth="lg">
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: "center" }}>
             <Typography
               variant="h2"
               component="h1"
               gutterBottom
               sx={{
-                fontWeight: 'bold',
-                textShadow: '2px 2px 4px rgba(0,0,0,0.2)',
+                fontWeight: "bold",
+                textShadow: "2px 2px 4px rgba(0,0,0,0.2)",
               }}
             >
               hMERN.app
@@ -91,7 +104,8 @@ const Home = () => {
                 opacity: 0.9,
               }}
             >
-              A straight forward MERN Stack boilerplate using Passport.js for authentication, and Heroku for deployment.
+              A straight forward MERN Stack boilerplate using Passport.js for
+              authentication, and Heroku for deployment.
             </Typography>
           </Box>
         </Container>
@@ -99,14 +113,14 @@ const Home = () => {
 
       <Container maxWidth="lg">
         {/* Features Section */}
-        <Box sx={{ textAlign: 'center', mb: 8 }}>
+        <Box sx={{ textAlign: "center", mb: 8 }}>
           <Typography
             variant="h4"
             component="h2"
             gutterBottom
             sx={{
-              fontWeight: 'bold',
-              mb: 2
+              fontWeight: "bold",
+              mb: 2,
             }}
           >
             Features
@@ -117,53 +131,54 @@ const Home = () => {
             gutterBottom
             sx={{
               opacity: 0.9,
-              color: 'text.secondary',
-              mb: { xs: 2, sm: 4 }
+              color: "text.secondary",
+              mb: { xs: 2, sm: 4 },
             }}
           >
-            A straight forward MERN Stack boilerplate using Passport.js for authentication, and Heroku for deployment.
+            A straight forward MERN Stack boilerplate using Passport.js for
+            authentication, and Heroku for deployment.
           </Typography>
-        <Grid container spacing={4} sx={{ mb: 16 }}>
-          <Grid item xs={12} sm={6} lg={3}>
-            <FeatureCard
-              icon={<SecurityIcon sx={{ fontSize: 40 }} />}
-              title="Secure Authentication"
-              description="Multiple OAuth providers (Google, GitHub, Facebook) with secure session management and email verification."
-            />
+          <Grid container spacing={4} sx={{ mb: 16 }}>
+            <Grid item xs={12} sm={6} lg={3}>
+              <FeatureCard
+                icon={<SecurityIcon sx={{ fontSize: 40 }} />}
+                title="Secure Authentication"
+                description="Multiple OAuth providers (Google, GitHub, Facebook) with secure session management and email verification."
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} lg={3}>
+              <FeatureCard
+                icon={<CodeIcon sx={{ fontSize: 40 }} />}
+                title="Modern Stack"
+                description="Built with MERN stack (MongoDB, Express.js, React.js, Node.js) using modern development practices."
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} lg={3}>
+              <FeatureCard
+                icon={<SpeedIcon sx={{ fontSize: 40 }} />}
+                title="Performance"
+                description="Optimized for speed with efficient database queries, caching, and responsive design."
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} lg={3}>
+              <FeatureCard
+                icon={<CloudIcon sx={{ fontSize: 40 }} />}
+                title="Cloud Ready"
+                description="Ready for deployment with Heroku integration and environment configuration."
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <FeatureCard
-              icon={<CodeIcon sx={{ fontSize: 40 }} />}
-              title="Modern Stack"
-              description="Built with MERN stack (MongoDB, Express.js, React.js, Node.js) using modern development practices."
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <FeatureCard
-              icon={<SpeedIcon sx={{ fontSize: 40 }} />}
-              title="Performance"
-              description="Optimized for speed with efficient database queries, caching, and responsive design."
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} lg={3}>
-            <FeatureCard
-              icon={<CloudIcon sx={{ fontSize: 40 }} />}
-              title="Cloud Ready"
-              description="Ready for deployment with Heroku integration and environment configuration."
-            />
-          </Grid>
-        </Grid>
         </Box>
 
         {/* AI Assistant Section */}
-        <Box sx={{ textAlign: 'center', mb: 8 }}>
+        <Box sx={{ textAlign: "center", mb: 8 }}>
           <Typography
             variant="h4"
             component="h2"
             gutterBottom
             sx={{
-              fontWeight: 'bold',
-              mb: 2
+              fontWeight: "bold",
+              mb: 2,
             }}
           >
             AI Assistant Ready
@@ -174,24 +189,21 @@ const Home = () => {
             gutterBottom
             sx={{
               opacity: 0.9,
-              color: 'text.secondary',
-              mb: { xs: 2, sm: 4 }
+              color: "text.secondary",
+              mb: { xs: 2, sm: 4 },
             }}
           >
-            Seamlessly integrated with leading AI assistants for enhanced development experience
+            Seamlessly integrated with leading AI assistants for enhanced
+            development experience
           </Typography>
-          <Grid 
-            container 
-            spacing={{ xs: 2, sm: 4 }} 
-            justifyContent="center"
-          >
+          <Grid container spacing={{ xs: 2, sm: 4 }} justifyContent="center">
             <Grid item xs={12} sm={4}>
               <Box
                 sx={{
-                  height: { xs: '100px', sm: '150px' },
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  height: { xs: "100px", sm: "150px" },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <Box
@@ -199,15 +211,18 @@ const Home = () => {
                   src="/images/logo-claude.png"
                   alt="Claude AI"
                   sx={{
-                    height: 'auto',
-                    maxWidth: '200px',
-                    maxHeight: '100px',
-                    filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
-                    transition: 'transform 0.2s, filter 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.05)'
+                    height: "auto",
+                    maxWidth: "200px",
+                    maxHeight: "100px",
+                    filter: (theme) =>
+                      theme.palette.mode === "dark"
+                        ? "invert(1)"
+                        : "brightness(0.9)",
+                    transition: "transform 0.2s, filter 0.2s",
+                    "&:hover": {
+                      transform: "scale(1.05)",
                     },
-                    p: 2
+                    p: 2,
                   }}
                 />
               </Box>
@@ -215,10 +230,10 @@ const Home = () => {
             <Grid item xs={12} sm={4}>
               <Box
                 sx={{
-                  height: { xs: '100px', sm: '150px' },
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  height: { xs: "100px", sm: "150px" },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <Box
@@ -226,15 +241,18 @@ const Home = () => {
                   src="/images/logo-cursor.png"
                   alt="Cursor AI"
                   sx={{
-                    height: 'auto',
-                    maxWidth: '200px',
-                    maxHeight: '100px',
-                    filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
-                    transition: 'transform 0.2s, filter 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.05)'
+                    height: "auto",
+                    maxWidth: "200px",
+                    maxHeight: "100px",
+                    filter: (theme) =>
+                      theme.palette.mode === "dark"
+                        ? "invert(1)"
+                        : "brightness(0.9)",
+                    transition: "transform 0.2s, filter 0.2s",
+                    "&:hover": {
+                      transform: "scale(1.05)",
                     },
-                    p: 2
+                    p: 2,
                   }}
                 />
               </Box>
@@ -242,10 +260,10 @@ const Home = () => {
             <Grid item xs={12} sm={4}>
               <Box
                 sx={{
-                  height: { xs: '100px', sm: '150px' },
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  height: { xs: "100px", sm: "150px" },
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 <Box
@@ -253,15 +271,18 @@ const Home = () => {
                   src="/images/logo-windsurf.png"
                   alt="Windsurf AI"
                   sx={{
-                    height: 'auto',
-                    maxWidth: '200px',
-                    maxHeight: '100px',
-                    filter: (theme) => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0.9)',
-                    transition: 'transform 0.2s, filter 0.2s',
-                    '&:hover': {
-                      transform: 'scale(1.05)'
+                    height: "auto",
+                    maxWidth: "200px",
+                    maxHeight: "100px",
+                    filter: (theme) =>
+                      theme.palette.mode === "dark"
+                        ? "invert(1)"
+                        : "brightness(0.9)",
+                    transition: "transform 0.2s, filter 0.2s",
+                    "&:hover": {
+                      transform: "scale(1.05)",
                     },
-                    p: 2
+                    p: 2,
                   }}
                 />
               </Box>
@@ -270,25 +291,28 @@ const Home = () => {
         </Box>
 
         {/* Contact CTA Section */}
-        <Box 
-          sx={{ 
-            width: '100%',
-            bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'white',
+        <Box
+          sx={{
+            width: "100%",
+            bgcolor: (theme) =>
+              theme.palette.mode === "dark"
+                ? "rgba(255, 255, 255, 0.05)"
+                : "white",
             py: { xs: 6, md: 8 },
             mt: 8,
             borderRadius: 2,
           }}
         >
           <Container maxWidth="lg">
-            <Box sx={{ textAlign: 'center' }}>
+            <Box sx={{ textAlign: "center" }}>
               <Typography
                 variant="h5"
                 component="h2"
                 gutterBottom
                 sx={{
-                  fontWeight: 'bold',
+                  fontWeight: "bold",
                   mb: 2,
-                  color: 'text.primary'
+                  color: "text.primary",
                 }}
               >
                 Contact Us!
@@ -297,12 +321,13 @@ const Home = () => {
                 variant="body1"
                 sx={{
                   mb: 4,
-                  color: 'text.secondary',
-                  maxWidth: '600px',
-                  mx: 'auto'
+                  color: "text.secondary",
+                  maxWidth: "600px",
+                  mx: "auto",
                 }}
               >
-                Have questions or need assistance? Our team is here to help you get the most out of hMERN.app.
+                Have questions or need assistance? Our team is here to help you
+                get the most out of hMERN.app.
               </Typography>
               <Button
                 component={Link}
@@ -312,13 +337,13 @@ const Home = () => {
                 sx={{
                   px: 4,
                   py: 1.5,
-                  fontSize: '1.1rem',
+                  fontSize: "1.1rem",
                   borderRadius: 2,
-                  textTransform: 'none',
+                  textTransform: "none",
                   boxShadow: 2,
-                  '&:hover': {
-                    boxShadow: 4
-                  }
+                  "&:hover": {
+                    boxShadow: 4,
+                  },
                 }}
               >
                 Contact Us
@@ -331,4 +356,4 @@ const Home = () => {
   );
 };
 
-export default Home; 
+export default Home;

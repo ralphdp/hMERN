@@ -1,6 +1,10 @@
 const nodemailer = require("nodemailer");
 const { FirewallRule } = require("./models");
 
+// Use centralized logging system
+const { createPluginLogger } = require("../../utils/logger");
+const logger = createPluginLogger("firewall");
+
 const createTransporter = () => {
   const requiredEnvVars = [
     "EMAIL_HOST",
@@ -42,7 +46,10 @@ const sendEmail = async (mailOptions) => {
     const transporter = createTransporter();
     return await transporter.sendMail(mailOptions);
   } catch (error) {
-    console.error("Error sending email:", error);
+    logger.utils.error("Error sending email", {
+      error: error.message,
+      errorStack: error.stack,
+    });
   }
 };
 
@@ -215,30 +222,30 @@ const addCommonFirewallRules = async (invalidateRuleCache) => {
       },
     ];
 
-    console.log(
-      `[addCommonFirewallRules] Adding ${commonRules.length} common rules...`
-    );
+    logger.utils.info("Adding common firewall rules", {
+      ruleCount: commonRules.length,
+    });
 
     // Remove existing common rules first
     const deleteResult = await FirewallRule.deleteMany({
       source: "common_rules",
     });
-    console.log(
-      `[addCommonFirewallRules] Deleted ${deleteResult.deletedCount} existing common rules`
-    );
+    logger.utils.info("Deleted existing common rules", {
+      deletedCount: deleteResult.deletedCount,
+    });
 
     // Insert new common rules
     const result = await FirewallRule.insertMany(commonRules, {
       ordered: false,
     });
-    console.log(
-      `[addCommonFirewallRules] Successfully added ${result.length} common rules`
-    );
+    logger.utils.info("Successfully added common rules", {
+      addedCount: result.length,
+    });
 
     // Invalidate cache
     if (invalidateRuleCache) {
       invalidateRuleCache();
-      console.log(`[addCommonFirewallRules] Rule cache invalidated`);
+      logger.utils.debug("Rule cache invalidated");
     }
 
     return {
@@ -248,7 +255,10 @@ const addCommonFirewallRules = async (invalidateRuleCache) => {
       message: `Successfully added ${result.length} common firewall rules`,
     };
   } catch (error) {
-    console.error(`[addCommonFirewallRules] Error:`, error);
+    logger.utils.error("Error adding common firewall rules", {
+      error: error.message,
+      errorStack: error.stack,
+    });
     return {
       success: false,
       error: error.message,
@@ -257,8 +267,246 @@ const addCommonFirewallRules = async (invalidateRuleCache) => {
   }
 };
 
+// Data Retention Cleanup Functions
+const cleanupExpiredLogs = async (retentionDays = 30) => {
+  const { FirewallLog } = require("./models");
+
+  try {
+    const cutoffDate = new Date(
+      Date.now() - retentionDays * 24 * 60 * 60 * 1000
+    );
+    const result = await FirewallLog.deleteMany({
+      timestamp: { $lt: cutoffDate },
+    });
+
+    if (result.deletedCount > 0) {
+      logger.utils.info("Deleted expired logs", {
+        deletedCount: result.deletedCount,
+        retentionDays,
+      });
+    }
+
+    return result.deletedCount;
+  } catch (error) {
+    logger.utils.error("Failed to clean up expired logs", {
+      error: error.message,
+      errorStack: error.stack,
+    });
+    return 0;
+  }
+};
+
+const enforceMaxLogEntries = async (maxEntries = 10000) => {
+  const { FirewallLog } = require("./models");
+
+  try {
+    const totalCount = await FirewallLog.countDocuments();
+
+    if (totalCount > maxEntries) {
+      const excessCount = totalCount - maxEntries;
+
+      // Delete oldest logs beyond the limit
+      const oldestLogs = await FirewallLog.find()
+        .sort({ timestamp: 1 })
+        .limit(excessCount)
+        .select("_id");
+
+      const idsToDelete = oldestLogs.map((log) => log._id);
+      const result = await FirewallLog.deleteMany({
+        _id: { $in: idsToDelete },
+      });
+
+      logger.utils.info("Deleted excess logs", {
+        deletedCount: result.deletedCount,
+        maxEntries,
+      });
+      return result.deletedCount;
+    }
+
+    return 0;
+  } catch (error) {
+    logger.utils.error("Failed to enforce max log entries", {
+      error: error.message,
+      errorStack: error.stack,
+    });
+    return 0;
+  }
+};
+
+const performDataRetentionCleanup = async (force = false, range = "all") => {
+  try {
+    logger.utils.info("Starting data retention cleanup", {
+      mode: force ? "manual" : "automatic",
+      range: force ? range : "automatic",
+    });
+
+    const { FirewallLog } = require("./models");
+
+    if (force) {
+      // Manual cleanup with different range options
+      logger.utils.info("Manual cleanup with specific range", { range });
+
+      let deleteFilter = {};
+      let deletedCount = 0;
+      let rangeDescription = "";
+
+      switch (range) {
+        case "all":
+          // Delete ALL logs
+          deleteFilter = {};
+          rangeDescription = "all logs";
+          break;
+
+        case "last7days":
+          // Delete logs from the last 7 days
+          const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          deleteFilter = { timestamp: { $gte: last7Days } };
+          rangeDescription = "logs from the last 7 days";
+          break;
+
+        case "last30days":
+          // Delete logs from the last 30 days
+          const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          deleteFilter = { timestamp: { $gte: last30Days } };
+          rangeDescription = "logs from the last 30 days";
+          break;
+
+        case "last90days":
+          // Delete logs from the last 90 days
+          const last90Days = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+          deleteFilter = { timestamp: { $gte: last90Days } };
+          rangeDescription = "logs from the last 90 days";
+          break;
+
+        case "older6months":
+          // Delete logs older than 6 months
+          const sixMonthsAgo = new Date(
+            Date.now() - 6 * 30 * 24 * 60 * 60 * 1000
+          );
+          deleteFilter = { timestamp: { $lt: sixMonthsAgo } };
+          rangeDescription = "logs older than 6 months";
+          break;
+
+        case "older1year":
+          // Delete logs older than 1 year
+          const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+          deleteFilter = { timestamp: { $lt: oneYearAgo } };
+          rangeDescription = "logs older than 1 year";
+          break;
+
+        default:
+          // Default to all logs
+          deleteFilter = {};
+          rangeDescription = "all logs";
+      }
+
+      const result = await FirewallLog.deleteMany(deleteFilter);
+      deletedCount = result.deletedCount;
+
+      logger.utils.info("Manual cleanup completed", {
+        deletedCount,
+        rangeDescription,
+      });
+
+      return {
+        deletedByAge: 0,
+        deletedByCount: deletedCount,
+        totalDeleted: deletedCount,
+        forced: true,
+        range: range,
+        rangeDescription: rangeDescription,
+      };
+    }
+
+    // Automatic cleanup - use retention settings
+    const { FirewallConfig } = require("./models");
+    const { STATIC_CONFIG } = require("./config");
+
+    let config = await FirewallConfig.findOne({
+      pluginId: STATIC_CONFIG.pluginId,
+    });
+
+    // Use default values if no config found
+    const retentionDays = config?.thresholds?.logRetentionDays || 30;
+    const maxEntries = config?.thresholds?.maxLogEntries || 10000;
+
+    logger.utils.info("Using retention settings", {
+      retentionDays,
+      maxEntries,
+    });
+
+    // Perform cleanup operations
+    const deletedByAge = await cleanupExpiredLogs(retentionDays);
+    const deletedByCount = await enforceMaxLogEntries(maxEntries);
+
+    const totalDeleted = deletedByAge + deletedByCount;
+
+    if (totalDeleted > 0) {
+      logger.utils.info("Cleanup completed", {
+        totalDeleted,
+        deletedByAge,
+        deletedByCount,
+      });
+    } else {
+      logger.utils.info("Cleanup completed - no cleanup needed");
+    }
+
+    return { deletedByAge, deletedByCount, totalDeleted };
+  } catch (error) {
+    logger.utils.error("Data retention cleanup failed", {
+      error: error.message,
+      errorStack: error.stack,
+    });
+    return {
+      deletedByAge: 0,
+      deletedByCount: 0,
+      totalDeleted: 0,
+      error: error.message,
+    };
+  }
+};
+
+// Schedule cleanup job to run daily
+let cleanupInterval = null;
+
+const startDataRetentionJobs = () => {
+  if (cleanupInterval) {
+    logger.utils.info("Data retention jobs already running");
+    return;
+  }
+
+  logger.utils.info("Starting data retention jobs");
+
+  // Run cleanup immediately on startup
+  setImmediate(() => {
+    performDataRetentionCleanup();
+  });
+
+  // Schedule cleanup every 24 hours
+  cleanupInterval = setInterval(() => {
+    performDataRetentionCleanup();
+  }, 24 * 60 * 60 * 1000); // 24 hours
+
+  logger.utils.info("Data retention jobs scheduled", {
+    interval: "24 hours",
+  });
+};
+
+const stopDataRetentionJobs = () => {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+    logger.utils.info("Data retention jobs stopped");
+  }
+};
+
 module.exports = {
   sendFirewallTestResultEmail,
   sendFirewallAlertEmail,
   addCommonFirewallRules,
+  cleanupExpiredLogs,
+  enforceMaxLogEntries,
+  performDataRetentionCleanup,
+  startDataRetentionJobs,
+  stopDataRetentionJobs,
 };

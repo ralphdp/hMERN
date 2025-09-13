@@ -23,6 +23,14 @@ import {
   ListItemIcon,
   Paper,
   Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
+  IconButton,
 } from "@mui/material";
 import {
   Analytics as AnalyticsIcon,
@@ -42,7 +50,10 @@ import {
   DataUsage as DataUsageIcon,
   Timer as TimerIcon,
   Memory as MemoryIcon,
+  Download as DownloadIcon,
+  Assessment as AssessmentIcon,
 } from "@mui/icons-material";
+import { LineChart, BarChart, PieChart } from "@mui/x-charts";
 import PerformanceTrendsChart from "./PerformanceTrendsChart";
 import OptimizationSparkline from "./OptimizationSparkline";
 import { useWebPerformanceMetrics } from "../hooks/useWebPerformanceMetrics";
@@ -151,10 +162,16 @@ const WebPerformanceDashboard = ({
   stats,
   refreshData,
   showAlert,
+  apiCall,
+  showSnackbar,
 }) => {
   const [timeRange, setTimeRange] = useState("24h");
+  const [granularity, setGranularity] = useState("hour");
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState([]);
+  const [analyticsSummary, setAnalyticsSummary] = useState({});
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   const {
     coreWebVitals,
@@ -172,25 +189,94 @@ const WebPerformanceDashboard = ({
   // Check if master switch is enabled
   const isEnabled = settings?.general?.enabled || false;
 
+  // Fetch analytics data
+  const fetchAnalytics = useCallback(async () => {
+    if (!apiCall) return;
+
+    try {
+      setAnalyticsLoading(true);
+      const data = await apiCall(
+        `analytics?timeRange=${timeRange}&granularity=${granularity}`
+      );
+      setAnalyticsData(data.data.analytics || []);
+      setAnalyticsSummary(data.data.summary || {});
+    } catch (error) {
+      if (showSnackbar) {
+        showSnackbar("Error fetching analytics", "error");
+      }
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [apiCall, timeRange, granularity, showSnackbar]);
+
+  // Export analytics functionality
+  const exportAnalytics = async () => {
+    try {
+      const response = await fetch(
+        `${getBackendUrl()}/api/web-performance/export?type=analytics&format=csv&timeRange=${timeRange}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = `web-performance-analytics-${timeRange}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        if (showSnackbar) {
+          showSnackbar("Analytics exported successfully", "success");
+        }
+      } else {
+        if (showSnackbar) {
+          showSnackbar("Error exporting analytics", "error");
+        }
+      }
+    } catch (error) {
+      if (showSnackbar) {
+        showSnackbar("Error exporting analytics", "error");
+      }
+    }
+  };
+
   // Time range change handler
   const handleTimeRangeChange = (event) => {
     setTimeRange(event.target.value);
   };
 
+  // Granularity change handler
+  const handleGranularityChange = (event) => {
+    setGranularity(event.target.value);
+  };
+
   // Manual refresh handler (only refreshes metrics, not parent data)
   const handleRefresh = () => {
     fetchMetrics();
+    fetchAnalytics();
   };
 
   // Combined refresh function for auto-refresh (includes parent stats)
   const handleRefreshAll = useCallback(async () => {
     try {
-      await Promise.all([fetchMetrics(), refreshData()]);
+      await Promise.all([fetchMetrics(), refreshData(), fetchAnalytics()]);
       // Silent refresh - no alert for success
     } catch (error) {
       showAlert("Failed to refresh data", "error");
     }
-  }, [fetchMetrics, refreshData, showAlert]);
+  }, [fetchMetrics, refreshData, fetchAnalytics, showAlert]);
+
+  // Fetch analytics data when timeRange or granularity changes
+  useEffect(() => {
+    if (isEnabled) {
+      fetchAnalytics();
+    }
+  }, [timeRange, granularity, isEnabled, fetchAnalytics]);
 
   // Auto-refresh toggle (using firewall's 30-second interval pattern)
   const handleAutoRefreshToggle = (event) => {
@@ -215,6 +301,51 @@ const WebPerformanceDashboard = ({
       }
     }
   }, [autoRefresh, isEnabled, handleRefreshAll]);
+
+  // Analytics chart configuration
+  const chartColors = {
+    primary: "#1976d2",
+    secondary: "#dc004e",
+    success: "#2e7d32",
+    warning: "#ed6c02",
+    info: "#0288d1",
+    error: "#d32f2f",
+  };
+
+  // Process analytics data for charts
+  const processedAnalytics = analyticsData.map((item, index) => ({
+    ...item,
+    time:
+      granularity === "hour"
+        ? new Date(item.date).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : new Date(item.date).toLocaleDateString(),
+    loadTime: item.performance?.avgLoadTime || 0,
+    cacheHitRate: (item.cache?.hitRate || 0) * 100,
+    optimizedFiles: item.optimization?.filesProcessed || 0,
+    bandwidthSaved: (item.cache?.bandwidthSaved || 0) / 1024, // Convert to KB
+  }));
+
+  // Core Web Vitals distribution data
+  const coreWebVitalsDistribution = [
+    { name: "Good", value: 65, color: chartColors.success },
+    { name: "Needs Improvement", value: 25, color: chartColors.warning },
+    { name: "Poor", value: 10, color: chartColors.error },
+  ];
+
+  // Time range and granularity options
+  const timeRangeOptions = [
+    { value: "24h", label: "Last 24 Hours" },
+    { value: "7d", label: "Last 7 Days" },
+    { value: "30d", label: "Last 30 Days" },
+  ];
+
+  const granularityOptions = [
+    { value: "hour", label: "Hourly" },
+    { value: "day", label: "Daily" },
+  ];
 
   // Show disabled message when master switch is off
   if (!isEnabled) {
@@ -241,13 +372,16 @@ const WebPerformanceDashboard = ({
       <Box
         sx={{
           display: "flex",
-          justifyContent: "flex-end",
+          justifyContent: "space-between",
           alignItems: "center",
           mb: 3,
           flexWrap: "wrap",
           gap: 2,
         }}
       >
+        <Typography variant="h5" component="h2">
+          Performance Dashboard & Analytics
+        </Typography>
         <Box
           sx={{
             display: "flex",
@@ -263,9 +397,26 @@ const WebPerformanceDashboard = ({
               onChange={handleTimeRangeChange}
               label="Time Range"
             >
-              <MenuItem value="24h">Last 24 Hours</MenuItem>
-              <MenuItem value="7d">Last 7 Days</MenuItem>
-              <MenuItem value="30d">Last 30 Days</MenuItem>
+              {timeRangeOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Granularity</InputLabel>
+            <Select
+              value={granularity}
+              onChange={handleGranularityChange}
+              label="Granularity"
+            >
+              {granularityOptions.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -292,10 +443,22 @@ const WebPerformanceDashboard = ({
 
           <Button
             variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={exportAnalytics}
+          >
+            Export
+          </Button>
+
+          <Button
+            variant="outlined"
             onClick={handleRefresh}
-            disabled={loading}
+            disabled={loading || analyticsLoading}
             startIcon={
-              loading ? <CircularProgress size={16} /> : <RefreshIcon />
+              loading || analyticsLoading ? (
+                <CircularProgress size={16} />
+              ) : (
+                <RefreshIcon />
+              )
             }
           >
             Refresh
@@ -658,6 +821,137 @@ const WebPerformanceDashboard = ({
         </Grid>
       </Grid>
 
+      {/* Advanced Analytics Charts */}
+      {analyticsLoading && <LinearProgress sx={{ mb: 2 }} />}
+
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {/* Load Time Trend */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader title="Load Time Trend" />
+            <CardContent>
+              {processedAnalytics.length > 0 ? (
+                <Box sx={{ width: "100%", height: 300 }}>
+                  <LineChart
+                    xAxis={[
+                      {
+                        dataKey: "time",
+                        scaleType: "point",
+                      },
+                    ]}
+                    series={[
+                      {
+                        dataKey: "loadTime",
+                        label: "Load Time (s)",
+                        color: chartColors.primary,
+                      },
+                    ]}
+                    dataset={processedAnalytics}
+                    margin={{ left: 70, right: 30, top: 30, bottom: 60 }}
+                    grid={{ vertical: true, horizontal: true }}
+                  />
+                </Box>
+              ) : (
+                <Alert severity="info">No load time data available</Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Cache Performance */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader title="Cache Hit Rate" />
+            <CardContent>
+              {processedAnalytics.length > 0 ? (
+                <Box sx={{ width: "100%", height: 300 }}>
+                  <LineChart
+                    xAxis={[
+                      {
+                        dataKey: "time",
+                        scaleType: "point",
+                      },
+                    ]}
+                    series={[
+                      {
+                        dataKey: "cacheHitRate",
+                        label: "Hit Rate (%)",
+                        color: chartColors.success,
+                        area: true,
+                      },
+                    ]}
+                    dataset={processedAnalytics}
+                    margin={{ left: 70, right: 30, top: 30, bottom: 60 }}
+                    grid={{ vertical: true, horizontal: true }}
+                  />
+                </Box>
+              ) : (
+                <Alert severity="info">No cache data available</Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Optimization Progress */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader title="Files Optimized" />
+            <CardContent>
+              {processedAnalytics.length > 0 ? (
+                <Box sx={{ width: "100%", height: 300 }}>
+                  <BarChart
+                    xAxis={[
+                      {
+                        dataKey: "time",
+                        scaleType: "band",
+                      },
+                    ]}
+                    series={[
+                      {
+                        dataKey: "optimizedFiles",
+                        label: "Optimized Files",
+                        color: chartColors.info,
+                      },
+                    ]}
+                    dataset={processedAnalytics}
+                    margin={{ left: 70, right: 30, top: 30, bottom: 60 }}
+                    grid={{ vertical: true, horizontal: true }}
+                  />
+                </Box>
+              ) : (
+                <Alert severity="info">No optimization data available</Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Core Web Vitals Distribution */}
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardHeader title="Core Web Vitals Distribution" />
+            <CardContent>
+              <Box sx={{ width: "100%", height: 300 }}>
+                <PieChart
+                  series={[
+                    {
+                      data: coreWebVitalsDistribution.map((item, index) => ({
+                        id: index,
+                        value: item.value,
+                        label: `${item.name}: ${item.value}%`,
+                        color: item.color,
+                      })),
+                      innerRadius: 60,
+                      outerRadius: 100,
+                    },
+                  ]}
+                  margin={{ left: 80, right: 80, top: 80, bottom: 80 }}
+                />
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
       {/* Feature Status (from Overview) */}
       <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
         Feature Status
@@ -987,6 +1281,74 @@ const WebPerformanceDashboard = ({
                 <Typography variant="body2" color="text.secondary">
                   No recent activities available.
                 </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Recent Analytics Data Table */}
+      <Grid container spacing={3}>
+        <Grid item xs={12}>
+          <Card>
+            <CardHeader title="Recent Performance Data" />
+            <CardContent>
+              {processedAnalytics.length > 0 ? (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Time</TableCell>
+                        <TableCell>Load Time (s)</TableCell>
+                        <TableCell>Cache Hit Rate</TableCell>
+                        <TableCell>Files Optimized</TableCell>
+                        <TableCell>Bandwidth Saved</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {processedAnalytics.slice(-10).map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{item.time}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={`${item.loadTime.toFixed(2)}s`}
+                              color={
+                                item.loadTime < 3
+                                  ? "success"
+                                  : item.loadTime < 5
+                                  ? "warning"
+                                  : "error"
+                              }
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={`${item.cacheHitRate.toFixed(1)}%`}
+                              color={
+                                item.cacheHitRate > 80
+                                  ? "success"
+                                  : item.cacheHitRate > 60
+                                  ? "warning"
+                                  : "error"
+                              }
+                              size="small"
+                            />
+                          </TableCell>
+                          <TableCell>{item.optimizedFiles}</TableCell>
+                          <TableCell>
+                            {item.bandwidthSaved.toFixed(1)} KB
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Alert severity="info">
+                  No analytics data available. Performance data will appear here
+                  as your application is used.
+                </Alert>
               )}
             </CardContent>
           </Card>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   AppBar,
   Box,
@@ -24,29 +24,30 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions
-} from '@mui/material';
+  DialogActions,
+} from "@mui/material";
 import {
   Menu as MenuIcon,
   Brightness4,
   Brightness7,
-} from '@mui/icons-material';
-import { Link, useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import AnimatedLogo from './AnimatedLogo';
-import Header from './Header';
-import Footer from './Footer';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import TwitterIcon from '@mui/icons-material/Twitter';
-import FacebookIcon from '@mui/icons-material/Facebook';
-import InstagramIcon from '@mui/icons-material/Instagram';
+} from "@mui/icons-material";
+import { Link, useNavigate, useLocation, Outlet } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import AnimatedLogo from "./AnimatedLogo";
+import Header from "./Header";
+import Footer from "./Footer";
+import PluginOverlays from "./PluginOverlays";
+import GitHubIcon from "@mui/icons-material/GitHub";
+import TwitterIcon from "@mui/icons-material/Twitter";
+import FacebookIcon from "@mui/icons-material/Facebook";
+import InstagramIcon from "@mui/icons-material/Instagram";
 
 const Layout = ({ mode, toggleColorMode, user }) => {
   const { isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const [anchorElUser, setAnchorElUser] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -69,18 +70,16 @@ const Layout = ({ mode, toggleColorMode, user }) => {
       await logout();
       handleCloseUserMenu();
       setLogoutDialogOpen(false);
-      navigate('/');
+      navigate("/");
     } catch (err) {
-      console.error('Logout error:', err);
+      console.error("Logout error:", err);
     }
   };
 
-  const navItems = [
-    { label: 'Home', path: '/' }
-  ];
+  const navItems = [{ label: "Home", path: "/" }];
 
   const drawer = (
-    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
+    <Box onClick={handleDrawerToggle} sx={{ textAlign: "center" }}>
       <Typography variant="h6" sx={{ my: 2 }}>
         hMERN.app
       </Typography>
@@ -93,11 +92,11 @@ const Layout = ({ mode, toggleColorMode, user }) => {
             to={item.path}
             selected={location.pathname === item.path}
             sx={{
-              color: 'inherit',
-              textDecoration: 'none',
-              '&.Mui-selected': {
-                backgroundColor: 'primary.main',
-                color: 'white',
+              color: "inherit",
+              textDecoration: "none",
+              "&.Mui-selected": {
+                backgroundColor: "primary.main",
+                color: "white",
               },
             }}
           >
@@ -109,13 +108,13 @@ const Layout = ({ mode, toggleColorMode, user }) => {
             <ListItem
               component={Link}
               to="/login"
-              selected={location.pathname === '/login'}
+              selected={location.pathname === "/login"}
               sx={{
-                color: 'inherit',
-                textDecoration: 'none',
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
+                color: "inherit",
+                textDecoration: "none",
+                "&.Mui-selected": {
+                  backgroundColor: "primary.main",
+                  color: "white",
                 },
               }}
             >
@@ -124,13 +123,13 @@ const Layout = ({ mode, toggleColorMode, user }) => {
             <ListItem
               component={Link}
               to="/register"
-              selected={location.pathname === '/register'}
+              selected={location.pathname === "/register"}
               sx={{
-                color: 'inherit',
-                textDecoration: 'none',
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'white',
+                color: "inherit",
+                textDecoration: "none",
+                "&.Mui-selected": {
+                  backgroundColor: "primary.main",
+                  color: "white",
                 },
               }}
             >
@@ -145,29 +144,32 @@ const Layout = ({ mode, toggleColorMode, user }) => {
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: '100vh',
-        overflow: 'hidden',
-        position: 'relative'
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        overflow: "hidden",
+        position: "relative",
       }}
     >
       <Header mode={mode} toggleColorMode={toggleColorMode} user={user} />
-      <Box 
-        component="main" 
-        sx={{ 
+      <Box
+        component="main"
+        sx={{
           flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'auto',
-          pb: 0
+          display: "flex",
+          flexDirection: "column",
+          overflow: "auto",
+          pb: 0,
         }}
       >
         <Outlet />
       </Box>
       <Footer />
+
+      {/* Plugin Overlay Components - Rendered on all pages */}
+      <PluginOverlays />
     </Box>
   );
 };
 
-export default Layout; 
+export default Layout;

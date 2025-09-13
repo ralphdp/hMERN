@@ -34,6 +34,7 @@ import {
   Select,
   Grid,
   ButtonGroup,
+  Alert,
 } from "@mui/material";
 import {
   Help as HelpIcon,
@@ -52,6 +53,9 @@ import {
   Clear as ClearIcon,
   DateRange as DateRangeIcon,
   CalendarToday as CalendarTodayIcon,
+  BugReport as BugReportIcon,
+  Warning as WarningIcon,
+  NotInterested as DisabledIcon,
 } from "@mui/icons-material";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -59,9 +63,20 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import RuleSparkline from "./RuleSparkline";
 import FirewallLocalStorage from "../../../utils/localStorage";
+import createLogger from "../../../utils/logger";
+import { useFirewallSnackbar } from "./FirewallSnackbarProvider";
+
+// Initialize logger for firewall rules component
+const logger = createLogger("FirewallAdminRules");
 
 const FirewallAdminRules = ({
   rules,
+  hasAnyFeatureEnabled,
+  isFeatureEnabled,
+  getFeatureTooltip,
+  getDisabledStyle,
+  getDisabledRowStyle,
+  getRuleTypeEnabled,
   getRuleTypeChip,
   formatDate,
   handleEditRule,
@@ -76,6 +91,10 @@ const FirewallAdminRules = ({
   addingCommonRules,
   handleImportThreatFeeds,
   importingThreats,
+  handleAdvancedRuleTesting,
+  advancedTesting,
+  advancedTestResults,
+  onViewTestResults,
 }) => {
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [filtersAnchorEl, setFiltersAnchorEl] = React.useState(null);
@@ -93,31 +112,13 @@ const FirewallAdminRules = ({
   const open = Boolean(anchorEl);
   const filtersOpen = Boolean(filtersAnchorEl);
 
-  // Notification modal state
-  const [notificationModal, setNotificationModal] = React.useState({
-    open: false,
-    title: "",
-    message: "",
-    severity: "info", // "info", "warning", "error", "success"
-  });
+  // Snackbar helper
+  const { showSnackbar } = useFirewallSnackbar();
 
-  // Helper function to show notifications
+  // Compatibility alias for existing code
   const showNotification = (title, message, severity = "info") => {
-    setNotificationModal({
-      open: true,
-      title,
-      message,
-      severity,
-    });
-  };
-
-  const closeNotification = () => {
-    setNotificationModal({
-      open: false,
-      title: "",
-      message: "",
-      severity: "info",
-    });
+    // For snackbar, we just use the message and severity
+    showSnackbar(message, severity);
   };
 
   // Initialize state from localStorage
@@ -238,10 +239,9 @@ const FirewallAdminRules = ({
     );
   }, [endDate]);
 
-  console.log(
-    "[FirewallAdminRules] Component rendered. handleAddCommonRules prop type:",
-    typeof handleAddCommonRules
-  );
+  logger.debug("Component rendered", {
+    handleAddCommonRulesPropType: typeof handleAddCommonRules,
+  });
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
@@ -279,15 +279,21 @@ const FirewallAdminRules = ({
     if (ruleToDelete) {
       setIsProcessing(true);
       try {
-        console.log(`[SingleDelete] Deleting rule: ${ruleToDelete._id}`);
+        logger.debug("Deleting single rule", {
+          ruleId: ruleToDelete._id,
+          ruleName: ruleToDelete.name,
+        });
         await deleteRuleWithoutRefresh(ruleToDelete._id);
-        console.log(`[SingleDelete] Rule deleted, refreshing rules list...`);
+        logger.debug("Rule deleted, refreshing rules list");
         await fetchRules();
         // Refresh dashboard stats to show updated counts
         await fetchStats();
-        console.log(`[SingleDelete] Rules list and stats refreshed`);
+        logger.debug("Rules list and stats refreshed after single delete");
       } catch (error) {
-        console.error(`[SingleDelete] Failed to delete rule:`, error);
+        logger.error("Failed to delete rule", {
+          error: error.message,
+          ruleId: ruleToDelete._id,
+        });
       } finally {
         setIsProcessing(false);
       }
@@ -334,7 +340,10 @@ const FirewallAdminRules = ({
     // Process deletions sequentially to avoid rate limiting
     for (let i = 0; i < selectedRules.length; i++) {
       const ruleId = selectedRules[i];
-      console.log(`Deleting rule ${i + 1}/${selectedRules.length}: ${ruleId}`);
+      logger.debug("Bulk deleting rule", {
+        progress: `${i + 1}/${selectedRules.length}`,
+        ruleId,
+      });
 
       try {
         await deleteRuleWithoutRefresh(ruleId);
@@ -344,7 +353,10 @@ const FirewallAdminRules = ({
           await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
         }
       } catch (error) {
-        console.error(`Failed to delete rule ${ruleId}:`, error);
+        logger.error("Failed to delete rule in bulk", {
+          error: error.message,
+          ruleId,
+        });
         errorCount++;
         errors.push(error.message || "Unknown error");
         // Continue with other deletions even if one fails
@@ -352,32 +364,29 @@ const FirewallAdminRules = ({
     }
 
     // Refresh the rules list once at the end
-    console.log(
-      `[BulkDelete] Refreshing rules list after deleting ${successCount} rules...`
-    );
+    logger.debug("Refreshing rules list after bulk delete", { successCount });
     await fetchRules();
     // Refresh dashboard stats to show updated counts
     await fetchStats();
-    console.log(`[BulkDelete] Rules list and stats refreshed`);
+    logger.debug("Rules list and stats refreshed after bulk delete");
 
     // Show summary alert
     if (successCount > 0 && errorCount === 0) {
       // All deletions successful
-      console.log(`[BulkDelete] SUCCESS: Deleted ${successCount} rules`);
+      logger.info("Bulk delete completed successfully", { successCount });
     } else if (successCount > 0 && errorCount > 0) {
       // Some deletions failed
-      console.log(
-        `[BulkDelete] PARTIAL: Deleted ${successCount} rules successfully, ${errorCount} failed. Errors: ${errors.join(
-          ", "
-        )}`
-      );
+      logger.warn("Bulk delete completed with errors", {
+        successCount,
+        errorCount,
+        errors: errors.join(", "),
+      });
     } else {
       // All deletions failed
-      console.log(
-        `[BulkDelete] FAILED: All deletions failed. Errors: ${errors.join(
-          ", "
-        )}`
-      );
+      logger.error("Bulk delete failed completely", {
+        errorCount,
+        errors: errors.join(", "),
+      });
     }
 
     setSelectedRules([]);
@@ -388,9 +397,11 @@ const FirewallAdminRules = ({
   const handleSort = (column) => {
     const isAsc = sortBy === column && sortDirection === "asc";
     const newDirection = isAsc ? "desc" : "asc";
-    console.log(
-      `[Rules Sort] Clicked column: ${column}, current: ${sortBy}/${sortDirection}, new: ${column}/${newDirection}`
-    );
+    logger.debug("Rules column sort changed", {
+      column,
+      currentSort: `${sortBy}/${sortDirection}`,
+      newSort: `${column}/${newDirection}`,
+    });
     setSortDirection(newDirection);
     setSortBy(column);
   };
@@ -406,10 +417,10 @@ const FirewallAdminRules = ({
     let aVal = a[orderBy];
     let bVal = b[orderBy];
 
-    // Debug first few comparisons
-    if (Math.random() < 0.1) {
-      // Only log 10% of comparisons to avoid spam
-      console.log(`[Rules Sort] Comparing ${orderBy}: "${aVal}" vs "${bVal}"`);
+    // Debug first few comparisons (reduced logging for performance)
+    if (Math.random() < 0.01) {
+      // Only log 1% of comparisons to avoid spam
+      logger.debug("Rules sort comparison", { orderBy, aVal, bVal });
     }
 
     // Handle different data types
@@ -498,11 +509,13 @@ const FirewallAdminRules = ({
 
     // Apply sorting - create new array to ensure React detects the change
     const sorted = [...filtered].sort(getComparator(sortDirection, sortBy));
-    console.log(
-      `[Rules Sort] Applied sort by ${sortBy} ${sortDirection}, first item:`,
-      sorted[0]?.name,
-      sorted[0]?.[sortBy]
-    );
+    logger.debug("Rules sort applied", {
+      sortBy,
+      sortDirection,
+      filteredCount: filtered.length,
+      firstItemName: sorted[0]?.name,
+      firstItemValue: sorted[0]?.[sortBy],
+    });
     return sorted;
   }, [
     rules,
@@ -524,13 +537,16 @@ const FirewallAdminRules = ({
     const result = filteredAndSortedRules.slice(startIndex, endIndex);
 
     // Debug logging for pagination verification
-    console.log(
-      `[Rules Pagination] Total rules: ${rules.length}, Filtered: ${
+    logger.debug("Rules pagination applied", {
+      totalRules: rules.length,
+      filteredCount: filteredAndSortedRules.length,
+      currentPage: page + 1,
+      showingCount: result.length,
+      range: `${startIndex + 1}-${Math.min(
+        endIndex,
         filteredAndSortedRules.length
-      }, Page: ${page + 1}, Showing: ${result.length} (${
-        startIndex + 1
-      }-${Math.min(endIndex, filteredAndSortedRules.length)})`
-    );
+      )}`,
+    });
 
     return result;
   }, [filteredAndSortedRules, page, rowsPerPage, rules.length]);
@@ -626,9 +642,11 @@ const FirewallAdminRules = ({
       const maxPage =
         Math.ceil(filteredAndSortedRules.length / rowsPerPage) - 1;
       if (page > maxPage) {
-        console.log(
-          `[Rules] Page ${page} is out of bounds, resetting to ${maxPage}`
-        );
+        logger.debug("Rules page out of bounds, resetting", {
+          currentPage: page,
+          maxPage,
+          resetTo: maxPage >= 0 ? maxPage : 0,
+        });
         setPage(maxPage >= 0 ? maxPage : 0);
       }
     }
@@ -661,14 +679,16 @@ const FirewallAdminRules = ({
     let errorCount = 0;
     const errors = [];
 
-    console.log(`[DeleteAll] Starting deletion of all ${totalRules} rules...`);
+    logger.debug("Starting deletion of all rules", { totalRules });
 
     // Process deletions sequentially to avoid rate limiting
     for (let i = 0; i < filteredAndSortedRules.length; i++) {
       const rule = filteredAndSortedRules[i];
-      console.log(
-        `Deleting rule ${i + 1}/${totalRules}: ${rule._id} (${rule.name})`
-      );
+      logger.debug("Deleting all rules progress", {
+        progress: `${i + 1}/${totalRules}`,
+        ruleId: rule._id,
+        ruleName: rule.name,
+      });
 
       try {
         await deleteRuleWithoutRefresh(rule._id);
@@ -678,7 +698,11 @@ const FirewallAdminRules = ({
           await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms delay
         }
       } catch (error) {
-        console.error(`Failed to delete rule ${rule._id}:`, error);
+        logger.error("Failed to delete rule in delete all", {
+          error: error.message,
+          ruleId: rule._id,
+          ruleName: rule.name,
+        });
         errorCount++;
         errors.push(`${rule.name}: ${error.message || "Unknown error"}`);
         // Continue with other deletions even if one fails
@@ -686,32 +710,34 @@ const FirewallAdminRules = ({
     }
 
     // Refresh the rules list once at the end
-    console.log(
-      `[DeleteAll] Refreshing rules list after deleting ${successCount}/${totalRules} rules...`
-    );
+    logger.debug("Refreshing rules list after delete all", {
+      successCount,
+      totalRules,
+      errorCount,
+    });
     await fetchRules();
     // Refresh dashboard stats to show updated counts
     await fetchStats();
-    console.log(`[DeleteAll] Rules list and stats refreshed`);
+    logger.debug("Rules list and stats refreshed after delete all");
 
     // Show summary alert
     if (successCount > 0 && errorCount === 0) {
       // All deletions successful
-      console.log(`[DeleteAll] SUCCESS: Deleted all ${successCount} rules`);
+      logger.info("Delete all completed successfully", { successCount });
     } else if (successCount > 0 && errorCount > 0) {
       // Some deletions failed
-      console.log(
-        `[DeleteAll] PARTIAL: Deleted ${successCount}/${totalRules} rules successfully, ${errorCount} failed. Errors: ${errors
-          .slice(0, 3)
-          .join(", ")}${errors.length > 3 ? "..." : ""}`
-      );
+      logger.warn("Delete all completed with errors", {
+        successCount,
+        totalRules,
+        errorCount,
+        errors: errors.slice(0, 3).join(", "),
+      });
     } else {
       // All deletions failed
-      console.log(
-        `[DeleteAll] FAILED: All deletions failed. Errors: ${errors
-          .slice(0, 3)
-          .join(", ")}${errors.length > 3 ? "..." : ""}`
-      );
+      logger.error("Delete all failed completely", {
+        errorCount,
+        errors: errors.slice(0, 3).join(", "),
+      });
     }
 
     setSelectedRules([]);
@@ -772,11 +798,12 @@ const FirewallAdminRules = ({
       link.click();
       document.body.removeChild(link);
 
-      console.log(
-        `[CSV Export] Successfully exported ${filteredAndSortedRules.length} rules to ${filename}`
-      );
+      logger.debug("CSV export completed", {
+        count: filteredAndSortedRules.length,
+        filename,
+      });
     } catch (error) {
-      console.error("[CSV Export] Failed to export rules:", error);
+      logger.error("CSV export failed", { error: error.message });
     } finally {
       setExportingCsv(false);
     }
@@ -795,7 +822,7 @@ const FirewallAdminRules = ({
     event.target.value = "";
 
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      showNotification("Invalid File", "Please select a CSV file", "error");
+      showSnackbar("Please select a CSV file", "error");
       return;
     }
 
@@ -920,7 +947,7 @@ const FirewallAdminRules = ({
       }
 
       // Import rules via API
-      console.log(`[CSV Import] Importing ${newRules.length} rules...`);
+      logger.debug("Starting CSV import", { ruleCount: newRules.length });
 
       let successCount = 0;
       let failureCount = 0;
@@ -964,16 +991,16 @@ const FirewallAdminRules = ({
 
       // Show results
       if (successCount > 0 && failureCount === 0) {
-        console.log(`[CSV Import] SUCCESS: Imported ${successCount} rules`);
-        showNotification(
-          "Import Successful",
-          `Successfully imported ${successCount} rules from CSV file`,
+        logger.info("CSV import completed successfully", { successCount });
+        showSnackbar(
+          `CSV import completed successfully: ${successCount} rules imported`,
           "success"
         );
       } else if (successCount > 0 && failureCount > 0) {
-        console.log(
-          `[CSV Import] PARTIAL: Imported ${successCount} rules, ${failureCount} failed`
-        );
+        logger.warn("CSV import completed with errors", {
+          successCount,
+          failureCount,
+        });
         showNotification(
           "Partial Import Success",
           `Imported ${successCount} rules successfully, ${failureCount} failed.\n\nErrors:\n${importErrors
@@ -982,7 +1009,7 @@ const FirewallAdminRules = ({
           "warning"
         );
       } else {
-        console.log(`[CSV Import] FAILED: All imports failed`);
+        logger.error("CSV import failed completely", { failureCount });
         showNotification(
           "Import Failed",
           `Failed to import rules.\n\nErrors:\n${importErrors
@@ -992,7 +1019,7 @@ const FirewallAdminRules = ({
         );
       }
     } catch (error) {
-      console.error("[CSV Import] Failed to process CSV file:", error);
+      logger.error("CSV file processing failed", { error: error.message });
       showNotification(
         "CSV Processing Failed",
         "Failed to process CSV file. Please check the file format and try again.",
@@ -1005,6 +1032,24 @@ const FirewallAdminRules = ({
 
   return (
     <>
+      {/* Feature Status Alert */}
+      {(!isFeatureEnabled("ipBlocking") ||
+        !isFeatureEnabled("countryBlocking") ||
+        !isFeatureEnabled("rateLimiting") ||
+        !isFeatureEnabled("suspiciousPatterns")) && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            <strong>Some firewall features are disabled:</strong>{" "}
+            {!isFeatureEnabled("ipBlocking") && "IP Blocking, "}
+            {!isFeatureEnabled("countryBlocking") && "Geo Blocking, "}
+            {!isFeatureEnabled("rateLimiting") && "Rate Limiting, "}
+            {!isFeatureEnabled("suspiciousPatterns") && "Threat Intelligence, "}
+            Rules for disabled features will be shown with reduced visibility
+            and cannot enforce protection. Enable them in the Configuration tab.
+          </Typography>
+        </Alert>
+      )}
+
       <Box
         sx={{
           display: "flex",
@@ -1015,41 +1060,43 @@ const FirewallAdminRules = ({
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Typography variant="h5">Firewall Rules</Typography>
-          {selectedRules.length > 0 && (
-            <>
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<DeleteSweepIcon />}
-                onClick={handleBulkDelete}
-                size="small"
-                disabled={isLoading}
-                aria-label={`Delete ${selectedRules.length} selected firewall rules`}
-              >
-                Delete {selectedRules.length} Selected
-              </Button>
-              {isAllSelected && (
+          {selectedRules.length > 0 &&
+            isFeatureEnabled &&
+            isFeatureEnabled("bulkActions") && (
+              <>
                 <Button
-                  variant="contained"
+                  variant="outlined"
                   color="error"
                   startIcon={<DeleteSweepIcon />}
-                  onClick={handleDeleteAllRules}
+                  onClick={handleBulkDelete}
                   size="small"
                   disabled={isLoading}
-                  aria-label={`Delete all ${filteredAndSortedRules.length} filtered rules`}
-                  sx={{
-                    backgroundColor: "error.dark",
-                    "&:hover": {
-                      backgroundColor: "error.main",
-                    },
-                  }}
+                  aria-label={`Delete ${selectedRules.length} selected firewall rules`}
                 >
-                  Delete All {filteredAndSortedRules.length}{" "}
-                  {searchTerm ? "Filtered" : ""} Rules
+                  Delete {selectedRules.length} Selected
                 </Button>
-              )}
-            </>
-          )}
+                {isAllSelected && (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    startIcon={<DeleteSweepIcon />}
+                    onClick={handleDeleteAllRules}
+                    size="small"
+                    disabled={isLoading}
+                    aria-label={`Delete all ${filteredAndSortedRules.length} filtered rules`}
+                    sx={{
+                      backgroundColor: "error.dark",
+                      "&:hover": {
+                        backgroundColor: "error.main",
+                      },
+                    }}
+                  >
+                    Delete All {filteredAndSortedRules.length}{" "}
+                    {searchTerm ? "Filtered" : ""} Rules
+                  </Button>
+                )}
+              </>
+            )}
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button
@@ -1077,14 +1124,39 @@ const FirewallAdminRules = ({
           <Button
             variant="contained"
             startIcon={
-              isLoading ? <CircularProgress size={16} color="inherit" /> : null
+              isLoading || advancedTesting ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : null
             }
             endIcon={<ArrowDropDownIcon />}
             onClick={handleClick}
             disabled={isLoading}
             aria-label="Open firewall actions menu"
+            sx={{
+              position: "relative",
+            }}
           >
-            {isLoading ? "Processing..." : "Actions"}
+            {isLoading
+              ? "Processing..."
+              : advancedTesting
+              ? "Testing Rules..."
+              : "Actions"}
+            {advancedTestResults && !advancedTesting && (
+              <Chip
+                label="!"
+                size="small"
+                color="info"
+                sx={{
+                  position: "absolute",
+                  top: -8,
+                  right: -8,
+                  minWidth: 18,
+                  height: 18,
+                  fontSize: "0.7rem",
+                  fontWeight: "bold",
+                }}
+              />
+            )}
           </Button>
           <Button
             variant="contained"
@@ -1128,19 +1200,28 @@ const FirewallAdminRules = ({
                 handleClose();
                 handleAddNewRule();
               }}
+              disabled={!hasAnyFeatureEnabled}
               aria-label="Add a new firewall rule"
             >
               <ListItemIcon>
                 <PlusIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>Add Rule</ListItemText>
+              {!hasAnyFeatureEnabled && (
+                <Chip
+                  label="Disabled"
+                  size="small"
+                  color="warning"
+                  sx={{ ml: 1 }}
+                />
+              )}
             </MenuItem>
             <MenuItem
               onClick={() => {
                 handleClose();
                 handleAddCommonRules();
               }}
-              disabled={addingCommonRules}
+              disabled={addingCommonRules || !hasAnyFeatureEnabled}
               aria-label="Add a set of common firewall rules for quick setup"
             >
               <ListItemIcon>
@@ -1155,13 +1236,23 @@ const FirewallAdminRules = ({
                   ? "Adding Common Rules..."
                   : "Add Common Rules"}
               </ListItemText>
+              {!hasAnyFeatureEnabled && (
+                <Chip
+                  label="Disabled"
+                  size="small"
+                  color="warning"
+                  sx={{ ml: 1 }}
+                />
+              )}
             </MenuItem>
             <MenuItem
               onClick={() => {
                 handleClose();
                 handleImportThreatFeeds();
               }}
-              disabled={importingThreats}
+              disabled={
+                importingThreats || !isFeatureEnabled("suspiciousPatterns")
+              }
               aria-label="Import threat intelligence feeds from documented sources"
             >
               <ListItemIcon>
@@ -1169,7 +1260,11 @@ const FirewallAdminRules = ({
                   <CircularProgress size={20} />
                 ) : (
                   <Tooltip
-                    title="Imports threat intelligence from Spamhaus DROP and Emerging Threats feeds (as documented in README.md). Free unlimited feeds - no API keys required."
+                    title={
+                      !isFeatureEnabled("suspiciousPatterns")
+                        ? "Threat Intelligence is disabled. Enable it in Configuration tab first."
+                        : "Imports threat intelligence from Spamhaus DROP and Emerging Threats feeds (as documented in README.md). Free unlimited feeds - no API keys required."
+                    }
                     placement="left"
                   >
                     <CloudDownloadIcon fontSize="small" />
@@ -1181,7 +1276,68 @@ const FirewallAdminRules = ({
                   ? "Importing Threat Feeds..."
                   : "Import Threat Feeds"}
               </ListItemText>
+              {!isFeatureEnabled("suspiciousPatterns") && (
+                <Chip
+                  label="Disabled"
+                  size="small"
+                  color="warning"
+                  sx={{ ml: 1 }}
+                />
+              )}
             </MenuItem>
+            <Divider />
+            <MenuItem
+              onClick={() => {
+                handleClose();
+                handleAdvancedRuleTesting();
+              }}
+              disabled={advancedTesting || !rules?.some((r) => r.enabled)}
+              aria-label="Comprehensively test all enabled firewall rules"
+            >
+              <ListItemIcon>
+                {advancedTesting ? (
+                  <CircularProgress size={20} />
+                ) : (
+                  <BugReportIcon fontSize="small" />
+                )}
+              </ListItemIcon>
+              <ListItemText>
+                {advancedTesting
+                  ? "Testing All Rules..."
+                  : `Test All ${
+                      rules?.filter((r) => r.enabled).length || 0
+                    } Rules`}
+              </ListItemText>
+            </MenuItem>
+            {advancedTestResults && (
+              <MenuItem
+                onClick={() => {
+                  handleClose();
+                  onViewTestResults();
+                }}
+                aria-label="View the results from the last rule test"
+              >
+                <ListItemIcon>
+                  <BugReportIcon fontSize="small" color="primary" />
+                </ListItemIcon>
+                <ListItemText>
+                  View Last Test Results
+                  <Typography
+                    variant="caption"
+                    display="block"
+                    color="text.secondary"
+                  >
+                    {advancedTestResults.summary?.passed}/
+                    {advancedTestResults.summary?.total} passed
+                    {advancedTestResults.timestamp &&
+                      ` • ${new Date(
+                        advancedTestResults.timestamp ||
+                          advancedTestResults.results?.[0]?.timestamp
+                      ).toLocaleTimeString()}`}
+                  </Typography>
+                </ListItemText>
+              </MenuItem>
+            )}
             <Divider />
             <MenuItem
               onClick={() => {
@@ -1195,38 +1351,45 @@ const FirewallAdminRules = ({
               <ListItemText>Reference Guide</ListItemText>
             </MenuItem>
             <Divider />
-            <MenuItem
-              onClick={() => handleClose(handleExportCsv)}
-              disabled={exportingCsv || filteredAndSortedRules.length === 0}
-              aria-label="Export all currently displayed rules to a CSV file"
-            >
-              <ListItemIcon>
-                {exportingCsv ? (
-                  <CircularProgress size={20} />
-                ) : (
-                  <FileDownloadIcon fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText>
-                {exportingCsv ? "Exporting CSV..." : "Export Rules to CSV"}
-              </ListItemText>
-            </MenuItem>
-            <MenuItem
-              onClick={() => handleClose(handleImportCsv)}
-              disabled={importingCsv}
-              aria-label="Import firewall rules from a CSV file"
-            >
-              <ListItemIcon>
-                {importingCsv ? (
-                  <CircularProgress size={20} />
-                ) : (
-                  <FileUploadIcon fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText>
-                {importingCsv ? "Importing CSV..." : "Import Rules from CSV"}
-              </ListItemText>
-            </MenuItem>
+            {/* CSV Export/Import - Only show if feature is enabled */}
+            {isFeatureEnabled && isFeatureEnabled("logExport") && (
+              <>
+                <MenuItem
+                  onClick={() => handleClose(handleExportCsv)}
+                  disabled={exportingCsv || filteredAndSortedRules.length === 0}
+                  aria-label="Export all currently displayed rules to a CSV file"
+                >
+                  <ListItemIcon>
+                    {exportingCsv ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      <FileDownloadIcon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText>
+                    {exportingCsv ? "Exporting CSV..." : "Export Rules to CSV"}
+                  </ListItemText>
+                </MenuItem>
+                <MenuItem
+                  onClick={() => handleClose(handleImportCsv)}
+                  disabled={importingCsv}
+                  aria-label="Import firewall rules from a CSV file"
+                >
+                  <ListItemIcon>
+                    {importingCsv ? (
+                      <CircularProgress size={20} />
+                    ) : (
+                      <FileUploadIcon fontSize="small" />
+                    )}
+                  </ListItemIcon>
+                  <ListItemText>
+                    {importingCsv
+                      ? "Importing CSV..."
+                      : "Import Rules from CSV"}
+                  </ListItemText>
+                </MenuItem>
+              </>
+            )}
           </Menu>
           <Menu
             id="rules-filters-menu"
@@ -1251,10 +1414,54 @@ const FirewallAdminRules = ({
                   label="Type"
                 >
                   <MenuItem value="all">All Types</MenuItem>
-                  <MenuItem value="ip_block">IP Block</MenuItem>
-                  <MenuItem value="country_block">Country Block</MenuItem>
-                  <MenuItem value="suspicious_pattern">Pattern Block</MenuItem>
-                  <MenuItem value="rate_limit">Rate Limit</MenuItem>
+                  <MenuItem
+                    value="ip_block"
+                    disabled={!isFeatureEnabled("ipBlocking")}
+                    sx={
+                      !isFeatureEnabled("ipBlocking")
+                        ? { color: "text.disabled" }
+                        : {}
+                    }
+                  >
+                    IP Block
+                    {!isFeatureEnabled("ipBlocking") && " (Disabled)"}
+                  </MenuItem>
+                  <MenuItem
+                    value="country_block"
+                    disabled={!isFeatureEnabled("countryBlocking")}
+                    sx={
+                      !isFeatureEnabled("countryBlocking")
+                        ? { color: "text.disabled" }
+                        : {}
+                    }
+                  >
+                    Country Block
+                    {!isFeatureEnabled("countryBlocking") && " (Disabled)"}
+                  </MenuItem>
+                  <MenuItem
+                    value="suspicious_pattern"
+                    disabled={!isFeatureEnabled("suspiciousPatterns")}
+                    sx={
+                      !isFeatureEnabled("suspiciousPatterns")
+                        ? { color: "text.disabled" }
+                        : {}
+                    }
+                  >
+                    Pattern Block
+                    {!isFeatureEnabled("suspiciousPatterns") && " (Disabled)"}
+                  </MenuItem>
+                  <MenuItem
+                    value="rate_limit"
+                    disabled={!isFeatureEnabled("rateLimiting")}
+                    sx={
+                      !isFeatureEnabled("rateLimiting")
+                        ? { color: "text.disabled" }
+                        : {}
+                    }
+                  >
+                    Rate Limit
+                    {!isFeatureEnabled("rateLimiting") && " (Disabled)"}
+                  </MenuItem>
                 </Select>
               </FormControl>
             </MenuItem>
@@ -1471,19 +1678,45 @@ const FirewallAdminRules = ({
         )}
       </Box>
 
-      <TableContainer component={Paper}>
+      <TableContainer
+        component={Paper}
+        sx={{
+          // Theme-aware scrollbar styling
+          "&::-webkit-scrollbar": {
+            width: "8px",
+            height: "8px",
+          },
+          "&::-webkit-scrollbar-track": {
+            backgroundColor: "action.hover",
+            borderRadius: "4px",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            backgroundColor: "text.secondary",
+            borderRadius: "4px",
+            "&:hover": {
+              backgroundColor: "text.primary",
+            },
+          },
+          "&::-webkit-scrollbar-corner": {
+            backgroundColor: "action.hover",
+          },
+        }}
+      >
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  id="select-all-rules"
-                  name="select-all-rules"
-                  indeterminate={isIndeterminate}
-                  checked={isAllSelected}
-                  onChange={handleSelectAll}
-                />
-              </TableCell>
+              {/* Checkbox column - Only show if bulk actions are enabled */}
+              {isFeatureEnabled && isFeatureEnabled("bulkActions") && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    id="select-all-rules"
+                    name="select-all-rules"
+                    indeterminate={isIndeterminate}
+                    checked={isAllSelected}
+                    onChange={handleSelectAll}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <TableSortLabel
                   active={sortBy === "name"}
@@ -1578,114 +1811,185 @@ const FirewallAdminRules = ({
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedRules.map((rule) => (
-                <TableRow key={rule._id}>
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      id={`select-rule-${rule._id}`}
-                      name={`select-rule-${rule._id}`}
-                      checked={selectedRules.includes(rule._id)}
-                      onChange={() => handleSelectRule(rule._id)}
-                    />
-                  </TableCell>
-                  <TableCell sx={{ maxWidth: 200 }}>
-                    <Tooltip
-                      title={
-                        <Typography variant="body2">{rule.name}</Typography>
-                      }
-                      placement="top"
-                      arrow
-                    >
-                      <Typography
-                        variant="body2"
-                        fontWeight="bold"
-                        sx={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          cursor: "help",
-                        }}
+              paginatedRules.map((rule) => {
+                const isRuleTypeEnabled = getRuleTypeEnabled(rule.type);
+                return (
+                  <TableRow
+                    key={rule._id}
+                    sx={getDisabledRowStyle(isRuleTypeEnabled)}
+                  >
+                    {/* Checkbox column - Only show if bulk actions are enabled */}
+                    {isFeatureEnabled && isFeatureEnabled("bulkActions") && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          id={`select-rule-${rule._id}`}
+                          name={`select-rule-${rule._id}`}
+                          checked={selectedRules.includes(rule._id)}
+                          onChange={() => handleSelectRule(rule._id)}
+                          disabled={!isRuleTypeEnabled}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell sx={{ maxWidth: 200 }}>
+                      <Tooltip
+                        title={
+                          <Typography variant="body2">
+                            {rule.name}
+                            {!isRuleTypeEnabled &&
+                              ` (${getFeatureTooltip(
+                                rule.type === "ip_block"
+                                  ? "ipBlocking"
+                                  : rule.type === "country_block"
+                                  ? "countryBlocking"
+                                  : rule.type === "rate_limit"
+                                  ? "rateLimiting"
+                                  : rule.type === "suspicious_pattern"
+                                  ? "suspiciousPatterns"
+                                  : ""
+                              )})`}
+                          </Typography>
+                        }
+                        placement="top"
+                        arrow
                       >
-                        {rule.name}
+                        <Box
+                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                        >
+                          <Typography
+                            variant="body2"
+                            fontWeight="bold"
+                            sx={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              cursor: "help",
+                            }}
+                          >
+                            {rule.name}
+                          </Typography>
+                          {!isRuleTypeEnabled && (
+                            <DisabledIcon
+                              sx={{ fontSize: 16, color: "text.disabled" }}
+                            />
+                          )}
+                        </Box>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
+                        {getRuleTypeChip(rule.type)}
+                        {!isRuleTypeEnabled && (
+                          <Chip
+                            label="Feature Disabled"
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" component="code">
+                        {rule.value}
                       </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>{getRuleTypeChip(rule.type)}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" component="code">
-                      {rule.value}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={rule.action}
-                      color={rule.action === "block" ? "error" : "success"}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{rule.priority}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={rule.enabled ? "Enabled" : "Disabled"}
-                      color={rule.enabled ? "success" : "default"}
-                      size="small"
-                    />
-                  </TableCell>
-                  {sparklineSettings.enabled && (
-                    <TableCell align="center">
-                      <RuleSparkline
-                        ruleId={rule._id}
-                        ruleName={rule.name}
-                        timeRange={sparklineSettings.timeRange}
-                        width={80}
-                        height={25}
-                        showTrend={true}
-                        showTooltip={true}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={rule.action}
+                        color={rule.action === "block" ? "error" : "success"}
+                        size="small"
+                        sx={!isRuleTypeEnabled ? { opacity: 0.5 } : {}}
                       />
                     </TableCell>
-                  )}
-                  <TableCell sx={{ maxWidth: 120 }}>
-                    <Tooltip
-                      title={
-                        <Typography variant="body2">
+                    <TableCell>{rule.priority}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={rule.enabled ? "Enabled" : "Disabled"}
+                        color={
+                          rule.enabled && isRuleTypeEnabled
+                            ? "success"
+                            : "default"
+                        }
+                        size="small"
+                        sx={!isRuleTypeEnabled ? { opacity: 0.5 } : {}}
+                      />
+                    </TableCell>
+                    {sparklineSettings.enabled && (
+                      <TableCell align="center">
+                        {isRuleTypeEnabled ? (
+                          <RuleSparkline
+                            ruleId={rule._id}
+                            ruleName={rule.name}
+                            timeRange={sparklineSettings.timeRange}
+                            width={80}
+                            height={25}
+                            showTrend={true}
+                            showTooltip={true}
+                          />
+                        ) : (
+                          <DisabledIcon
+                            sx={{ fontSize: 20, color: "text.disabled" }}
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell sx={{ maxWidth: 120 }}>
+                      <Tooltip
+                        title={
+                          <Typography variant="body2">
+                            {formatDate(rule.createdAt)}
+                          </Typography>
+                        }
+                        placement="top"
+                        arrow
+                      >
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            cursor: "help",
+                          }}
+                        >
                           {formatDate(rule.createdAt)}
                         </Typography>
-                      }
-                      placement="top"
-                      arrow
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          cursor: "help",
-                        }}
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap" }}>
+                      <Tooltip
+                        title={
+                          !isRuleTypeEnabled
+                            ? "Feature is disabled - enable in Configuration tab"
+                            : ""
+                        }
+                        placement="top"
                       >
-                        {formatDate(rule.createdAt)}
-                      </Typography>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleEditRule(rule)}
-                      aria-label={`Edit rule ${rule.name}`}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteClick(rule)}
-                      aria-label={`Delete rule ${rule.name}`}
-                    >
-                      <TrashIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
+                        <span>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditRule(rule)}
+                            aria-label={`Edit rule ${rule.name}`}
+                            disabled={!isRuleTypeEnabled}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDeleteClick(rule)}
+                        aria-label={`Delete rule ${rule.name}`}
+                      >
+                        <TrashIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -1928,46 +2232,6 @@ const FirewallAdminRules = ({
             }}
           >
             Yes, Delete All {filteredAndSortedRules.length} Rules
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Notification Modal */}
-      <Dialog
-        open={notificationModal.open}
-        onClose={closeNotification}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            {notificationModal.severity === "error" && (
-              <TrashIcon color="error" />
-            )}
-            {notificationModal.severity === "warning" && (
-              <AutoFixHighIcon color="warning" />
-            )}
-            {notificationModal.severity === "success" && (
-              <PlusIcon color="success" />
-            )}
-            {notificationModal.severity === "info" && <HelpIcon color="info" />}
-            <Typography variant="h6">{notificationModal.title}</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ whiteSpace: "pre-line" }}>
-            {notificationModal.message}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={closeNotification}
-            variant="contained"
-            color="primary"
-            autoFocus
-            aria-label="Close notification"
-          >
-            OK
           </Button>
         </DialogActions>
       </Dialog>

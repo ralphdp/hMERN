@@ -19,6 +19,8 @@ import GitHubIcon from "@mui/icons-material/GitHub";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import { getBackendUrl } from "../utils/config";
 
+// FirewallStatusPanel is now automatically loaded via plugin overlay system
+
 const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -75,196 +77,200 @@ const Register = () => {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          py: 4,
-        }}
-      >
-        <Paper
-          elevation={3}
+    <>
+      {/* Firewall Status Panel - Available based on visibility settings */}
+
+      <Container maxWidth="sm">
+        <Box
           sx={{
-            p: 4,
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            bgcolor: "background.paper",
+            justifyContent: "center",
+            py: 4,
           }}
         >
-          <Typography
-            component="h1"
-            variant="h4"
-            gutterBottom
+          <Paper
+            elevation={3}
             sx={{
-              fontWeight: "bold",
-              color: "text.primary",
-              mb: 3,
-            }}
-          >
-            Create Account
-          </Typography>
-
-          {error && (
-            <Alert severity="error" sx={{ width: "100%", mb: 3 }}>
-              {error}
-            </Alert>
-          )}
-
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{
-              width: "100%",
+              p: 4,
               display: "flex",
               flexDirection: "column",
-              gap: 2,
+              alignItems: "center",
+              bgcolor: "background.paper",
             }}
           >
-            <TextField
-              required
-              fullWidth
-              id="name"
-              label="Full Name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              disabled={loading}
+            <Typography
+              component="h1"
+              variant="h4"
+              gutterBottom
               sx={{
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": {
-                    borderColor: "divider",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "primary.main",
-                  },
-                },
+                fontWeight: "bold",
+                color: "text.primary",
+                mb: 3,
               }}
-            />
+            >
+              Create Account
+            </Typography>
 
-            <TextField
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              disabled={loading}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": {
-                    borderColor: "divider",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "primary.main",
-                  },
-                },
-              }}
-            />
-
-            <PasswordInput
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              disabled={loading}
-            />
-
-            <PasswordInput
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              disabled={loading}
-              label="Confirm Password"
-            />
-            <Box mt={1}>
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
-                sx={{
-                  mt: 1,
-                  py: 1.5,
-                  borderRadius: 2,
-                  textTransform: "none",
-                  fontSize: "1.1rem",
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-            </Box>
-
-            <Divider sx={{ my: 3 }}>
-              <Typography variant="body2" color="text.secondary">
-                Or continue with
-              </Typography>
-            </Divider>
+            {error && (
+              <Alert severity="error" sx={{ width: "100%", mb: 3 }}>
+                {error}
+              </Alert>
+            )}
 
             <Box
+              component="form"
+              onSubmit={handleSubmit}
               sx={{
+                width: "100%",
                 display: "flex",
+                flexDirection: "column",
                 gap: 2,
-                justifyContent: "center",
-                mb: 2,
               }}
             >
-              <IconButton
-                onClick={handleGoogleLogin}
+              <TextField
+                required
+                fullWidth
+                id="name"
+                label="Full Name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
                 disabled={loading}
                 sx={{
-                  bgcolor: "background.paper",
-                  "&:hover": { bgcolor: "action.hover" },
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "divider",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "primary.main",
+                    },
+                  },
                 }}
-              >
-                <GoogleIcon />
-              </IconButton>
-              <IconButton
-                onClick={handleGithubLogin}
-                disabled={loading}
-                sx={{
-                  bgcolor: "background.paper",
-                  "&:hover": { bgcolor: "action.hover" },
-                }}
-              >
-                <GitHubIcon />
-              </IconButton>
-            </Box>
+              />
 
-            <Box
-              sx={{
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                Already have an account?{" "}
+              <TextField
+                required
+                fullWidth
+                id="email"
+                label="Email Address"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                disabled={loading}
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "divider",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "primary.main",
+                    },
+                  },
+                }}
+              />
+
+              <PasswordInput
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                disabled={loading}
+              />
+
+              <PasswordInput
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                disabled={loading}
+                label="Confirm Password"
+              />
+              <Box mt={1}>
                 <Button
-                  component={RouterLink}
-                  to="/login"
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={loading}
                   sx={{
+                    mt: 1,
+                    py: 1.5,
+                    borderRadius: 2,
                     textTransform: "none",
-                    color: "primary.main",
-                    fontWeight: "bold",
+                    fontSize: "1.1rem",
                   }}
                 >
-                  Sign In
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    "Create Account"
+                  )}
                 </Button>
-              </Typography>
+              </Box>
+
+              <Divider sx={{ my: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Or continue with
+                </Typography>
+              </Divider>
+
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  justifyContent: "center",
+                  mb: 2,
+                }}
+              >
+                <IconButton
+                  onClick={handleGoogleLogin}
+                  disabled={loading}
+                  sx={{
+                    bgcolor: "background.paper",
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
+                >
+                  <GoogleIcon />
+                </IconButton>
+                <IconButton
+                  onClick={handleGithubLogin}
+                  disabled={loading}
+                  sx={{
+                    bgcolor: "background.paper",
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
+                >
+                  <GitHubIcon />
+                </IconButton>
+              </Box>
+
+              <Box
+                sx={{
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Already have an account?{" "}
+                  <Button
+                    component={RouterLink}
+                    to="/login"
+                    sx={{
+                      textTransform: "none",
+                      color: "primary.main",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Sign In
+                  </Button>
+                </Typography>
+              </Box>
             </Box>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+          </Paper>
+        </Box>
+      </Container>
+    </>
   );
 };
 

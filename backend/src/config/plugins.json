@@ -2,17 +2,33 @@
   "licensing": {
     "enabled": true,
     "core": true,
-    "dependsOn": ["core"],
+    "dependsOn": [
+      "core"
+    ],
     "type": "Essential"
   },
   "firewall": {
     "enabled": true,
-    "dependsOn": ["licensing"],
+    "dependsOn": [
+      "core",
+      "licensing"
+    ],
     "type": "Security"
+  },
+  "plugin-template": {
+    "enabled": false,
+    "core": false,
+    "dependsOn": [
+      "core",
+      "licensing"
+    ]
   },
   "web-performance-optimization": {
     "enabled": true,
-    "dependsOn": ["core"],
+    "dependsOn": [
+      "core",
+      "licensing"
+    ],
     "type": "Performance"
   }
 }

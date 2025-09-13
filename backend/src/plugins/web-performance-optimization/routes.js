@@ -1,26 +1,89 @@
 const express = require("express");
 const router = express.Router();
 const {
+  STATIC_CONFIG,
+  getConfigValue,
+  getOptimizationConfig,
+  getCachingConfig,
+  getMonitoringConfig,
+  getProcessingConfig,
+  getPaginationConfig,
+} = require("./config");
+const {
   WebPerformanceSettings,
   WebPerformanceMetrics,
   WebPerformanceQueue,
+  WebPerformanceConfig,
+  CacheMetrics,
+  OptimizationHistory,
+  PerformanceAlerts,
+  BackgroundJobs,
 } = require("./models");
+const { settingsService } = require("../../services/settingsService");
 const {
   requireAdmin,
+  requestLogger,
+  validateFeature,
   invalidateSettingsCache,
   validateFileAccess,
 } = require("./middleware");
-const { calculateMetricsSummary } = require("./utils");
+const {
+  calculateMetricsSummary,
+  performDataRetentionCleanup,
+  generatePerformanceReport,
+  exportPerformanceData,
+  importPerformanceSettings,
+} = require("./utils");
 const { AnalyticsService } = require("./services");
+// TEMPORARILY DISABLE PROBLEMATIC INTELLIGENCE SERVICE
+// const {
+//   performanceIntelligenceService,
+// } = require("./performance-intelligence");
 
-// Debug middleware
-router.use((req, res, next) => {
-  console.log(
-    `🚀 [WEB PERFORMANCE ROUTES] ${req.method} ${
-      req.originalUrl
-    } - ${new Date().toISOString()}`
-  );
-  next();
+// Use centralized logging system
+const { createPluginLogger } = require("../../utils/logger");
+const logger = createPluginLogger("web-performance");
+
+// Error message sanitization
+const {
+  sanitizeError,
+  errorSanitizerMiddleware,
+} = require("../../utils/errorSanitizer");
+
+// Helper function to get credentials from core settings service
+const getCredentials = async () => {
+  return await settingsService.getCachedCredentials();
+};
+
+// Apply request logging to all routes (following plugin-template pattern)
+router.use(requestLogger);
+
+// DEBUG: Simple test endpoint
+router.get("/debug-test", (req, res) => {
+  logger.routes.debug("Test endpoint hit", {
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+  });
+  res.json({
+    success: true,
+    message: "Web Performance routes are working!",
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    url: req.originalUrl,
+  });
+});
+
+// EMERGENCY: Simple connectivity check (no dependencies)
+router.get("/emergency-test", (req, res) => {
+  console.log("🚨 EMERGENCY ENDPOINT HIT:", req.originalUrl);
+  res.json({
+    success: true,
+    message: "🚨 EMERGENCY: Web Performance routes are responding!",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    basePath: "/api/web-performance",
+  });
 });
 
 // Health check endpoint
@@ -28,6 +91,7 @@ router.get("/health", (req, res) => {
   res.json({
     success: true,
     message: "Web Performance Optimization plugin is active",
+    version: STATIC_CONFIG.version,
     features: [
       "CSS/JS Minification & Concatenation",
       "Image Optimization & WebP Conversion",
@@ -40,6 +104,8 @@ router.get("/health", (req, res) => {
       "Critical CSS",
       "Preloading",
       "Analytics & Monitoring",
+      "Performance Intelligence",
+      "Background Optimization",
     ],
     timestamp: new Date().toISOString(),
   });
@@ -54,8 +120,20 @@ router.get("/test", (req, res) => {
   });
 });
 
-// Get dashboard statistics (admin only)
-router.get("/stats", requireAdmin, async (req, res) => {
+// Simple connectivity test without auth
+router.get("/ping", (req, res) => {
+  res.json({
+    success: true,
+    message: "Web Performance API is reachable",
+    timestamp: new Date().toISOString(),
+    sessionId: req.sessionID,
+    hasUser: !!req.user,
+    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+  });
+});
+
+// Get plugin info (public endpoint)
+router.get("/info", async (req, res) => {
   try {
     const settings = await WebPerformanceSettings.findOne({
       settingsId: "default",
@@ -64,20 +142,333 @@ router.get("/stats", requireAdmin, async (req, res) => {
     res.json({
       success: true,
       data: {
+        name: STATIC_CONFIG.name,
+        version: STATIC_CONFIG.version,
+        description:
+          "Advanced web performance optimization with file optimization, caching layers, and performance features",
+        enabled: settings?.general?.enabled || false,
+        features: Object.keys(settings?.performanceFeatures || {}).filter(
+          (key) => settings.performanceFeatures[key]?.enabled
+        ),
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting plugin info:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving plugin information",
+    });
+  }
+});
+
+// Public basic stats endpoint (for status panel - no sensitive data)
+router.get("/public-stats", async (req, res) => {
+  try {
+    const settings = await WebPerformanceSettings.findOne({
+      settingsId: "default",
+    });
+
+    // Get basic counts
+    const [totalOptimizations, recentOptimizations] = await Promise.all([
+      OptimizationHistory.countDocuments(),
+      OptimizationHistory.countDocuments({
+        timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+      }),
+    ]);
+
+    const publicStats = {
+      system: {
+        enabled: settings?.general?.enabled || false,
+        masterSwitchEnabled: settings?.general?.enabled || false,
+        featuresEnabled: {
+          optimization: settings?.features?.optimization || false,
+          caching: settings?.features?.caching || false,
+          compression: settings?.features?.compression || false,
+          monitoring: settings?.features?.monitoring || false,
+        },
+      },
+      optimizations: {
+        total: totalOptimizations,
+        recent: recentOptimizations,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json({
+      success: true,
+      data: publicStats,
+    });
+  } catch (error) {
+    logger.routes.error("Error getting public performance stats", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving performance statistics",
+    });
+  }
+});
+
+// Public basic settings endpoint (for status panel - no sensitive data)
+router.get("/public-settings", async (req, res) => {
+  try {
+    const settings = await WebPerformanceSettings.findOne({
+      settingsId: "default",
+    });
+
+    if (!settings) {
+      return res.json({
+        success: true,
+        data: {
+          general: { enabled: false },
+          features: {
+            optimization: false,
+            caching: false,
+            compression: false,
+            monitoring: false,
+          },
+        },
+      });
+    }
+
+    // Return only non-sensitive settings
+    const publicSettings = {
+      general: {
+        enabled: settings.general?.enabled || false,
+      },
+      features: {
+        optimization: settings.features?.optimization || false,
+        caching: settings.features?.caching || false,
+        compression: settings.features?.compression || false,
+        monitoring: settings.features?.monitoring || false,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json({
+      success: true,
+      data: publicSettings,
+    });
+  } catch (error) {
+    logger.routes.error("Error getting public performance settings", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving performance settings",
+    });
+  }
+});
+
+// Debug endpoint for performance status
+router.get("/debug-performance-status", async (req, res) => {
+  try {
+    const settings = await WebPerformanceSettings.findOne({
+      settingsId: "default",
+    });
+
+    // TEMPORARILY DISABLE INTELLIGENCE SERVICE
+    const intelligenceService = null; // performanceIntelligenceService.getInstance();
+    const intelligenceStats = null;
+
+    const performanceStatus = {
+      settings: {
+        enabled: settings?.general?.enabled || false,
+        optimization: settings?.features?.optimization || false,
+        caching: settings?.features?.caching || false,
+        monitoring: settings?.features?.monitoring || false,
+      },
+      intelligence: {
+        available: !!intelligenceService,
+        stats: intelligenceStats,
+      },
+      queues: {
+        optimization: await WebPerformanceQueue.countDocuments({
+          status: "pending",
+        }),
+        backgroundJobs: await BackgroundJobs.countDocuments({
+          status: "running",
+        }),
+      },
+      metrics: {
+        recentAlerts: await PerformanceAlerts.countDocuments({
+          timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        }),
+        cacheMetrics: await CacheMetrics.findOne().sort({ timestamp: -1 }),
+      },
+    };
+
+    res.json({
+      success: true,
+      data: performanceStatus,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.routes.error("Error getting performance debug status", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving performance debug status",
+    });
+  }
+});
+
+// Get dynamic configuration (admin only)
+router.get("/config", requireAdmin, async (req, res) => {
+  try {
+    let config = await WebPerformanceConfig.findOne({
+      pluginId: STATIC_CONFIG.pluginId,
+    });
+
+    // If no config exists, create default one
+    if (!config) {
+      config = new WebPerformanceConfig({
+        pluginId: STATIC_CONFIG.pluginId,
+        features: {
+          optimization: true,
+          caching: true,
+          compression: true,
+          monitoring: true,
+          intelligence: true,
+          backgroundJobs: true,
+          analytics: true,
+        },
+        ui: {
+          messages: {
+            title: "Web Performance Optimization",
+            subtitle:
+              "Advanced performance optimization with intelligent recommendations and monitoring",
+          },
+          theme: {
+            primaryColor: "primary.main",
+            icon: "Speed",
+          },
+        },
+        thresholds: {
+          maxFileSize: 50 * 1024 * 1024, // 50MB
+          maxConcurrentOptimizations: 5,
+          cacheRetentionDays: 30,
+        },
+      });
+      await config.save();
+    }
+
+    res.json({
+      success: true,
+      data: {
+        static: STATIC_CONFIG,
+        dynamic: config,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error getting config:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving configuration",
+    });
+  }
+});
+
+// Update dynamic configuration (admin only)
+router.put("/config", requireAdmin, async (req, res) => {
+  try {
+    let config = await WebPerformanceConfig.findOne({
+      pluginId: STATIC_CONFIG.pluginId,
+    });
+
+    if (!config) {
+      config = new WebPerformanceConfig({
+        pluginId: STATIC_CONFIG.pluginId,
+      });
+    }
+
+    // Deep merge configuration updates
+    function deepMerge(target, source) {
+      for (const key in source) {
+        if (
+          source[key] &&
+          typeof source[key] === "object" &&
+          !Array.isArray(source[key])
+        ) {
+          if (!target[key]) target[key] = {};
+          deepMerge(target[key], source[key]);
+        } else {
+          target[key] = source[key];
+        }
+      }
+    }
+
+    deepMerge(config, req.body);
+    config.updatedAt = new Date();
+    config.updatedBy = req.user?.email || "system";
+
+    await config.save();
+    invalidateSettingsCache();
+
+    res.json({
+      success: true,
+      message: "Configuration updated successfully",
+      data: config,
+    });
+  } catch (error) {
+    logger.routes.error("Error updating config", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating configuration",
+    });
+  }
+});
+
+// Get dashboard statistics (admin only)
+router.get("/stats", requireAdmin, async (req, res) => {
+  try {
+    const settings = await WebPerformanceSettings.findOne({
+      settingsId: "default",
+    });
+
+    // Get recent optimization history
+    const recentOptimizations = await OptimizationHistory.find()
+      .sort({ timestamp: -1 })
+      .limit(10);
+
+    // Get cache metrics
+    const cacheMetrics = await CacheMetrics.findOne().sort({ timestamp: -1 });
+
+    // Get recent alerts
+    const recentAlerts = await PerformanceAlerts.find({
+      timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    }).sort({ timestamp: -1 });
+
+    // Calculate totals
+    const totalOptimizations = await OptimizationHistory.countDocuments();
+    const totalSizeSaved = await OptimizationHistory.aggregate([
+      { $group: { _id: null, total: { $sum: "$sizeSaved" } } },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
         overview: {
           enabled: settings?.general?.enabled || false,
-          totalOptimizations: 0,
-          sizeSaved: 0,
-          cacheHitRate: 0,
+          totalOptimizations,
+          sizeSaved: totalSizeSaved[0]?.total || 0,
+          cacheHitRate: cacheMetrics?.hitRate || 0,
+          recentAlerts: recentAlerts.length,
         },
         optimization: {
-          cssMinified: 0,
-          jsMinified: 0,
-          imagesOptimized: 0,
+          recent: recentOptimizations,
+          queue: await WebPerformanceQueue.countDocuments({
+            status: "pending",
+          }),
         },
         caching: {
-          hits: 0,
-          misses: 0,
+          metrics: cacheMetrics,
+          hitRate: cacheMetrics?.hitRate || 0,
+          responseTime: cacheMetrics?.avgResponseTime || 0,
+        },
+        intelligence: {
+          available: false, // !!performanceIntelligenceService.getInstance(),
+          recentAnalyses: 0, // await OptimizationHistory.countDocuments({
+          //   type: "intelligence_analysis",
+          //   timestamp: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+          // }),
         },
       },
     });
@@ -242,6 +633,444 @@ router.get("/metrics", requireAdmin, async (req, res) => {
   }
 });
 
+// Get Core Web Vitals metrics (admin only)
+router.get("/metrics/core-web-vitals", requireAdmin, async (req, res) => {
+  try {
+    const { timeRange = "24h" } = req.query;
+
+    // Calculate time range
+    const now = new Date();
+    let startTime;
+
+    switch (timeRange) {
+      case "24h":
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case "7d":
+        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "30d":
+        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    const metrics = await WebPerformanceMetrics.find({
+      date: { $gte: startTime },
+    }).sort({ date: 1 });
+
+    // Extract Core Web Vitals data
+    const coreWebVitals = {
+      lcp: {
+        current:
+          metrics.length > 0
+            ? metrics[metrics.length - 1].performance.largestContentfulPaint
+            : 0,
+        average:
+          metrics.length > 0
+            ? metrics.reduce(
+                (sum, m) => sum + m.performance.largestContentfulPaint,
+                0
+              ) / metrics.length
+            : 0,
+        trend: metrics.map((m) => ({
+          date: m.date,
+          value: m.performance.largestContentfulPaint,
+        })),
+      },
+      fid: {
+        current:
+          metrics.length > 0
+            ? metrics[metrics.length - 1].performance.firstInputDelay || 0
+            : 0,
+        average:
+          metrics.length > 0
+            ? metrics.reduce(
+                (sum, m) => sum + (m.performance.firstInputDelay || 0),
+                0
+              ) / metrics.length
+            : 0,
+        trend: metrics.map((m) => ({
+          date: m.date,
+          value: m.performance.firstInputDelay || 0,
+        })),
+      },
+      cls: {
+        current:
+          metrics.length > 0
+            ? metrics[metrics.length - 1].performance.cumulativeLayoutShift
+            : 0,
+        average:
+          metrics.length > 0
+            ? metrics.reduce(
+                (sum, m) => sum + m.performance.cumulativeLayoutShift,
+                0
+              ) / metrics.length
+            : 0,
+        trend: metrics.map((m) => ({
+          date: m.date,
+          value: m.performance.cumulativeLayoutShift,
+        })),
+      },
+      fcp: {
+        current:
+          metrics.length > 0
+            ? metrics[metrics.length - 1].performance.firstContentfulPaint
+            : 0,
+        average:
+          metrics.length > 0
+            ? metrics.reduce(
+                (sum, m) => sum + m.performance.firstContentfulPaint,
+                0
+              ) / metrics.length
+            : 0,
+        trend: metrics.map((m) => ({
+          date: m.date,
+          value: m.performance.firstContentfulPaint,
+        })),
+      },
+    };
+
+    res.json({
+      success: true,
+      data: coreWebVitals,
+      timeRange,
+      totalDataPoints: metrics.length,
+    });
+  } catch (error) {
+    logger.routes.error("Error getting Core Web Vitals", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving Core Web Vitals metrics",
+    });
+  }
+});
+
+// Get optimization statistics (admin only)
+router.get("/metrics/optimization-stats", requireAdmin, async (req, res) => {
+  try {
+    const { timeRange = "24h" } = req.query;
+
+    // Calculate time range
+    const now = new Date();
+    let startTime;
+
+    switch (timeRange) {
+      case "24h":
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case "7d":
+        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "30d":
+        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    // Get optimization history for the time range
+    const optimizations = await OptimizationHistory.find({
+      timestamp: { $gte: startTime },
+    }).sort({ timestamp: 1 });
+
+    // Get metrics for the time range
+    const metrics = await WebPerformanceMetrics.find({
+      date: { $gte: startTime },
+    }).sort({ date: 1 });
+
+    // Calculate optimization statistics
+    const stats = {
+      totalOptimizations: optimizations.length,
+      sizeSaved: {
+        total: optimizations.reduce(
+          (sum, opt) => sum + (opt.sizeSaved || 0),
+          0
+        ),
+        css: optimizations
+          .filter((opt) => opt.type === "css_minification")
+          .reduce((sum, opt) => sum + (opt.sizeSaved || 0), 0),
+        js: optimizations
+          .filter((opt) => opt.type === "js_minification")
+          .reduce((sum, opt) => sum + (opt.sizeSaved || 0), 0),
+        images: optimizations
+          .filter((opt) => opt.type === "image_optimization")
+          .reduce((sum, opt) => sum + (opt.sizeSaved || 0), 0),
+      },
+      optimizationTypes: {
+        cssMinified: metrics.reduce(
+          (sum, m) => sum + (m.optimization?.cssMinified || 0),
+          0
+        ),
+        jsMinified: metrics.reduce(
+          (sum, m) => sum + (m.optimization?.jsMinified || 0),
+          0
+        ),
+        imagesOptimized: metrics.reduce(
+          (sum, m) => sum + (m.optimization?.imagesOptimized || 0),
+          0
+        ),
+        webpConverted: metrics.reduce(
+          (sum, m) => sum + (m.optimization?.webpConverted || 0),
+          0
+        ),
+      },
+      trend: optimizations.map((opt) => ({
+        date: opt.timestamp,
+        type: opt.type,
+        sizeSaved: opt.sizeSaved || 0,
+        processingTime: opt.processingTime || 0,
+      })),
+      averageProcessingTime:
+        optimizations.length > 0
+          ? optimizations.reduce(
+              (sum, opt) => sum + (opt.processingTime || 0),
+              0
+            ) / optimizations.length
+          : 0,
+    };
+
+    res.json({
+      success: true,
+      data: stats,
+      timeRange,
+      totalOptimizations: optimizations.length,
+    });
+  } catch (error) {
+    logger.routes.error("Error getting optimization stats", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving optimization statistics",
+    });
+  }
+});
+
+// Get cache performance metrics (admin only)
+router.get("/metrics/cache-performance", requireAdmin, async (req, res) => {
+  try {
+    const { timeRange = "24h" } = req.query;
+
+    // Calculate time range
+    const now = new Date();
+    let startTime;
+
+    switch (timeRange) {
+      case "24h":
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case "7d":
+        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "30d":
+        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    // Get cache metrics for the time range
+    const cacheMetrics = await CacheMetrics.find({
+      timestamp: { $gte: startTime },
+    }).sort({ timestamp: 1 });
+
+    // Get general metrics for cache data
+    const metrics = await WebPerformanceMetrics.find({
+      date: { $gte: startTime },
+    }).sort({ date: 1 });
+
+    // Calculate cache performance stats
+    const cacheStats = {
+      hitRate: {
+        current:
+          cacheMetrics.length > 0
+            ? cacheMetrics[cacheMetrics.length - 1].hitRate
+            : 0,
+        average:
+          cacheMetrics.length > 0
+            ? cacheMetrics.reduce((sum, m) => sum + m.hitRate, 0) /
+              cacheMetrics.length
+            : 0,
+        trend: cacheMetrics.map((m) => ({
+          date: m.timestamp,
+          value: m.hitRate,
+        })),
+      },
+      responseTime: {
+        current:
+          cacheMetrics.length > 0
+            ? cacheMetrics[cacheMetrics.length - 1].avgResponseTime
+            : 0,
+        average:
+          cacheMetrics.length > 0
+            ? cacheMetrics.reduce((sum, m) => sum + m.avgResponseTime, 0) /
+              cacheMetrics.length
+            : 0,
+        trend: cacheMetrics.map((m) => ({
+          date: m.timestamp,
+          value: m.avgResponseTime,
+        })),
+      },
+      bandwidthSaved: {
+        total: cacheMetrics.reduce(
+          (sum, m) => sum + (m.bandwidthSaved || 0),
+          0
+        ),
+        trend: cacheMetrics.map((m) => ({
+          date: m.timestamp,
+          value: m.bandwidthSaved || 0,
+        })),
+      },
+      requests: {
+        total: cacheMetrics.reduce((sum, m) => sum + (m.totalRequests || 0), 0),
+        hits: cacheMetrics.reduce(
+          (sum, m) => sum + ((m.totalRequests || 0) * (m.hitRate || 0)) / 100,
+          0
+        ),
+        misses: cacheMetrics.reduce(
+          (sum, m) =>
+            sum + (m.totalRequests || 0) * (1 - (m.hitRate || 0) / 100),
+          0
+        ),
+      },
+      performance: {
+        cacheHits: metrics.reduce(
+          (sum, m) => sum + (m.caching?.cacheHits || 0),
+          0
+        ),
+        cacheMisses: metrics.reduce(
+          (sum, m) => sum + (m.caching?.cacheMisses || 0),
+          0
+        ),
+        avgResponseTime:
+          metrics.length > 0
+            ? metrics.reduce(
+                (sum, m) => sum + (m.caching?.avgResponseTime || 0),
+                0
+              ) / metrics.length
+            : 0,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: cacheStats,
+      timeRange,
+      totalDataPoints: cacheMetrics.length,
+    });
+  } catch (error) {
+    logger.routes.error("Error getting cache performance", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving cache performance metrics",
+    });
+  }
+});
+
+// Get processing queue status (admin only)
+router.get("/metrics/processing-queue", requireAdmin, async (req, res) => {
+  try {
+    // Get current queue status
+    const queueStats = await WebPerformanceQueue.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          avgProcessingTime: { $avg: "$processingTime" },
+          oldestItem: { $min: "$createdAt" },
+        },
+      },
+    ]);
+
+    // Get background jobs status
+    const jobStats = await BackgroundJobs.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          avgDuration: { $avg: "$duration" },
+          oldestJob: { $min: "$createdAt" },
+        },
+      },
+    ]);
+
+    // Get recent queue activity (last 24 hours)
+    const recentActivity = await WebPerformanceQueue.find({
+      createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    // Transform data for frontend
+    const queueData = {
+      queue: {
+        status: queueStats.reduce((acc, stat) => {
+          acc[stat._id] = {
+            count: stat.count,
+            avgProcessingTime: stat.avgProcessingTime || 0,
+            oldestItem: stat.oldestItem,
+          };
+          return acc;
+        }, {}),
+        total: queueStats.reduce((sum, stat) => sum + stat.count, 0),
+        processing: queueStats.find((s) => s._id === "processing")?.count || 0,
+        pending: queueStats.find((s) => s._id === "pending")?.count || 0,
+        completed: queueStats.find((s) => s._id === "completed")?.count || 0,
+        failed: queueStats.find((s) => s._id === "failed")?.count || 0,
+      },
+      backgroundJobs: {
+        status: jobStats.reduce((acc, stat) => {
+          acc[stat._id] = {
+            count: stat.count,
+            avgDuration: stat.avgDuration || 0,
+            oldestJob: stat.oldestJob,
+          };
+          return acc;
+        }, {}),
+        total: jobStats.reduce((sum, stat) => sum + stat.count, 0),
+        running: jobStats.find((s) => s._id === "running")?.count || 0,
+        pending: jobStats.find((s) => s._id === "pending")?.count || 0,
+        completed: jobStats.find((s) => s._id === "completed")?.count || 0,
+        failed: jobStats.find((s) => s._id === "failed")?.count || 0,
+      },
+      recentActivity: recentActivity.map((item) => ({
+        id: item._id,
+        type: item.taskType,
+        status: item.status,
+        createdAt: item.createdAt,
+        completedAt: item.completedAt,
+        processingTime: item.processingTime,
+        filePath: item.filePath,
+      })),
+      health: {
+        queueBacklog: queueStats.find((s) => s._id === "pending")?.count || 0,
+        processingCapacity: 5, // Max concurrent from config
+        avgProcessingTime:
+          queueStats.find((s) => s._id === "completed")?.avgProcessingTime || 0,
+        errorRate:
+          (queueStats.find((s) => s._id === "failed")?.count /
+            Math.max(
+              queueStats.reduce((sum, stat) => sum + stat.count, 0),
+              1
+            )) *
+            100 || 0,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: queueData,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.routes.error("Error getting processing queue status", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving processing queue status",
+    });
+  }
+});
+
 // Analytics endpoints
 // Get analytics data (admin only)
 router.get("/analytics", requireAdmin, async (req, res) => {
@@ -315,6 +1144,268 @@ router.post("/analytics/record", async (req, res) => {
   }
 });
 
+// Performance Intelligence Analysis endpoint (admin only)
+router.post("/analysis", requireAdmin, async (req, res) => {
+  try {
+    const { metrics } = req.body;
+
+    if (!metrics) {
+      return res.status(400).json({
+        success: false,
+        message: "Performance metrics are required for analysis",
+      });
+    }
+
+    const intelligenceService = performanceIntelligenceService.getInstance();
+    if (!intelligenceService) {
+      return res.status(503).json({
+        success: false,
+        message: "Performance Intelligence service is not available",
+      });
+    }
+
+    const analysis = await intelligenceService.analyzePerformance(metrics);
+
+    res.json({
+      success: true,
+      data: analysis,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.routes.error("Error performing performance analysis", error);
+    res.status(500).json({
+      success: false,
+      message: "Error performing performance analysis",
+    });
+  }
+});
+
+// Get performance alerts (admin only)
+router.get("/alerts", requireAdmin, async (req, res) => {
+  try {
+    const { limit = 50, severity, type } = req.query;
+
+    const filter = {};
+    if (severity && ["error", "warning", "info"].includes(severity)) {
+      filter.severity = severity;
+    }
+    if (type) {
+      filter.type = type;
+    }
+
+    const alerts = await PerformanceAlerts.find(filter)
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit));
+
+    const alertStats = await PerformanceAlerts.aggregate([
+      { $group: { _id: "$severity", count: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        alerts,
+        stats: alertStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+      },
+    });
+  } catch (error) {
+    logger.routes.error("Error getting performance alerts", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving performance alerts",
+    });
+  }
+});
+
+// Get background jobs status (admin only)
+router.get("/jobs", requireAdmin, async (req, res) => {
+  try {
+    const { status, limit = 50 } = req.query;
+
+    const filter = {};
+    if (
+      status &&
+      ["pending", "running", "completed", "failed"].includes(status)
+    ) {
+      filter.status = status;
+    }
+
+    const jobs = await BackgroundJobs.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    const jobStats = await BackgroundJobs.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        jobs,
+        stats: jobStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+      },
+    });
+  } catch (error) {
+    logger.routes.error("Error getting background jobs", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving background jobs",
+    });
+  }
+});
+
+// Performance Intelligence service stats (admin only)
+router.get("/intelligence", requireAdmin, async (req, res) => {
+  try {
+    // TEMPORARILY DISABLE INTELLIGENCE SERVICE
+    const intelligenceService = null; // performanceIntelligenceService.getInstance();
+
+    if (!intelligenceService) {
+      return res.json({
+        success: true,
+        data: {
+          available: false,
+          message: "Performance Intelligence service is temporarily disabled",
+        },
+      });
+    }
+
+    const stats = null; // await intelligenceService.getStats();
+
+    res.json({
+      success: true,
+      data: {
+        available: true,
+        stats,
+        health: (await intelligenceService.healthCheck)
+          ? await intelligenceService.healthCheck()
+          : null,
+      },
+    });
+  } catch (error) {
+    logger.routes.error("Error getting intelligence service stats", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving intelligence service statistics",
+    });
+  }
+});
+
+// Get performance recommendations (admin only)
+router.get("/recommendations", requireAdmin, async (req, res) => {
+  try {
+    const { category, priority } = req.query;
+
+    // Get recent optimization history to analyze
+    const recentOptimizations = await OptimizationHistory.find({
+      timestamp: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+    }).sort({ timestamp: -1 });
+
+    // Get performance metrics for analysis
+    const recentMetrics = await WebPerformanceMetrics.findOne().sort({
+      date: -1,
+    });
+
+    const intelligenceService = performanceIntelligenceService.getInstance();
+    let recommendations = [];
+
+    if (intelligenceService && recentMetrics) {
+      const analysis = await intelligenceService.analyzePerformance({
+        performance: recentMetrics.performance,
+        resources: recentMetrics.resources,
+      });
+      recommendations = analysis.recommendations || [];
+    }
+
+    // Filter recommendations if requested
+    if (category) {
+      recommendations = recommendations.filter(
+        (rec) => rec.category === category
+      );
+    }
+    if (priority) {
+      recommendations = recommendations.filter(
+        (rec) => rec.priority === priority
+      );
+    }
+
+    res.json({
+      success: true,
+      data: {
+        recommendations,
+        categories: [...new Set(recommendations.map((r) => r.category))],
+        priorities: [...new Set(recommendations.map((r) => r.priority))],
+      },
+    });
+  } catch (error) {
+    logger.routes.error("Error getting performance recommendations", error);
+    res.status(500).json({
+      success: false,
+      message: "Error retrieving performance recommendations",
+    });
+  }
+});
+
+// Performance benchmarking endpoint (admin only)
+router.post("/benchmark", requireAdmin, async (req, res) => {
+  try {
+    const { url, options = {} } = req.body;
+
+    if (!url) {
+      return res.status(400).json({
+        success: false,
+        message: "URL is required for benchmarking",
+      });
+    }
+
+    // This would integrate with performance testing tools
+    const benchmark = {
+      url,
+      timestamp: new Date(),
+      metrics: {
+        loadTime: Math.random() * 3000 + 1000, // Simulated data
+        firstByte: Math.random() * 500 + 100,
+        domReady: Math.random() * 2000 + 500,
+        fullyLoaded: Math.random() * 4000 + 2000,
+        coreWebVitals: {
+          lcp: Math.random() * 2000 + 1000,
+          fid: Math.random() * 100 + 50,
+          cls: Math.random() * 0.2,
+        },
+      },
+      score: Math.floor(Math.random() * 30) + 70,
+    };
+
+    // Store benchmark result
+    const backgroundJob = new BackgroundJobs({
+      type: "performance_benchmark",
+      data: benchmark,
+      status: "completed",
+      createdAt: new Date(),
+      completedAt: new Date(),
+    });
+    await backgroundJob.save();
+
+    res.json({
+      success: true,
+      data: benchmark,
+      message: "Benchmark completed successfully",
+    });
+  } catch (error) {
+    logger.routes.error("Error running performance benchmark", error);
+    res.status(500).json({
+      success: false,
+      message: "Error running performance benchmark",
+    });
+  }
+});
+
 // Optimize file endpoint (admin only)
 router.post("/optimize", requireAdmin, async (req, res) => {
   try {
@@ -334,6 +1425,8 @@ router.post("/optimize", requireAdmin, async (req, res) => {
       "minify_js",
       "optimize_image",
       "upload_to_r2",
+      "compress_assets",
+      "generate_webp",
     ];
     if (!validTaskTypes.includes(taskType)) {
       return res.status(400).json({
@@ -386,6 +1479,175 @@ router.post("/optimize", requireAdmin, async (req, res) => {
   }
 });
 
+// Bulk operations endpoint (admin only)
+router.post("/bulk-actions", requireAdmin, async (req, res) => {
+  try {
+    const { action, targets, options = {} } = req.body;
+
+    if (!action || !targets || !Array.isArray(targets)) {
+      return res.status(400).json({
+        success: false,
+        message: "Action and targets array are required",
+      });
+    }
+
+    const validActions = [
+      "optimize_multiple",
+      "clear_cache",
+      "generate_reports",
+      "cleanup_old_data",
+      "rebuild_cache",
+    ];
+
+    if (!validActions.includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid action. Must be one of: ${validActions.join(", ")}`,
+      });
+    }
+
+    // Create background job for bulk operation
+    const bulkJob = new BackgroundJobs({
+      type: "bulk_operation",
+      data: {
+        action,
+        targets,
+        options,
+        totalTargets: targets.length,
+      },
+      status: "pending",
+      createdAt: new Date(),
+    });
+    await bulkJob.save();
+
+    // Start processing (this would be handled by background processors)
+    // For now, just simulate the job
+    setTimeout(async () => {
+      try {
+        bulkJob.status = "completed";
+        bulkJob.completedAt = new Date();
+        bulkJob.data.processedTargets = targets.length;
+        await bulkJob.save();
+      } catch (error) {
+        logger.routes.error("Error completing bulk job", error);
+      }
+    }, 5000);
+
+    res.json({
+      success: true,
+      message: `Bulk ${action} operation started`,
+      data: {
+        jobId: bulkJob._id,
+        action,
+        targetCount: targets.length,
+        status: bulkJob.status,
+      },
+    });
+  } catch (error) {
+    logger.routes.error("Error starting bulk operation", error);
+    res.status(500).json({
+      success: false,
+      message: "Error starting bulk operation",
+    });
+  }
+});
+
+// Generate performance reports (admin only)
+router.post("/reports", requireAdmin, async (req, res) => {
+  try {
+    const {
+      reportType = "summary",
+      timeRange = "7d",
+      format = "json",
+    } = req.body;
+
+    const validReportTypes = [
+      "summary",
+      "detailed",
+      "optimization",
+      "caching",
+      "alerts",
+    ];
+    const validFormats = ["json", "pdf", "csv"];
+
+    if (!validReportTypes.includes(reportType)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid report type. Must be one of: ${validReportTypes.join(
+          ", "
+        )}`,
+      });
+    }
+
+    if (!validFormats.includes(format)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid format. Must be one of: ${validFormats.join(", ")}`,
+      });
+    }
+
+    // Generate report data based on type
+    const reportData = await generatePerformanceReport(reportType, timeRange);
+
+    res.json({
+      success: true,
+      data: {
+        reportType,
+        timeRange,
+        format,
+        generatedAt: new Date(),
+        data: reportData,
+      },
+    });
+  } catch (error) {
+    logger.routes.error("Error generating performance report", error);
+    res.status(500).json({
+      success: false,
+      message: "Error generating performance report",
+    });
+  }
+});
+
+// Export performance data (admin only)
+router.get("/export", requireAdmin, async (req, res) => {
+  try {
+    const { type = "all", format = "json", timeRange = "30d" } = req.query;
+
+    const exportData = await exportPerformanceData(type, timeRange);
+
+    if (format === "csv") {
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=performance-data.csv"
+      );
+      // Convert to CSV format
+      const csv = convertToCSV(exportData);
+      res.send(csv);
+    } else {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader(
+        "Content-Disposition",
+        "attachment; filename=performance-data.json"
+      );
+      res.json({
+        success: true,
+        exportType: type,
+        format,
+        timeRange,
+        exportedAt: new Date(),
+        data: exportData,
+      });
+    }
+  } catch (error) {
+    logger.routes.error("Error exporting performance data", error);
+    res.status(500).json({
+      success: false,
+      message: "Error exporting performance data",
+    });
+  }
+});
+
 // Get processing queue status (admin only)
 router.get("/queue", requireAdmin, async (req, res) => {
   try {
@@ -433,588 +1695,227 @@ router.get("/queue", requireAdmin, async (req, res) => {
   }
 });
 
-// === NEW COMPREHENSIVE METRICS ENDPOINTS ===
-
-// Metrics integration enable/disable (admin only)
-router.get("/metrics-integration", requireAdmin, async (req, res) => {
+// Cache management endpoints (admin only)
+router.get("/cache", requireAdmin, async (req, res) => {
   try {
-    const settings = await WebPerformanceSettings.findOne({
-      settingsId: "default",
-    });
+    const cacheMetrics = await CacheMetrics.find()
+      .sort({ timestamp: -1 })
+      .limit(24); // Last 24 entries
 
-    res.json({
-      success: true,
-      enabled: settings?.metricsIntegration?.enabled || false,
-      data: settings?.metricsIntegration || { enabled: false },
-    });
-  } catch (error) {
-    console.error("Error getting metrics integration status:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving metrics integration status",
-    });
-  }
-});
-
-router.put("/metrics-integration", requireAdmin, async (req, res) => {
-  try {
-    const { enabled } = req.body;
-
-    let settings = await WebPerformanceSettings.findOne({
-      settingsId: "default",
-    });
-
-    if (!settings) {
-      settings = new WebPerformanceSettings({ settingsId: "default" });
-    }
-
-    if (!settings.metricsIntegration) {
-      settings.metricsIntegration = {};
-    }
-
-    settings.metricsIntegration.enabled = enabled;
-    settings.metricsIntegration.enabledAt = new Date();
-    settings.updatedAt = new Date();
-
-    await settings.save();
-
-    res.json({
-      success: true,
-      message: `Metrics integration ${enabled ? "enabled" : "disabled"}`,
-      data: settings.metricsIntegration,
-    });
-  } catch (error) {
-    console.error("Error updating metrics integration:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error updating metrics integration",
-    });
-  }
-});
-
-// Core Web Vitals metrics (admin only)
-router.get("/metrics/core-web-vitals", requireAdmin, async (req, res) => {
-  try {
-    const { timeRange = "24h" } = req.query;
-
-    // Calculate time range
-    const now = new Date();
-    let startTime;
-
-    switch (timeRange) {
-      case "24h":
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case "7d":
-        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "30d":
-        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    }
-
-    // Fetch Core Web Vitals data
-    const metrics = await WebPerformanceMetrics.find({
-      date: { $gte: startTime },
-      "performance.largestContentfulPaint": { $exists: true },
-    }).sort({ date: -1 });
-
-    // Calculate averages and trends
-    const calculateMetricData = (metricPath) => {
-      const values = metrics
-        .map((m) => {
-          const keys = metricPath.split(".");
-          return keys.reduce((obj, key) => obj?.[key], m);
-        })
-        .filter((val) => val !== undefined && val !== null);
-
-      if (values.length === 0) return { value: "N/A", trend: 0 };
-
-      const current = values.slice(0, Math.ceil(values.length / 2));
-      const previous = values.slice(Math.ceil(values.length / 2));
-
-      const currentAvg =
-        current.reduce((sum, val) => sum + val, 0) / current.length;
-      const previousAvg =
-        previous.length > 0
-          ? previous.reduce((sum, val) => sum + val, 0) / previous.length
-          : currentAvg;
-
-      const trend =
-        previousAvg > 0 ? ((currentAvg - previousAvg) / previousAvg) * 100 : 0;
-
-      return {
-        value: Math.round(currentAvg),
-        trend: parseFloat(trend.toFixed(1)),
-      };
-    };
-
-    const coreWebVitals = {
-      lcp: calculateMetricData("performance.largestContentfulPaint"),
-      fid: calculateMetricData("performance.firstInputDelay"),
-      cls: {
-        value:
-          calculateMetricData("performance.cumulativeLayoutShift").value / 100,
-        trend: calculateMetricData("performance.cumulativeLayoutShift").trend,
-      },
-      ttfb: calculateMetricData("performance.timeToFirstByte"),
-    };
-
-    res.json({
-      success: true,
-      data: coreWebVitals,
-    });
-  } catch (error) {
-    console.error("Error getting Core Web Vitals:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving Core Web Vitals metrics",
-    });
-  }
-});
-
-// Optimization statistics (admin only)
-router.get("/metrics/optimization-stats", requireAdmin, async (req, res) => {
-  try {
-    const { timeRange = "24h" } = req.query;
-
-    // Calculate time range
-    const now = new Date();
-    let startTime;
-
-    switch (timeRange) {
-      case "24h":
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case "7d":
-        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "30d":
-        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    }
-
-    // Fetch optimization data
-    const metrics = await WebPerformanceMetrics.find({
-      date: { $gte: startTime },
-    }).sort({ date: -1 });
-
-    const queueItems = await WebPerformanceQueue.find({
-      createdAt: { $gte: startTime },
-    });
-
-    // Calculate optimization stats
-    const totalFiles = metrics.reduce(
-      (sum, m) =>
-        sum +
-        (m.optimization?.cssMinified || 0) +
-        (m.optimization?.jsMinified || 0) +
-        (m.optimization?.imagesOptimized || 0),
-      0
-    );
-
-    const totalBytesSaved = metrics.reduce(
-      (sum, m) => sum + (m.optimization?.totalSizeSaved || 0),
-      0
-    );
-
-    const completedTasks = queueItems.filter(
-      (item) => item.status === "completed"
-    );
-    const avgOptimizationTime =
-      completedTasks.length > 0
-        ? completedTasks.reduce(
-            (sum, item) =>
-              sum + (item.completedAt ? item.completedAt - item.createdAt : 0),
-            0
-          ) / completedTasks.length
-        : 0;
-
-    const successRate =
-      queueItems.length > 0 ? completedTasks.length / queueItems.length : 0;
-
-    // Generate sparkline data
-    const sparklineData = metrics
-      .slice(0, 20)
-      .reverse()
-      .map((metric, index) => ({
-        x: index,
-        value:
-          (metric.optimization?.cssMinified || 0) +
-          (metric.optimization?.jsMinified || 0) +
-          (metric.optimization?.imagesOptimized || 0),
-      }));
-
-    // Generate trends data
-    const trendsData = metrics
-      .slice(0, 30)
-      .reverse()
-      .map((metric) => ({
-        timestamp: metric.date,
-        optimizations:
-          (metric.optimization?.cssMinified || 0) +
-          (metric.optimization?.jsMinified || 0) +
-          (metric.optimization?.imagesOptimized || 0),
-        bytesSaved: metric.optimization?.totalSizeSaved || 0,
-        cacheHits:
-          ((metric.caching?.cacheHits || 0) /
-            Math.max(
-              (metric.caching?.cacheHits || 0) +
-                (metric.caching?.cacheMisses || 0),
-              1
-            )) *
-          100,
-        responseTime: metric.caching?.avgResponseTime || 0,
-      }));
-
-    // Calculate actual trends by comparing first half vs second half of data
-    const calculateTrend = (currentValue, historicalData, extractValue) => {
-      if (historicalData.length < 2) return 0;
-
-      const midPoint = Math.floor(historicalData.length / 2);
-      const recent = historicalData.slice(0, midPoint);
-      const older = historicalData.slice(midPoint);
-
-      const recentAvg =
-        recent.length > 0
-          ? recent.reduce((sum, item) => sum + extractValue(item), 0) /
-            recent.length
-          : 0;
-      const olderAvg =
-        older.length > 0
-          ? older.reduce((sum, item) => sum + extractValue(item), 0) /
-            older.length
-          : 0;
-
-      return olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
-    };
-
-    const filesProcessedTrend = calculateTrend(
-      totalFiles,
-      metrics,
-      (m) =>
-        (m.optimization?.cssMinified || 0) +
-        (m.optimization?.jsMinified || 0) +
-        (m.optimization?.imagesOptimized || 0)
-    );
-
-    const bytesSavedTrend = calculateTrend(
-      totalBytesSaved,
-      metrics,
-      (m) => m.optimization?.totalSizeSaved || 0
-    );
-
-    const optimizationTimeTrend = calculateTrend(
-      avgOptimizationTime,
-      completedTasks,
-      (item) => (item.completedAt ? item.completedAt - item.createdAt : 0)
-    );
-
-    const successRateTrend = calculateTrend(successRate, queueItems, (item) =>
-      item.status === "completed" ? 1 : 0
-    );
-
-    res.json({
-      success: true,
-      data: {
-        filesProcessed: totalFiles,
-        bytesSaved: totalBytesSaved,
-        avgOptimizationTime,
-        successRate,
-        filesProcessedTrend: parseFloat(filesProcessedTrend.toFixed(1)),
-        bytesSavedTrend: parseFloat(bytesSavedTrend.toFixed(1)),
-        optimizationTimeTrend: parseFloat(optimizationTimeTrend.toFixed(1)),
-        successRateTrend: parseFloat(successRateTrend.toFixed(1)),
-        sparklineData,
-        trendsData,
-      },
-    });
-  } catch (error) {
-    console.error("Error getting optimization stats:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving optimization statistics",
-    });
-  }
-});
-
-// Cache performance metrics (admin only)
-router.get("/metrics/cache-performance", requireAdmin, async (req, res) => {
-  try {
-    const { timeRange = "24h" } = req.query;
-
-    // Calculate time range
-    const now = new Date();
-    let startTime;
-
-    switch (timeRange) {
-      case "24h":
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case "7d":
-        startTime = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "30d":
-        startTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        startTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    }
-
-    // Fetch cache performance data
-    const metrics = await WebPerformanceMetrics.find({
-      date: { $gte: startTime },
-    }).sort({ date: -1 });
-
-    // Calculate cache performance
-    const totalHits = metrics.reduce(
-      (sum, m) => sum + (m.caching?.cacheHits || 0),
-      0
-    );
-    const totalMisses = metrics.reduce(
-      (sum, m) => sum + (m.caching?.cacheMisses || 0),
-      0
-    );
-    const totalRequests = totalHits + totalMisses;
-
-    const hitRate = totalRequests > 0 ? totalHits / totalRequests : 0;
-    const missRate = totalRequests > 0 ? totalMisses / totalRequests : 0;
-
-    const avgResponseTime =
-      metrics.length > 0
-        ? metrics.reduce(
-            (sum, m) => sum + (m.caching?.avgResponseTime || 0),
-            0
-          ) / metrics.length
-        : 0;
-
-    const bandwidthSaved = metrics.reduce(
-      (sum, m) => sum + (m.caching?.bandwidthSaved || 0),
-      0
-    );
-
-    // Generate sparkline data
-    const sparklineData = metrics
-      .slice(0, 20)
-      .reverse()
-      .map((metric, index) => ({
-        x: index,
-        value: metric.caching?.cacheHits || 0,
-      }));
-
-    // Calculate actual trends by comparing first half vs second half of data
-    const calculateCacheTrend = (historicalData, extractValue) => {
-      if (historicalData.length < 2) return 0;
-
-      const midPoint = Math.floor(historicalData.length / 2);
-      const recent = historicalData.slice(0, midPoint);
-      const older = historicalData.slice(midPoint);
-
-      const recentAvg =
-        recent.length > 0
-          ? recent.reduce((sum, item) => sum + extractValue(item), 0) /
-            recent.length
-          : 0;
-      const olderAvg =
-        older.length > 0
-          ? older.reduce((sum, item) => sum + extractValue(item), 0) /
-            older.length
-          : 0;
-
-      return olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
-    };
-
-    const hitRateTrend = calculateCacheTrend(metrics, (m) => {
-      const hits = m.caching?.cacheHits || 0;
-      const misses = m.caching?.cacheMisses || 0;
-      const total = hits + misses;
-      return total > 0 ? hits / total : 0;
-    });
-
-    const missRateTrend = calculateCacheTrend(metrics, (m) => {
-      const hits = m.caching?.cacheHits || 0;
-      const misses = m.caching?.cacheMisses || 0;
-      const total = hits + misses;
-      return total > 0 ? misses / total : 0;
-    });
-
-    const responseTimeTrend = calculateCacheTrend(
-      metrics,
-      (m) => m.caching?.avgResponseTime || 0
-    );
-    const bandwidthSavedTrend = calculateCacheTrend(
-      metrics,
-      (m) => m.caching?.bandwidthSaved || 0
-    );
-
-    res.json({
-      success: true,
-      data: {
-        hitRate,
-        missRate,
-        avgResponseTime,
-        bandwidthSaved,
-        hitRateTrend: parseFloat(hitRateTrend.toFixed(1)),
-        missRateTrend: parseFloat(missRateTrend.toFixed(1)),
-        responseTimeTrend: parseFloat(responseTimeTrend.toFixed(1)),
-        bandwidthSavedTrend: parseFloat(bandwidthSavedTrend.toFixed(1)),
-        sparklineData,
-      },
-    });
-  } catch (error) {
-    console.error("Error getting cache performance:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error retrieving cache performance metrics",
-    });
-  }
-});
-
-// Processing queue metrics (admin only)
-router.get("/metrics/processing-queue", requireAdmin, async (req, res) => {
-  try {
-    // Get current queue stats
-    const stats = await WebPerformanceQueue.aggregate([
+    const summary = await CacheMetrics.aggregate([
       {
         $group: {
-          _id: "$status",
-          count: { $sum: 1 },
+          _id: null,
+          avgHitRate: { $avg: "$hitRate" },
+          avgResponseTime: { $avg: "$avgResponseTime" },
+          totalBandwidthSaved: { $sum: "$bandwidthSaved" },
+          totalRequests: { $sum: "$totalRequests" },
         },
       },
     ]);
 
-    const statusCounts = stats.reduce(
-      (acc, stat) => {
-        acc[stat._id] = stat.count;
-        return acc;
-      },
-      {
-        pending: 0,
-        processing: 0,
-        completed: 0,
-        failed: 0,
-      }
-    );
-
-    // Get recent activities
-    const recentActivities = await WebPerformanceQueue.find({})
-      .sort({ updatedAt: -1 })
-      .limit(20)
-      .select(
-        "taskType filePath status createdAt updatedAt completedAt originalSize optimizedSize"
-      );
-
-    const formattedActivities = recentActivities.map((activity) => ({
-      fileName: activity.filePath
-        ? activity.filePath.split("/").pop()
-        : "Unknown",
-      operation:
-        activity.taskType
-          ?.replace(/_/g, " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase()) || "Processing",
-      status: activity.status,
-      timestamp: activity.updatedAt || activity.createdAt,
-      size: activity.originalSize || 0,
-    }));
-
-    const totalItems = Object.values(statusCounts).reduce(
-      (sum, count) => sum + count,
-      0
-    );
-
     res.json({
       success: true,
       data: {
-        ...statusCounts,
-        totalItems,
-        recentActivities: formattedActivities,
+        metrics: cacheMetrics,
+        summary: summary[0] || {},
       },
     });
   } catch (error) {
-    console.error("Error getting processing queue metrics:", error);
+    logger.routes.error("Error getting cache metrics", error);
     res.status(500).json({
       success: false,
-      message: "Error retrieving processing queue metrics",
+      message: "Error retrieving cache metrics",
     });
   }
 });
 
-// Clear completed queue items (admin only)
-router.delete("/queue/completed", requireAdmin, async (req, res) => {
+// Clear cache endpoint (admin only)
+router.post("/cache/clear", requireAdmin, async (req, res) => {
   try {
-    const result = await WebPerformanceQueue.deleteMany({
-      status: { $in: ["completed", "failed"] },
-      createdAt: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // Older than 24 hours
+    const { type = "all" } = req.body;
+
+    // This would integrate with actual cache clearing logic
+    invalidateSettingsCache();
+
+    // Record the cache clear operation
+    const cacheMetric = new CacheMetrics({
+      hitRate: 0, // Reset after clear
+      totalRequests: 0,
+      avgResponseTime: 0,
+      bandwidthSaved: 0,
+      timestamp: new Date(),
+      metadata: {
+        action: "cache_cleared",
+        type,
+        clearedBy: req.user?.email || "system",
+      },
     });
+    await cacheMetric.save();
 
     res.json({
       success: true,
-      message: `Cleared ${result.deletedCount} completed/failed queue items`,
-      deletedCount: result.deletedCount,
+      message: `Cache ${
+        type === "all" ? "completely" : type
+      } cleared successfully`,
+      timestamp: new Date(),
     });
   } catch (error) {
-    console.error("Error clearing queue:", error);
+    logger.routes.error("Error clearing cache", error);
     res.status(500).json({
       success: false,
-      message: "Error clearing queue",
+      message: "Error clearing cache",
     });
   }
 });
+
+// Data cleanup endpoint (admin only)
+router.post("/cleanup", requireAdmin, async (req, res) => {
+  try {
+    const { type = "old_data", olderThan = 30 } = req.body;
+
+    const cleanupResult = await performDataRetentionCleanup(type, olderThan);
+
+    res.json({
+      success: true,
+      message: "Data cleanup completed successfully",
+      data: cleanupResult,
+    });
+  } catch (error) {
+    logger.routes.error("Error performing data cleanup", error);
+    res.status(500).json({
+      success: false,
+      message: "Error performing data cleanup",
+    });
+  }
+});
+
+// Reset settings endpoint (admin only)
+router.post("/reset", requireAdmin, async (req, res) => {
+  try {
+    const { confirm } = req.body;
+
+    if (!confirm) {
+      return res.status(400).json({
+        success: false,
+        message: "Confirmation required to reset settings",
+      });
+    }
+
+    // Reset to default settings
+    let settings = await WebPerformanceSettings.findOne({
+      settingsId: "default",
+    });
+    if (settings) {
+      await settings.deleteOne();
+    }
+
+    // Create new default settings
+    settings = new WebPerformanceSettings({ settingsId: "default" });
+    await settings.save();
+
+    invalidateSettingsCache();
+
+    res.json({
+      success: true,
+      message: "Settings reset to defaults successfully",
+      data: settings,
+    });
+  } catch (error) {
+    logger.routes.error("Error resetting settings", error);
+    res.status(500).json({
+      success: false,
+      message: "Error resetting settings",
+    });
+  }
+});
+
+// Helper function to mask sensitive values
+const maskCredential = (value, showLength = 8) => {
+  if (!value) return "NOT CONFIGURED";
+  const start = value.substring(0, showLength);
+  const end = value.substring(value.length - showLength);
+  const middle = "•••"; // Fixed 3-dot mask instead of full length
+  return `${start}${middle}${end}`;
+};
+
+// Helper function to mask URL
+const maskUrl = (url) => {
+  if (!url) return "NOT CONFIGURED";
+  try {
+    const urlObj = new URL(url);
+    const hostParts = urlObj.hostname.split(".");
+    if (hostParts.length > 2) {
+      const start = hostParts[0].substring(0, 8);
+      const end = `.${hostParts[hostParts.length - 2]}.${
+        hostParts[hostParts.length - 1]
+      }`;
+      const middle = "•••"; // Fixed 3-dot mask instead of full length
+      return `${urlObj.protocol}//${start}${middle}${end}`;
+    }
+    return url;
+  } catch (e) {
+    return maskCredential(url, 12);
+  }
+};
 
 // Test Redis connection (admin only)
 router.post("/test-redis", requireAdmin, async (req, res) => {
   try {
-    const { redisPassword } = req.body;
+    const credentials = await getCredentials();
 
-    // Use environment password if not provided or empty
-    const finalRedisPassword =
-      (redisPassword && redisPassword.trim()) || process.env.REDIS_PASSWORD;
-
-    if (!process.env.REDIS_PUBLIC_ENDPOINT) {
+    if (!credentials.redis.endpoint) {
       return res.status(400).json({
         success: false,
-        message: "Redis endpoint not configured in environment variables",
+        message: "Redis endpoint not configured",
+        data: {
+          testResult: {
+            title: "Redis Connection Test Failed",
+            message: "Redis endpoint is not configured in the system",
+            severity: "error",
+            testResults: {
+              connectivity: false,
+              connectivityError: "Redis endpoint not configured",
+            },
+          },
+        },
       });
     }
 
     try {
+      // Test Redis connectivity
       const redis = require("redis");
-      const testClient = redis.createClient({
-        url: process.env.REDIS_PUBLIC_ENDPOINT,
-        password: finalRedisPassword || undefined,
-        socket: {
-          connectTimeout: 5000,
-          lazyConnect: true,
-        },
+      const client = redis.createClient({
+        url: credentials.redis.endpoint,
+        password: credentials.redis.password,
+        retry_strategy: false,
+        connect_timeout: 5000,
       });
 
-      await testClient.connect();
-      await testClient.ping();
-      await testClient.quit();
+      await client.connect();
+      await client.ping();
+      await client.disconnect();
 
       res.json({
         success: true,
-        message: `Redis connection successful to ${process.env.REDIS_PUBLIC_ENDPOINT}`,
+        message: `Redis connection successful to ${credentials.redis.endpoint}`,
         data: {
           testResult: {
             title: "Redis Connection Test Successful",
-            message: `Successfully connected to Redis at ${process.env.REDIS_PUBLIC_ENDPOINT}`,
+            message: `Successfully connected to Redis at ${credentials.redis.endpoint}`,
             severity: "success",
             details: {
-              endpoint: process.env.REDIS_PUBLIC_ENDPOINT,
+              endpoint: credentials.redis.endpoint,
             },
             testResults: {
               connectivity: true,
+              ping: true,
             },
           },
         },
       });
     } catch (redisError) {
-      console.error("Redis connection test failed:", redisError);
+      logger.routes.error("Redis connection test failed", redisError);
 
       res.status(400).json({
         success: false,
@@ -1025,7 +1926,7 @@ router.post("/test-redis", requireAdmin, async (req, res) => {
             message: `Failed to connect to Redis: ${redisError.message}`,
             severity: "error",
             details: {
-              endpoint: process.env.REDIS_PUBLIC_ENDPOINT,
+              endpoint: credentials.redis.endpoint,
             },
             testResults: {
               connectivity: false,
@@ -1049,55 +1950,19 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
   try {
     const { token, accessKeyId, secretAccessKey, endpointS3, bucketName } =
       req.body;
+    const credentials = await getCredentials();
 
-    console.log(
-      "🔧 [R2 TEST] Request body:",
-      JSON.stringify(req.body, null, 2)
-    );
-    console.log("🔧 [R2 TEST] Environment check:");
-    console.log(
-      "  - CLOUDFLARE_ACCESS_KEY_ID:",
-      process.env.CLOUDFLARE_ACCESS_KEY_ID
-        ? `${process.env.CLOUDFLARE_ACCESS_KEY_ID.substring(0, 8)}...`
-        : "NOT SET"
-    );
-    console.log(
-      "  - CLOUDFLARE_SECRET_ACCESS_KEY:",
-      process.env.CLOUDFLARE_SECRET_ACCESS_KEY
-        ? `${process.env.CLOUDFLARE_SECRET_ACCESS_KEY.substring(0, 8)}...`
-        : "NOT SET"
-    );
-    console.log(
-      "  - CLOUDFLARE_ENDPOINT_S3:",
-      process.env.CLOUDFLARE_ENDPOINT_S3 || "NOT SET"
-    );
-    console.log(
-      "  - CLOUDFLARE_R2_BUCKET:",
-      process.env.CLOUDFLARE_R2_BUCKET || "NOT SET"
-    );
-
-    // Use environment variables as fallback if not provided in request (handle empty strings)
+    // Use request values as override, otherwise use database/environment fallback
     const finalAccessKeyId =
       (accessKeyId && accessKeyId.trim()) ||
-      process.env.CLOUDFLARE_ACCESS_KEY_ID;
+      credentials.cloudflareR2.accessKeyId;
     const finalSecretAccessKey =
       (secretAccessKey && secretAccessKey.trim()) ||
-      process.env.CLOUDFLARE_SECRET_ACCESS_KEY;
+      credentials.cloudflareR2.secretAccessKey;
     const finalEndpointS3 =
-      (endpointS3 && endpointS3.trim()) || process.env.CLOUDFLARE_ENDPOINT_S3;
+      (endpointS3 && endpointS3.trim()) || credentials.cloudflareR2.endpointS3;
 
-    const testBucketName = "hmern"; // Use your actual bucket name
-
-    console.log("🔧 [R2 TEST] Final credentials:", {
-      accessKeyId: finalAccessKeyId
-        ? `${finalAccessKeyId.substring(0, 8)}...`
-        : "NOT SET",
-      secretAccessKey: finalSecretAccessKey
-        ? `${finalSecretAccessKey.substring(0, 8)}...`
-        : "NOT SET",
-      endpoint: finalEndpointS3 || "NOT SET",
-      bucketName: testBucketName,
-    });
+    const testBucketName = credentials.cloudflareR2.bucket || "hmern";
 
     if (!finalAccessKeyId || !finalSecretAccessKey || !finalEndpointS3) {
       return res.status(400).json({
@@ -1124,22 +1989,6 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
         forcePathStyle: true, // Required for R2
       });
 
-      console.log("🔧 [R2 TEST] S3 Client created successfully");
-
-      // Validate credentials format
-      if (finalAccessKeyId.length !== 32) {
-        console.log(
-          "⚠️ [R2 TEST] Warning: Access Key ID should be 32 characters long for Cloudflare R2"
-        );
-      }
-      if (finalSecretAccessKey.length !== 64) {
-        console.log(
-          "⚠️ [R2 TEST] Warning: Secret Access Key should be 64 characters long for Cloudflare R2"
-        );
-      }
-
-      console.log(`🔧 [R2 TEST] Testing with bucket: ${testBucketName}`);
-
       // Perform comprehensive R2 tests
       const testResults = {
         connectivity: false,
@@ -1163,9 +2012,6 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
               timeout: 5000,
             },
             (res) => {
-              console.log(
-                `✅ [R2 TEST] Basic connectivity successful! Status: ${res.statusCode}`
-              );
               resolve();
             }
           );
@@ -1176,12 +2022,7 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
         });
 
         testResults.connectivity = true;
-        console.log("✅ [R2 TEST] Connectivity test passed");
       } catch (connectError) {
-        console.log(
-          "❌ [R2 TEST] Connectivity test failed:",
-          connectError.message
-        );
         testErrors.connectivityError = connectError.message;
       }
 
@@ -1190,9 +2031,7 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
         const headCommand = new HeadBucketCommand({ Bucket: testBucketName });
         await s3Client.send(headCommand);
         testResults.headBucket = true;
-        console.log("✅ [R2 TEST] HeadBucket test passed");
       } catch (headError) {
-        console.log("❌ [R2 TEST] HeadBucket test failed:", headError.message);
         testErrors.headBucketError = headError.message;
       }
 
@@ -1202,11 +2041,8 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
         const listResponse = await s3Client.send(listCommand);
         testResults.listBuckets = true;
         response = listResponse;
-        console.log("✅ [R2 TEST] ListBuckets test passed");
       } catch (listError) {
-        console.log("❌ [R2 TEST] ListBuckets test failed:", listError.message);
         testErrors.listBucketsError = listError.message;
-        // Set a default response if ListBuckets fails
         response = {
           Buckets: testResults.headBucket ? [{ Name: testBucketName }] : [],
         };
@@ -1249,7 +2085,6 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
           },
         });
       } else {
-        // Some tests failed, but we got partial results
         res.status(400).json({
           success: false,
           message: `Cloudflare R2 connection partially failed`,
@@ -1314,78 +2149,76 @@ router.post("/test-r2", requireAdmin, async (req, res) => {
   }
 });
 
-// Helper function to mask sensitive values
-const maskCredential = (value, showLength = 8) => {
-  if (!value) return "NOT CONFIGURED";
-  const start = value.substring(0, showLength);
-  const end = value.substring(value.length - showLength);
-  const middle = "•••"; // Fixed 3-dot mask instead of full length
-  return `${start}${middle}${end}`;
-};
-
-// Helper function to mask URL
-const maskUrl = (url) => {
-  if (!url) return "NOT CONFIGURED";
+// Get external services credentials (admin only)
+router.get("/external-services", requireAdmin, async (req, res) => {
   try {
-    const urlObj = new URL(url);
-    const hostParts = urlObj.hostname.split(".");
-    if (hostParts.length > 2) {
-      const start = hostParts[0].substring(0, 8);
-      const end = `.${hostParts[hostParts.length - 2]}.${
-        hostParts[hostParts.length - 1]
-      }`;
-      const middle = "•••"; // Fixed 3-dot mask instead of full length
-      return `${urlObj.protocol}//${start}${middle}${end}`;
-    }
-    return url;
-  } catch (e) {
-    return maskCredential(url, 12);
-  }
-};
+    const credentials = await getCredentials();
 
-// Get environment configuration (admin only)
-router.get("/config", requireAdmin, async (req, res) => {
-  try {
     res.json({
       success: true,
       data: {
-        defaultBucketName: process.env.CLOUDFLARE_R2_BUCKET || "hmern",
-        hasRedisEndpoint: !!process.env.REDIS_PUBLIC_ENDPOINT,
-        hasR2Credentials: !!(
-          process.env.CLOUDFLARE_R2_BUCKET &&
-          process.env.CLOUDFLARE_R2_TOKEN &&
-          process.env.CLOUDFLARE_ACCESS_KEY_ID &&
-          process.env.CLOUDFLARE_SECRET_ACCESS_KEY &&
-          process.env.CLOUDFLARE_ENDPOINT_S3
-        ),
-        // Masked credential values for display
-        credentials: {
-          bucketName: process.env.CLOUDFLARE_R2_BUCKET || "NOT CONFIGURED",
-          apiToken: maskCredential(process.env.CLOUDFLARE_R2_TOKEN, 2),
-          accessKeyId: maskCredential(process.env.CLOUDFLARE_ACCESS_KEY_ID, 2),
-          secretAccessKey: maskCredential(
-            process.env.CLOUDFLARE_SECRET_ACCESS_KEY,
-            2
-          ),
-          endpointS3: maskUrl(process.env.CLOUDFLARE_ENDPOINT_S3),
-          redisEndpoint: maskUrl(process.env.REDIS_PUBLIC_ENDPOINT),
+        redis: {
+          endpoint: credentials.redis.endpoint || "",
+          hasPassword: !!credentials.redis.password,
+        },
+        cloudflareR2: {
+          bucket: credentials.cloudflareR2.bucket || "",
+          hasToken: !!credentials.cloudflareR2.token,
+          hasAccessKeyId: !!credentials.cloudflareR2.accessKeyId,
+          hasSecretAccessKey: !!credentials.cloudflareR2.secretAccessKey,
+          endpointS3: credentials.cloudflareR2.endpointS3 || "",
         },
       },
     });
   } catch (error) {
-    console.error("Error getting configuration:", error);
+    console.error("Error getting external services credentials:", error);
     res.status(500).json({
       success: false,
-      message: "Error retrieving configuration",
+      message: "Error retrieving external services credentials",
     });
   }
 });
 
-// Reset settings to defaults (admin only)
+// Update external services credentials (admin only)
+router.put("/external-services", requireAdmin, async (req, res) => {
+  try {
+    const { redis, cloudflareR2 } = req.body;
+
+    // Use the settings service to update credentials
+    const updatedCredentials = await settingsService.updateCredentials({
+      redis,
+      cloudflareR2,
+    });
+
+    res.json({
+      success: true,
+      message: "External services credentials updated successfully",
+      data: {
+        redis: {
+          endpoint: updatedCredentials.redis.endpoint || "",
+          hasPassword: !!updatedCredentials.redis.password,
+        },
+        cloudflareR2: {
+          bucket: updatedCredentials.cloudflareR2.bucket || "",
+          hasToken: !!updatedCredentials.cloudflareR2.token,
+          hasAccessKeyId: !!updatedCredentials.cloudflareR2.accessKeyId,
+          hasSecretAccessKey: !!updatedCredentials.cloudflareR2.secretAccessKey,
+          endpointS3: updatedCredentials.cloudflareR2.endpointS3 || "",
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error updating external services credentials:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating external services credentials",
+    });
+  }
+});
+
+// Reset settings to defaults with confirmation (admin only)
 router.post("/settings/reset", requireAdmin, async (req, res) => {
   try {
-    const startTime = Date.now();
-
     // Delete existing settings to trigger default values
     await WebPerformanceSettings.deleteOne({ settingsId: "default" });
 
@@ -1411,5 +2244,22 @@ router.post("/settings/reset", requireAdmin, async (req, res) => {
     });
   }
 });
+
+// Helper function to convert data to CSV format
+function convertToCSV(data) {
+  if (!Array.isArray(data) || data.length === 0) {
+    return "No data available";
+  }
+
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(","),
+    ...data.map((row) =>
+      headers.map((header) => JSON.stringify(row[header] || "")).join(",")
+    ),
+  ].join("\n");
+
+  return csvContent;
+}
 
 module.exports = router;

@@ -14,9 +14,20 @@ import {
   Switch,
   FormControlLabel,
   Alert,
+  Chip,
+  Typography,
+  Box,
 } from "@mui/material";
+import { Warning as WarningIcon } from "@mui/icons-material";
 
-const RuleEditorDialog = ({ open, onClose, onSave, rule }) => {
+const RuleEditorDialog = ({
+  open,
+  onClose,
+  onSave,
+  rule,
+  isFeatureEnabled,
+  getRuleTypeEnabled,
+}) => {
   const [formState, setFormState] = useState({
     name: "",
     type: "ip_block",
@@ -34,9 +45,21 @@ const RuleEditorDialog = ({ open, onClose, onSave, rule }) => {
     if (rule) {
       setFormState({ ...rule, description: rule.description || "" });
     } else {
+      // Default to the first enabled rule type instead of hardcoded "ip_block"
+      const enabledTypes = [
+        { type: "ip_block", feature: "ipBlocking" },
+        { type: "country_block", feature: "countryBlocking" },
+        { type: "suspicious_pattern", feature: "suspiciousPatterns" },
+        { type: "rate_limit", feature: "rateLimiting" },
+      ];
+
+      const firstEnabledType = enabledTypes.find(({ feature }) =>
+        isFeatureEnabled ? isFeatureEnabled(feature) : true
+      );
+
       setFormState({
         name: "",
-        type: "ip_block",
+        type: firstEnabledType ? firstEnabledType.type : "ip_block",
         value: "",
         action: "block",
         enabled: true,
@@ -46,7 +69,13 @@ const RuleEditorDialog = ({ open, onClose, onSave, rule }) => {
     }
     // Clear errors when dialog opens/closes or rule changes
     setErrors({});
-  }, [rule, open]);
+  }, [rule, open, isFeatureEnabled]);
+
+  // Get the current rule type's enabled status
+  // Note: getRuleTypeEnabled is passed as a closure from parent with settings and configFeatures already bound
+  const currentRuleTypeEnabled = getRuleTypeEnabled
+    ? getRuleTypeEnabled(formState.type)
+    : true;
 
   const handleChange = (e) => {
     const { name, value, checked, type } = e.target;
@@ -79,6 +108,12 @@ const RuleEditorDialog = ({ open, onClose, onSave, rule }) => {
 
     if (!formState.type) {
       newErrors.type = "Type is required";
+    }
+
+    // Check if the selected rule type is enabled
+    if (!currentRuleTypeEnabled) {
+      newErrors.type =
+        "This rule type is currently disabled. Enable the corresponding feature in Configuration tab first.";
     }
 
     setErrors(newErrors);
@@ -117,6 +152,18 @@ const RuleEditorDialog = ({ open, onClose, onSave, rule }) => {
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{rule ? "Edit Rule" : "Add New Rule"}</DialogTitle>
       <DialogContent>
+        {/* Feature disabled warning */}
+        {!currentRuleTypeEnabled && (
+          <Alert severity="warning" sx={{ mb: 2 }} icon={<WarningIcon />}>
+            <Typography variant="body2">
+              <strong>Feature Disabled:</strong> The selected rule type requires
+              a feature that is currently disabled. This rule will not provide
+              protection until you enable the corresponding feature in the
+              Configuration tab.
+            </Typography>
+          </Alert>
+        )}
+
         {Object.keys(errors).length > 0 && (
           <Alert severity="error" sx={{ mb: 2 }}>
             Please fix the following errors:
@@ -151,13 +198,92 @@ const RuleEditorDialog = ({ open, onClose, onSave, rule }) => {
                 label="Type"
                 onChange={handleChange}
               >
-                <MenuItem value="ip_block">IP Block</MenuItem>
-                <MenuItem value="country_block">Country Block</MenuItem>
-                <MenuItem value="suspicious_pattern">
-                  Suspicious Pattern
+                <MenuItem
+                  value="ip_block"
+                  disabled={isFeatureEnabled && !isFeatureEnabled("ipBlocking")}
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      width: "100%",
+                    }}
+                  >
+                    IP Block
+                    {isFeatureEnabled && !isFeatureEnabled("ipBlocking") && (
+                      <Chip label="Disabled" size="small" color="warning" />
+                    )}
+                  </Box>
                 </MenuItem>
-                <MenuItem value="rate_limit">Rate Limit</MenuItem>
+                <MenuItem
+                  value="country_block"
+                  disabled={
+                    isFeatureEnabled && !isFeatureEnabled("countryBlocking")
+                  }
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      width: "100%",
+                    }}
+                  >
+                    Country Block
+                    {isFeatureEnabled &&
+                      !isFeatureEnabled("countryBlocking") && (
+                        <Chip label="Disabled" size="small" color="warning" />
+                      )}
+                  </Box>
+                </MenuItem>
+                <MenuItem
+                  value="suspicious_pattern"
+                  disabled={
+                    isFeatureEnabled && !isFeatureEnabled("suspiciousPatterns")
+                  }
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      width: "100%",
+                    }}
+                  >
+                    Suspicious Pattern
+                    {isFeatureEnabled &&
+                      !isFeatureEnabled("suspiciousPatterns") && (
+                        <Chip label="Disabled" size="small" color="warning" />
+                      )}
+                  </Box>
+                </MenuItem>
+                <MenuItem
+                  value="rate_limit"
+                  disabled={
+                    isFeatureEnabled && !isFeatureEnabled("rateLimiting")
+                  }
+                >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      width: "100%",
+                    }}
+                  >
+                    Rate Limit
+                    {isFeatureEnabled && !isFeatureEnabled("rateLimiting") && (
+                      <Chip label="Disabled" size="small" color="warning" />
+                    )}
+                  </Box>
+                </MenuItem>
               </Select>
+              {errors.type && (
+                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                  {errors.type}
+                </Typography>
+              )}
             </FormControl>
           </Grid>
           <Grid item xs={12}>
@@ -232,7 +358,11 @@ const RuleEditorDialog = ({ open, onClose, onSave, rule }) => {
         <Button onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button onClick={handleSave} variant="contained" disabled={saving}>
+        <Button
+          onClick={handleSave}
+          variant="contained"
+          disabled={saving || !currentRuleTypeEnabled}
+        >
           {saving ? "Saving..." : "Save"}
         </Button>
       </DialogActions>

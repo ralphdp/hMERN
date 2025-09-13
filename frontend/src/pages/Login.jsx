@@ -22,6 +22,8 @@ import PasswordInput from "../components/PasswordInput";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import { getBackendUrl } from "../utils/config";
 
+// FirewallStatusPanel is now automatically loaded via plugin overlay system
+
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,216 +101,232 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
-    const backendUrl = getBackendUrl();
+    // OAuth redirects must use full backend URL to bypass React Router
+    const backendUrl =
+      process.env.NODE_ENV === "production"
+        ? process.env.REACT_APP_BACKEND_URL || window.location.origin
+        : "http://localhost:5050";
     window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const handleGithubLogin = () => {
-    const backendUrl = getBackendUrl();
+    // OAuth redirects must use full backend URL to bypass React Router
+    const backendUrl =
+      process.env.NODE_ENV === "production"
+        ? process.env.REACT_APP_BACKEND_URL || window.location.origin
+        : "http://localhost:5050";
     window.location.href = `${backendUrl}/api/auth/github`;
   };
 
   const handleFacebookLogin = () => {
-    const backendUrl = getBackendUrl();
+    // OAuth redirects must use full backend URL to bypass React Router
+    const backendUrl =
+      process.env.NODE_ENV === "production"
+        ? process.env.REACT_APP_BACKEND_URL || window.location.origin
+        : "http://localhost:5050";
     window.location.href = `${backendUrl}/api/auth/facebook`;
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          py: 4,
-        }}
-      >
-        <Paper
-          elevation={3}
+    <>
+      {/* Firewall Status Panel - Available based on visibility settings */}
+
+      <Container maxWidth="sm">
+        <Box
           sx={{
-            p: 4,
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            bgcolor: "background.paper",
+            justifyContent: "center",
+            py: 4,
           }}
         >
-          <Typography
-            component="h1"
-            variant="h4"
-            gutterBottom
+          <Paper
+            elevation={3}
             sx={{
-              fontWeight: "bold",
-              color: "text.primary",
-              mb: 3,
-            }}
-          >
-            Sign In
-          </Typography>
-
-          {error && (
-            <Alert severity="error" sx={{ width: "100%", mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {message && (
-            <Alert severity="success" sx={{ width: "100%", mb: 2 }}>
-              {message}
-            </Alert>
-          )}
-
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{
-              width: "100%",
+              p: 4,
               display: "flex",
               flexDirection: "column",
-              gap: 2,
+              alignItems: "center",
+              bgcolor: "background.paper",
             }}
           >
-            <TextField
-              required
-              fullWidth
-              id="email"
-              label="Email Address"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
+            <Typography
+              component="h1"
+              variant="h4"
+              gutterBottom
               sx={{
-                "& .MuiOutlinedInput-root": {
-                  "& fieldset": {
-                    borderColor: "divider",
-                  },
-                  "&:hover fieldset": {
-                    borderColor: "primary.main",
-                  },
-                },
-              }}
-            />
-
-            <PasswordInput
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-
-            <Box mt={1}>
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
-                sx={{
-                  mt: 1,
-                  py: 1.5,
-                  borderRadius: 2,
-                  textTransform: "none",
-                  fontSize: "1.1rem",
-                }}
-              >
-                {loading ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  "Sign In"
-                )}
-              </Button>
-            </Box>
-
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mt: 1,
+                fontWeight: "bold",
+                color: "text.primary",
+                mb: 3,
               }}
             >
-              <Button
-                component={RouterLink}
-                to="/forgot-password"
-                sx={{
-                  textTransform: "none",
-                  color: "text.secondary",
-                }}
-              >
-                Forgot Password?
-              </Button>
-              <Button
-                component={RouterLink}
-                to="/verify"
-                sx={{
-                  textTransform: "none",
-                  color: "text.secondary",
-                }}
-              >
-                Resend Verification
-              </Button>
-            </Box>
+              Sign In
+            </Typography>
 
-            <Divider sx={{ my: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Or continue with
-              </Typography>
-            </Divider>
+            {error && (
+              <Alert severity="error" sx={{ width: "100%", mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+
+            {message && (
+              <Alert severity="success" sx={{ width: "100%", mb: 2 }}>
+                {message}
+              </Alert>
+            )}
 
             <Box
+              component="form"
+              onSubmit={handleSubmit}
               sx={{
+                width: "100%",
                 display: "flex",
+                flexDirection: "column",
                 gap: 2,
-                justifyContent: "center",
               }}
             >
-              <IconButton
-                onClick={handleGoogleLogin}
+              <TextField
+                required
+                fullWidth
+                id="email"
+                label="Email Address"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 sx={{
-                  bgcolor: "background.paper",
-                  "&:hover": { bgcolor: "action.hover" },
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: "divider",
+                    },
+                    "&:hover fieldset": {
+                      borderColor: "primary.main",
+                    },
+                  },
                 }}
-              >
-                <GoogleIcon />
-              </IconButton>
-              <IconButton
-                onClick={handleGithubLogin}
-                disabled={loading}
-                sx={{
-                  bgcolor: "background.paper",
-                  "&:hover": { bgcolor: "action.hover" },
-                }}
-              >
-                <GitHubIcon />
-              </IconButton>
-            </Box>
+              />
 
-            <Box
-              sx={{
-                mt: 2,
-                textAlign: "center",
-              }}
-            >
-              <Typography variant="body2" color="text.secondary">
-                Don't have an account?{" "}
+              <PasswordInput
+                id="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+
+              <Box mt={1}>
                 <Button
-                  component={RouterLink}
-                  to="/register"
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  disabled={loading}
                   sx={{
+                    mt: 1,
+                    py: 1.5,
+                    borderRadius: 2,
                     textTransform: "none",
-                    color: "primary.main",
-                    fontWeight: "bold",
+                    fontSize: "1.1rem",
                   }}
                 >
-                  Sign Up
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
-              </Typography>
+              </Box>
+
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  mt: 1,
+                }}
+              >
+                <Button
+                  component={RouterLink}
+                  to="/forgot-password"
+                  sx={{
+                    textTransform: "none",
+                    color: "text.secondary",
+                  }}
+                >
+                  Forgot Password?
+                </Button>
+                <Button
+                  component={RouterLink}
+                  to="/verify"
+                  sx={{
+                    textTransform: "none",
+                    color: "text.secondary",
+                  }}
+                >
+                  Resend Verification
+                </Button>
+              </Box>
+
+              <Divider sx={{ my: 2 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Or continue with
+                </Typography>
+              </Divider>
+
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  justifyContent: "center",
+                }}
+              >
+                <IconButton
+                  onClick={handleGoogleLogin}
+                  disabled={loading}
+                  sx={{
+                    bgcolor: "background.paper",
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
+                >
+                  <GoogleIcon />
+                </IconButton>
+                <IconButton
+                  onClick={handleGithubLogin}
+                  disabled={loading}
+                  sx={{
+                    bgcolor: "background.paper",
+                    "&:hover": { bgcolor: "action.hover" },
+                  }}
+                >
+                  <GitHubIcon />
+                </IconButton>
+              </Box>
+
+              <Box
+                sx={{
+                  mt: 2,
+                  textAlign: "center",
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Don't have an account?{" "}
+                  <Button
+                    component={RouterLink}
+                    to="/register"
+                    sx={{
+                      textTransform: "none",
+                      color: "primary.main",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Sign Up
+                  </Button>
+                </Typography>
+              </Box>
             </Box>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+          </Paper>
+        </Box>
+      </Container>
+    </>
   );
 };
 

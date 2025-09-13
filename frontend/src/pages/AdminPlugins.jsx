@@ -538,18 +538,20 @@ const AdminPlugins = () => {
                               }
                               arrow
                             >
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  handleDownloadPlugin(plugin.name)
-                                }
-                                disabled={
-                                  !plugin.backendExists &&
-                                  !plugin.frontendExists
-                                }
-                              >
-                                <DownloadIcon />
-                              </IconButton>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    handleDownloadPlugin(plugin.name)
+                                  }
+                                  disabled={
+                                    !plugin.backendExists &&
+                                    !plugin.frontendExists
+                                  }
+                                >
+                                  <DownloadIcon />
+                                </IconButton>
+                              </span>
                             </Tooltip>
                             <Tooltip
                               title={
@@ -559,17 +561,19 @@ const AdminPlugins = () => {
                               }
                               arrow
                             >
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => {
-                                  setSelectedPlugin(plugin);
-                                  setDeleteDialogOpen(true);
-                                }}
-                                disabled={plugin.core}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => {
+                                    setSelectedPlugin(plugin);
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                  disabled={plugin.core}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </span>
                             </Tooltip>
                           </Box>
                         </TableCell>

@@ -103,7 +103,7 @@ const firewallLogSchema = new mongoose.Schema({
   city: String,
   action: {
     type: String,
-    enum: ["allowed", "blocked", "rate_limited", "suspicious"],
+    enum: ["allowed", "blocked", "rate_limited", "suspicious", "system"],
     required: true,
   },
   rule: String, // Rule name that triggered the action
@@ -183,7 +183,7 @@ const rateLimitSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: 3600, // Auto-delete after 1 hour
+    // expires: 86400, // Temporarily disabled TTL to test rate limiting
   },
 });
 
@@ -193,6 +193,13 @@ const firewallSettingsSchema = new mongoose.Schema({
     type: String,
     default: "default",
     unique: true,
+  },
+  // General Configuration
+  general: {
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
   },
   rateLimit: {
     perMinute: {
@@ -473,6 +480,38 @@ const firewallSettingsSchema = new mongoose.Schema({
       default: 24, // hours
       min: 1,
       max: 168, // 1 week max
+    },
+  },
+
+  // NEW: Logging Configuration
+  logging: {
+    excludedPatterns: {
+      type: [String],
+      default: [
+        "/api/firewall/my-rate-limit-usage*",
+        "/api/firewall/panel-info*",
+        "/api/firewall/health*",
+        "/api/firewall/ping*",
+      ],
+      validate: {
+        validator: function (v) {
+          return v.every(
+            (pattern) =>
+              typeof pattern === "string" && pattern.trim().length > 0
+          );
+        },
+        message: "All logging exclusion patterns must be non-empty strings",
+      },
+    },
+    enableVerboseLogging: {
+      type: Boolean,
+      default: false,
+    },
+    maxLogRetentionDays: {
+      type: Number,
+      default: 90,
+      min: 1,
+      max: 365,
     },
   },
 
@@ -765,6 +804,14 @@ const firewallSettingsSchema = new mongoose.Schema({
     },
   },
 
+  // Development Mode Configuration
+  developmentMode: {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+  },
+
   // MEDIUM PRIORITY: UI & Display Settings (Enhanced)
   preferences: {
     autoRefresh: {
@@ -813,6 +860,11 @@ const firewallSettingsSchema = new mongoose.Schema({
       type: Boolean,
       default: true,
     },
+    statusPanelVisibility: {
+      type: String,
+      enum: ["admin_only", "authenticated_users", "everyone"],
+      default: "admin_only",
+    },
   },
 
   updatedAt: {
@@ -827,8 +879,7 @@ firewallRuleSchema.index({ priority: 1 });
 firewallRuleSchema.index({ enabled: 1, priority: 1 }); // Compound index for cache queries
 
 // NEW INDEXES for consolidated functionality
-firewallRuleSchema.index({ source: 1 }); // Filter by source
-firewallRuleSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // Auto-delete expired rules
+// Note: source and expiresAt already have index: true in schema definition
 firewallRuleSchema.index({ type: 1, source: 1 }); // Filter by type and source
 firewallRuleSchema.index({ autoCreated: 1, expiresAt: 1 }); // Cleanup auto-created rules
 firewallRuleSchema.index({ lastAttempt: -1 }); // Sort by recent attacks
@@ -839,9 +890,9 @@ firewallLogSchema.index({ country: 1, timestamp: -1 }); // For geo-based queries
 firewallLogSchema.index({ sessionId: 1, timestamp: -1 }); // For session-based queries
 firewallLogSchema.index({ userId: 1, timestamp: -1 }); // For user-based queries
 firewallLogSchema.index({ timestamp: 1, action: 1 }); // For time-series chart queries
-blockedIpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// Note: expiresAt already has index: true in schema definition with expireAfterSeconds option
 blockedIpSchema.index({ active: 1, permanent: 1 }); // For active/permanent queries
-rateLimitSchema.index({ ip: 1 });
+// Note: ip already has index: true in schema definition
 rateLimitSchema.index({ delayUntil: 1 }); // For delay-based queries
 
 // Rule Metrics Schema for sparklines and analytics
@@ -932,15 +983,264 @@ ruleMetricsSchema.index({ date: -1 }); // Date-based queries
 ruleMetricsSchema.index({ ruleName: 1, date: -1 }); // Rule name queries
 ruleMetricsSchema.index({ ruleId: 1, date: 1 }, { unique: true }); // Prevent duplicate daily entries
 
-const FirewallRule = mongoose.model("FirewallRule", firewallRuleSchema);
-const FirewallLog = mongoose.model("FirewallLog", firewallLogSchema);
-const BlockedIp = mongoose.model("BlockedIp", blockedIpSchema);
-const RateLimit = mongoose.model("RateLimit", rateLimitSchema);
+const FirewallRule = mongoose.model(
+  "FirewallRule",
+  firewallRuleSchema,
+  "plugin_firewall_rules"
+);
+const FirewallLog = mongoose.model(
+  "FirewallLog",
+  firewallLogSchema,
+  "plugin_firewall_logs"
+);
+const BlockedIp = mongoose.model(
+  "BlockedIp",
+  blockedIpSchema,
+  "plugin_firewall_blocked_ips"
+);
+const RateLimit = mongoose.model(
+  "RateLimit",
+  rateLimitSchema,
+  "plugin_firewall_rate_limits"
+);
 const FirewallSettings = mongoose.model(
   "FirewallSettings",
-  firewallSettingsSchema
+  firewallSettingsSchema,
+  "plugin_firewall_settings"
 );
-const RuleMetrics = mongoose.model("RuleMetrics", ruleMetricsSchema);
+const RuleMetrics = mongoose.model(
+  "RuleMetrics",
+  ruleMetricsSchema,
+  "plugin_firewall_rule_metrics"
+);
+
+// Firewall Dynamic Config Schema - Following plugin-template pattern
+const firewallConfigSchema = new mongoose.Schema({
+  pluginId: {
+    type: String,
+    default: "firewall",
+    unique: true,
+  },
+  // UI Configuration (runtime-configurable)
+  ui: {
+    theme: {
+      primaryColor: {
+        type: String,
+        default: "primary.main",
+      },
+      icon: {
+        type: String,
+        default: "Shield",
+      },
+    },
+    timeouts: {
+      successMessage: {
+        type: Number,
+        default: 3000,
+      },
+      loadingMinHeight: {
+        type: String,
+        default: "600px",
+      },
+    },
+    messages: {
+      title: {
+        type: String,
+        default: "Firewall Management",
+      },
+      subtitle: {
+        type: String,
+        default:
+          "Advanced security protection with IP blocking, rate limiting, and threat detection",
+      },
+      successBlock: {
+        type: String,
+        default: "IP {ip} has been blocked successfully",
+      },
+      errorBlock: {
+        type: String,
+        default: "Failed to block IP {ip}: {error}",
+      },
+    },
+  },
+  // Feature toggles (runtime-configurable)
+  features: {
+    ipBlocking: {
+      type: Boolean,
+      default: true,
+    },
+    rateLimiting: {
+      type: Boolean,
+      default: true,
+    },
+    countryBlocking: {
+      type: Boolean,
+      default: true,
+    },
+    suspiciousPatterns: {
+      type: Boolean,
+      default: true,
+    },
+    progressiveDelays: {
+      type: Boolean,
+      default: true,
+    },
+    autoThreatResponse: {
+      type: Boolean,
+      default: true,
+    },
+    realTimeLogging: {
+      type: Boolean,
+      default: true,
+    },
+    bulkActions: {
+      type: Boolean,
+      default: true,
+    },
+    logExport: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  // Logging configuration
+  logging: {
+    excludedPatterns: {
+      type: [String],
+      default: [
+        "/api/firewall/my-rate-limit-usage*",
+        "/api/firewall/panel-info*",
+        "/api/firewall/health*",
+        "/api/firewall/ping*",
+      ],
+      validate: {
+        validator: function (v) {
+          return v.every(
+            (pattern) =>
+              typeof pattern === "string" && pattern.trim().length > 0
+          );
+        },
+        message: "All logging exclusion patterns must be non-empty strings",
+      },
+    },
+    enableVerboseLogging: {
+      type: Boolean,
+      default: false,
+    },
+    maxLogRetentionDays: {
+      type: Number,
+      default: 90,
+      min: 1,
+      max: 365,
+    },
+  },
+  // Runtime thresholds and limits (configurable by admins)
+  thresholds: {
+    // Rate limiting defaults
+    rateLimitPerMinute: {
+      type: Number,
+      default: 50,
+      min: 1,
+      max: 1000,
+    },
+    rateLimitPerHour: {
+      type: Number,
+      default: 400,
+      min: 1,
+      max: 10000,
+    },
+    maxProgressiveDelay: {
+      type: Number,
+      default: 120000, // 2 minutes
+      min: 10000,
+      max: 600000,
+    },
+    // Security thresholds
+    highRiskThreshold: {
+      type: Number,
+      default: 8,
+      min: 1,
+      max: 20,
+    },
+    mediumRiskThreshold: {
+      type: Number,
+      default: 5,
+      min: 1,
+      max: 15,
+    },
+    autoBlockThreshold: {
+      type: Number,
+      default: 10,
+      min: 1,
+      max: 50,
+    },
+    // Log retention
+    logRetentionDays: {
+      type: Number,
+      default: 30,
+      min: 7,
+      max: 365,
+    },
+    maxLogEntries: {
+      type: Number,
+      default: 10000,
+      min: 1000,
+      max: 100000,
+    },
+  },
+  // Admin panel configuration
+  adminPanel: {
+    enabled: {
+      type: Boolean,
+      default: true,
+    },
+    menuItem: {
+      title: {
+        type: String,
+        default: "Firewall Management",
+      },
+      description: {
+        type: String,
+        default: "Manage security rules",
+      },
+    },
+    card: {
+      title: {
+        type: String,
+        default: "Firewall Protection",
+      },
+      description: {
+        type: String,
+        default:
+          "Manage IP blocking, rate limiting, geo-blocking, and security rules. Monitor real-time threats and configure protection policies.",
+      },
+      buttonText: {
+        type: String,
+        default: "Manage Firewall",
+      },
+    },
+  },
+  // Configuration metadata
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedBy: {
+    type: String,
+    default: "system",
+  },
+});
+
+// Update the updatedAt field before saving
+firewallConfigSchema.pre("save", function (next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+const FirewallConfig = mongoose.model(
+  "FirewallConfig",
+  firewallConfigSchema,
+  "plugin_firewall_configs"
+);
 
 module.exports = {
   FirewallRule,
@@ -949,4 +1249,5 @@ module.exports = {
   RateLimit,
   FirewallSettings,
   RuleMetrics,
+  FirewallConfig,
 };

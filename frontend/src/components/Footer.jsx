@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Container,
@@ -6,15 +6,41 @@ import {
   Typography,
   IconButton,
   Link as MuiLink,
+  Divider,
 } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import GitHubIcon from "@mui/icons-material/GitHub";
+import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import InstagramIcon from "@mui/icons-material/Instagram";
-import { LicenseIndicator } from "../plugins/licensing";
 
 const Footer = () => {
+  const navigate = useNavigate();
+  const [LicenseIndicator, setLicenseIndicator] = useState(null);
+  const [licenseAvailable, setLicenseAvailable] = useState(false);
+
+  useEffect(() => {
+    // Dynamically load licensing component if available
+    const loadLicenseIndicator = async () => {
+      try {
+        const licensingModule = await import("../plugins/licensing");
+        const { LicenseIndicator: LicenseComponent } = licensingModule;
+
+        if (LicenseComponent) {
+          setLicenseIndicator(() => LicenseComponent);
+          setLicenseAvailable(true);
+          console.log("📋 Licensing system loaded");
+        }
+      } catch (error) {
+        console.log("📭 Licensing system not available:", error.message);
+        setLicenseAvailable(false);
+      }
+    };
+
+    loadLicenseIndicator();
+  }, []);
+
   return (
     <Box
       component="footer"
@@ -81,6 +107,7 @@ const Footer = () => {
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
               <IconButton
+                component="a"
                 href="https://twitter.com"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -90,6 +117,7 @@ const Footer = () => {
                 <TwitterIcon />
               </IconButton>
               <IconButton
+                component="a"
                 href="https://github.com"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -97,6 +125,16 @@ const Footer = () => {
                 aria-label="GitHub"
               >
                 <GitHubIcon />
+              </IconButton>
+              <IconButton
+                component="a"
+                href="https://linkedin.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                color="inherit"
+                aria-label="LinkedIn"
+              >
+                <LinkedInIcon />
               </IconButton>
               <IconButton
                 href="https://facebook.com"
@@ -142,45 +180,65 @@ const Footer = () => {
               gap: 2,
             }}
           >
-            <Typography variant="body2" color="text.secondary">
-              © {new Date().getFullYear()} hMERN.app. All rights reserved.
-            </Typography>
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-              <MuiLink
-                component={Link}
-                to="/terms"
-                color="inherit"
-                sx={{
-                  textDecoration: "none",
-                  "&:hover": { textDecoration: "underline" },
-                }}
-              >
-                Terms of Service
-              </MuiLink>
-              <MuiLink
-                component={Link}
-                to="/privacy"
-                color="inherit"
-                sx={{
-                  textDecoration: "none",
-                  "&:hover": { textDecoration: "underline" },
-                }}
-              >
-                Privacy Policy
-              </MuiLink>
-              <MuiLink
-                component={Link}
-                to="/cookies"
-                color="inherit"
-                sx={{
-                  textDecoration: "none",
-                  "&:hover": { textDecoration: "underline" },
-                }}
-              >
-                Cookie Policy
-              </MuiLink>
-              <LicenseIndicator />
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                © {new Date().getFullYear()} hMERN.app. All rights reserved.
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Typography
+                  component="button"
+                  variant="body2"
+                  onClick={() => navigate("/terms")}
+                  sx={{
+                    cursor: "pointer",
+                    background: "none",
+                    border: "none",
+                    color: "text.secondary",
+                    textDecoration: "underline",
+                    "&:hover": { color: "text.primary" },
+                  }}
+                >
+                  Terms of Service
+                </Typography>
+                <Divider orientation="vertical" flexItem />
+                <Typography
+                  component="button"
+                  variant="body2"
+                  onClick={() => navigate("/privacy")}
+                  sx={{
+                    cursor: "pointer",
+                    background: "none",
+                    border: "none",
+                    color: "text.secondary",
+                    textDecoration: "underline",
+                    "&:hover": { color: "text.primary" },
+                  }}
+                >
+                  Privacy Policy
+                </Typography>
+                <Divider orientation="vertical" flexItem />
+                <Typography
+                  component="button"
+                  variant="body2"
+                  onClick={() => navigate("/cookies")}
+                  sx={{
+                    cursor: "pointer",
+                    background: "none",
+                    border: "none",
+                    color: "text.secondary",
+                    textDecoration: "underline",
+                    "&:hover": { color: "text.primary" },
+                  }}
+                >
+                  Cookie Policy
+                </Typography>
+              </Box>
             </Box>
+            {licenseAvailable && LicenseIndicator && (
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <LicenseIndicator />
+              </Box>
+            )}
           </Box>
         </Container>
       </Box>

@@ -275,4 +275,160 @@ const validateLicense = async (req, res, next) => {
   }
 };
 
-module.exports = { validateLicense };
+// Standard middleware functions (following plugin-template pattern)
+const { LicensingLog, LicensingConfig } = require("./models");
+
+// General logging function (following plugin-template pattern)
+const logActivity = async (level, message, metadata = {}) => {
+  try {
+    const log = new LicensingLog({
+      level,
+      message,
+      metadata,
+      licenseKey: metadata.licenseKey || null,
+      domain: metadata.domain || null,
+      validationResult: metadata.validationResult || null,
+      responseTime: metadata.responseTime || null,
+      errorCode: metadata.errorCode || null,
+      timestamp: new Date(),
+    });
+    await log.save();
+  } catch (error) {
+    console.error("Error logging licensing activity:", error);
+  }
+};
+
+// Request logging middleware (following plugin-template pattern)
+const requestLogger = (req, res, next) => {
+  // Only log if debug mode is enabled through config or environment
+  const debugMode =
+    process.env.NODE_ENV === "development" ||
+    process.env.LICENSING_DEBUG === "true";
+
+  if (debugMode) {
+    console.log(
+      `🔐 [LICENSING] ${req.method} ${
+        req.originalUrl
+      } - ${new Date().toISOString()}`
+    );
+
+    // Log to database asynchronously
+    setImmediate(() => {
+      logActivity("debug", `API Request: ${req.method} ${req.originalUrl}`, {
+        method: req.method,
+        url: req.originalUrl,
+        userAgent: req.headers["user-agent"],
+        ip: req.ip,
+        user: req.user ? req.user.email : "Anonymous",
+      });
+    });
+  }
+
+  next();
+};
+
+// Feature validation middleware (following plugin-template pattern)
+const validateFeature = (featureName) => {
+  return async (req, res, next) => {
+    try {
+      // For licensing plugin, always enabled since it's core
+      // But we can check specific features if config exists
+      if (featureName) {
+        const config = await LicensingConfig.findOne({ pluginId: "licensing" });
+        if (config && config.features && !config.features[featureName]) {
+          return res.status(503).json({
+            success: false,
+            message: `Licensing feature '${featureName}' is currently disabled`,
+          });
+        }
+      }
+
+      next();
+    } catch (error) {
+      console.error("Error validating licensing feature:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error validating feature availability",
+      });
+    }
+  };
+};
+
+// Error handling middleware (following plugin-template pattern)
+const errorHandler = (err, req, res, next) => {
+  console.error("Licensing Error:", err);
+
+  // Log error to database
+  setImmediate(() => {
+    logActivity("error", `Licensing Error: ${err.message}`, {
+      stack: err.stack,
+      url: req.originalUrl,
+      method: req.method,
+      ip: req.ip,
+      user: req.user ? req.user.email : "Anonymous",
+      errorCode: err.code || "UNKNOWN_ERROR",
+    });
+  });
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV === "development";
+
+  res.status(500).json({
+    success: false,
+    message: "Internal server error in Licensing system",
+    error: isDevelopment ? err.message : "An error occurred",
+    ...(isDevelopment && { stack: err.stack }),
+  });
+};
+
+// Get cached configuration helper (following plugin-template pattern)
+const getCachedConfig = async () => {
+  try {
+    let config = await LicensingConfig.findOne({ pluginId: "licensing" });
+
+    if (!config) {
+      config = new LicensingConfig({ pluginId: "licensing" });
+      await config.save();
+    }
+
+    return config;
+  } catch (error) {
+    console.error("Error getting licensing config:", error);
+    // Return default config on error
+    return {
+      features: {
+        enableAnalytics: true,
+        enableDetailedLogging: true,
+        enableCaching: true,
+        enableOfflineMode: true,
+        enableDevelopmentBypass: true,
+        enablePerformanceMonitoring: true,
+      },
+      settings: {
+        cacheTimeout: 3600000,
+        validationTimeout: 10000,
+        maxRetries: 3,
+        offlineGracePeriod: 86400000,
+        logRetentionDays: 90,
+        maxLogEntries: 10000,
+      },
+    };
+  }
+};
+
+// Invalidate config cache (for future use)
+const invalidateConfigCache = () => {
+  // For now, this is a placeholder since we don't have caching implemented yet
+  // In the future, this would clear any cached configuration
+  console.log("Licensing config cache invalidated");
+};
+
+module.exports = {
+  validateLicense, // ← PRESERVED EXACTLY AS-IS
+  logActivity,
+  requestLogger,
+  validateFeature,
+  errorHandler,
+  getCachedConfig,
+  invalidateConfigCache,
+};
